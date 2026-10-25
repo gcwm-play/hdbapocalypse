@@ -342,7 +342,7 @@ const ITEMS={broom:'Broom',knife:'Kitchen knife',bamboo:'Bamboo laundry pole',ro
   rifle:'Rifle (SAR 21)',mahjong:'Mahjong set',karaoke:'Karaoke machine',ricecooker:'Rice cooker',fan:'Standing fan',cane:'Rotan cane',slippers:'Rubber slippers',mahjongArmour:'Mahjong-tile armour',fanGlaive:'Standing-fan glaive',caneFlail:'Rotan cane flail',slipperSling:'Flying-slipper sling',steelPole:'Steel-tipped polearm',crossbow:'Umbrella-rib crossbow',halberd:'Changkol halberd',padArmour:'Padded riot armour',broomSpear:'Broom-handle spear',bambooPole:'Bamboo polearm',wokShield:'Wok shield',potHelmet:'Pot helmet'};
 const GEAR={rifle:{atk:6},knife:{atk:1},hammer:{atk:1},umbrella:{atk:1},golf:{atk:2},changkol:{atk:2},baton:{atk:2},parang:{atk:3},broomSpear:{atk:3},bambooPole:{atk:5},steelPole:{atk:7},fanGlaive:{atk:5},caneFlail:{atk:3},slipperSling:{atk:4},mahjongArmour:{def:4},crossbow:{atk:6},halberd:{atk:6},extinguisher:{atk:2},
   helmet:{def:1},potHelmet:{def:2},wokShield:{def:3},padArmour:{def:5},riot:{def:3}};
-const HH_ITEMS={broom:5,knife:6,bamboo:4,sheets:5,pot:4,pail:4,wok:3,rope:3,clock:3,umbrella:4,helmet:2,bicycle:2,mahjong:3,ricecooker:3,fan:3,cane:2,slippers:4,karaoke:1,golf:1,changkol:1,parang:1,hammer:2,tape:2,pipe:1,tarp:1,battery:1,wire:2,extinguisher:1};
+const HH_ITEMS={broom:8,knife:6,bamboo:4,sheets:5,pot:4,pail:4,wok:3,rope:3,clock:3,umbrella:4,helmet:2,bicycle:2,mahjong:3,ricecooker:3,fan:3,cane:2,slippers:4,karaoke:1,golf:1,changkol:1,parang:1,hammer:2,tape:2,pipe:1,tarp:1,battery:1,wire:2,extinguisher:1};
 const RECIPES=[
   {id:'broomSpear',cat:'weapon',n:'Broom-handle spear',need:{broom:1,knife:1},work:6,known:1,d:'Kitchen knife lashed to a broom. Weapon, attack 3.',hint:'Something long, something sharp.'},
   {id:'sheetRope',cat:'route',n:'Bedsheet rope',need:{sheets:2,rope:1},work:6,known:1,d:'A way down when the stairs are lost. Works while the line is at floor 4 or lower.',hint:'Knotted cloth, the classic escape.'},
@@ -1096,10 +1096,10 @@ function resolveExps(){
       const drv=r.arch==='driver'?1.3:1;
       if(e.dest==='far'){if(S.far==null)S.far=100;const sf=S.far/100;const f=Math.round((9+ri(0,9))*sf*drv);loot.food+=f;const w=Math.round(ri(4,9)*sf);loot.water+=w;S.far=Math.max(0,S.far-f*.3-w*.2);if(chance(.08+.3*sf))itemAdd(loot.items,pick(['battery','tape','rope','pail','clock','wire','sheets','tarp']));if(chance(.15*sf))loot.meds++}
       if(e.dest==='market'){const sf=S.market/100;const f=Math.round((6+ri(0,7))*sf*cap*drv*(isOut()?1:1.4));loot.food+=f;const w=Math.round(ri(2,6)*sf*cap);loot.water+=w;
-        if(S.market<1){if(S.mktScrap==null)S.mktScrap=60;if(S.mktScrap>0&&chance(.35)){const g=Math.min(S.mktScrap,ri(3,6));S.mktScrap-=g;loot.scrap+=g}}S.market=Math.max(0,S.market-f*.4-w*.3);if(chance(.05+.25*sf))itemAdd(loot.items,pick(['battery','tape','rope','pail','clock','wire','sheets']))}
-      if(e.dest==='hawker'){loot.food+=Math.round(ri(3,8)*Math.max(.25,1-(S.flags.hawkerRuns||0)*.06)*cap);S.flags.hawkerRuns=(S.flags.hawkerRuns||0)+1;if(chance(.3))itemAdd(loot.items,pick(['wok','pot','knife','pail']));loot.scrap+=ri(0,2)}
+        if(S.market<1){if(S.mktScrap==null)S.mktScrap=60;if(S.mktScrap>0&&chance(.35)){const g=Math.min(S.mktScrap,ri(3,6));S.mktScrap-=g;loot.scrap+=g}}S.market=Math.max(0,S.market-f*.4-w*.3);if(chance(.05+.25*sf))itemAdd(loot.items,pick(['battery','tape','rope','pail','clock','wire','sheets','broom']))}
+      if(e.dest==='hawker'){loot.food+=Math.round(ri(3,8)*Math.max(.25,1-(S.flags.hawkerRuns||0)*.06)*cap);S.flags.hawkerRuns=(S.flags.hawkerRuns||0)+1;if(chance(.3))itemAdd(loot.items,pick(['wok','pot','knife','pail','broom']));loot.scrap+=ri(0,2)}
       if(e.dest==='park'){r.san=clamp(r.san+ri(18,30),0,100);loot.food+=ri(0,3);if(chance(.45))itemAdd(loot.items,pick(['bamboo','rope','tarp','changkol','pail','pipe','cane','slippers']))}
-      if(e.dest==='school'){for(let i=0;i<ri(1,2);i++)itemAdd(loot.items,pick(['pipe','tape','rope','sheets','extinguisher','wire','pail','tarp','clock','fan','karaoke']));loot.meds+=ri(0,1);loot.food+=ri(0,4);loot.scrap+=ri(1,4)}
+      if(e.dest==='school'){for(let i=0;i<ri(1,2);i++)itemAdd(loot.items,pick(['pipe','tape','rope','sheets','extinguisher','wire','pail','tarp','clock','fan','karaoke','broom','broom']));loot.meds+=ri(0,1);loot.food+=ri(0,4);loot.scrap+=ri(1,4)}
       if(e.dest==='poly'){loot.meds+=ri(2,5);if(chance(.3))itemAdd(loot.items,pick(['sheets','tape','pail']))}
       if(e.dest==='police'){if(chance(.5))itemAdd(loot.items,'baton');if(chance(.3))itemAdd(loot.items,'riot');if(chance(.25))itemAdd(loot.items,'helmet');if(chance(.15)&&!S.items.radio&&!loot.items.radio)itemAdd(loot.items,'radio');loot.meds+=ri(0,2);loot.scrap+=ri(0,2)}
     });
@@ -1647,7 +1647,7 @@ function armGuards(){
   const armed=g.filter(r=>r.wpn).length;flash(armed+' of '+g.length+' guards and lookouts have weapons.');save();render();
 }
 function reinforce(){if(S.store.scrap<5||!isOut())return;S.store.scrap-=5;S.bar.hp=Math.min(S.bar.max,S.bar.hp+20);log('Line reinforced (+20).','');save();render()}
-function strip(l){if(S.flags['strip'+l]||l<=S.front)return;S.flags['strip'+l]=1;const sc=ri(3,7);S.store.scrap+=sc;log('Stripped the floor '+pad(l)+' corridor: shoe racks, potted plants, a bicycle. +'+sc+' scrap.','');save();render()}
+function strip(l){if(S.flags['strip'+l]||l<=S.front)return;S.flags['strip'+l]=1;const sc=ri(3,7);S.store.scrap+=sc;const br=chance(.5);if(br)itemAdd(S.items,'broom');log('Stripped the floor '+pad(l)+' corridor: shoe racks, potted plants, a bicycle. +'+sc+' scrap'+(br?' and a broom from the corridor':'')+'.','');save();render()}
 function throwLure(){if(!S.built.lure||!isOut())return;S.built.lure--;S.flags.lure=1;log('A noise lure is set for tonight.','');save();render()}
 function retake(){
   if(S.front<1)return;const g=jobbers('guard');if(g.length<3)return;
