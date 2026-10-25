@@ -637,18 +637,18 @@ function advance(){
 function doJobs(){
   const ks=known();
   // rest
-  ks.forEach(r=>{if(!act(r)||r.ward)return;if(r.job==='rest'&&r.hun<60&&r.thi<60)r.hp=Math.min(100,r.hp+3)});
+  ks.forEach(r=>{if(!act(r)||r.ward)return;if(r.job==='rest'&&r.hun<60&&r.thi<60)r.hp=Math.min(100,r.hp+3*healMult(r))});
   // medic + sick bay ward: admitted patients heal every phase; medics on duty work the ward when it has patients
   const medics=jobbers('medic');const sb=rooms('sickbay')>0;
   const sbU=sickbayUnit();let pats=ks.filter(r=>r.ward);
   if(pats.length&&!sbU){pats.forEach(r=>r.ward=null);log('The sick bay is gone. Its patients were sent home.','bad');pats=[]}
   if(pats.length){
     const pool=medics.reduce((a,m)=>a+medAmt(m),0)/pats.length;
-    pats.forEach(r=>{r.hp=Math.min(100,r.hp+wardBase(r)+pool);r.san=clamp(r.san+.5,0,100);if(r.hp>=95){r.ward=null;log(r.short+' has recovered and left the sick bay.','good')}});
+    pats.forEach(r=>{r.hp=Math.min(100,r.hp+(wardBase(r)+pool)*healMult(r));r.san=clamp(r.san+.5,0,100);if(r.hp>=95){r.ward=null;log(r.short+' has recovered and left the sick bay.','good')}});
   }
   medics.forEach(m=>{
     const amt=medAmt(m);
-    if(!pats.length)ks.filter(r=>r.hp<100).sort((a,b)=>a.hp-b.hp).slice(0,2).forEach(r=>r.hp=Math.min(100,r.hp+amt));
+    if(!pats.length)ks.filter(r=>r.hp<100).sort((a,b)=>a.hp-b.hp).slice(0,2).forEach(r=>r.hp=Math.min(100,r.hp+amt*healMult(r)));
     ks.forEach(r=>{if(r.inf&&r.inf.hidden&&chance(.04*m.st.I/5+(sb?.1:0)+(m.arch==='nurse'?.06:0))){r.inf.hidden=false;log(m.short+' found a bite '+r.short+' was hiding.','bad');queue('infected',{id:r.id})}});
   });
   // inventor
@@ -694,8 +694,10 @@ function doThreat(){
     rep=Math.min(rep,S.bar.max-S.bar.hp);
     // full repairs need scrap; without it guards can only patch at 40%
     const withScrap=Math.min(rep,S.store.scrap*4);const patch=(rep-withScrap)*.4;
-    if(withScrap>0)S.store.scrap-=Math.ceil(withScrap/4);
+    const used=withScrap>0?Math.ceil(withScrap/4):0;if(used)S.store.scrap-=used;
     S.bar.hp+=withScrap+patch;
+    S.repLog=S.repLog||{hp:0,sc:0};S.repLog.hp+=withScrap+patch;S.repLog.sc+=used;
+    if(S.ph===1&&S.repLog.hp>=1){log('Guards repaired the barricade +'+Math.round(S.repLog.hp)+(S.repLog.sc?' (used '+S.repLog.sc+' scrap)':' (no scrap: patching only)')+'.','');S.repLog={hp:0,sc:0}}
     if(guards.length&&S.store.scrap<=0&&S.bar.hp<S.bar.max&&S.flags.noScrapWarn!==S.t){S.flags.noScrapWarn=S.t;log('Out of scrap: guards guards can only patch the barricade slowly. Strip corridors, search empty flats or raid the school.','bad')}
   }
   if(p>1.5)guards.forEach(g=>{
@@ -1501,7 +1503,11 @@ const BEDS=4;
 function sickbayUnit(){return S.units.find(u=>u.room==='sickbay'&&u.st==='empty'&&u.lvl>S.front)||null}
 function medAmt(m){return (3+m.st.I*.7+(m.arch==='nurse'?3:0))*(rooms('sickbay')>0?2:1)*(S.flags.herbs?1.25:1)}
 function wardBase(r){return 3+(r.hun<60&&r.thi<60?1:0)}
-function wardRate(r){const n=Math.max(1,known().filter(x=>x.ward).length);return wardBase(r)+jobbers('medic').reduce((a,m)=>a+medAmt(m),0)/n}
+// older bodies and serious wounds heal slower, from every source (rest, medics, the ward, meds)
+function healMult(r){return (r.age>=75?.55:r.age>=65?.7:1)*(r.hp<30?.75:1)}
+function healWhy(r){const w=[];if(r.age>=75)w.push('very old');else if(r.age>=65)w.push('elderly');if(r.hp<30)w.push('badly hurt');return w.join(', ')}
+function medsGain(r){return Math.round(25*healMult(r))}
+function wardRate(r){const n=Math.max(1,known().filter(x=>x.ward).length);return (wardBase(r)+jobbers('medic').reduce((a,m)=>a+medAmt(m),0)/n)*healMult(r)}
 function admit(id){
   const r=RS(id);const u=sickbayUnit();if(!r||!r.alive||r.ward||r.away||r.quar)return;
   if(!u){flash('You need a sick bay first. Convert an empty flat.');return}
@@ -1642,8 +1648,8 @@ function panelUnit(){
       const pats=known().filter(r=>r.ward);const meds=jobbers('medic');
       const cands=known().filter(r=>!r.ward&&!r.away&&!r.quar&&r.hp<95).sort((a,b)=>a.hp-b.hp);
       h+=`<div class="kv"><span class="mute">Beds</span><span class="mono">${pats.length}/${BEDS}</span><span class="mute">Medics</span><span>${meds.length?meds.map(m=>esc(m.short)).join(', '):'<span class="warnline">None on duty. Patients still heal, slowly.</span>'}</span></div>`;
-      h+=`<p class="small mute">Patients can't work, guard or go out until they're healed. They heal ${wardBase({hun:0,thi:0})} health a phase on their own (less if hungry or thirsty), plus a share of every medic's work. They leave by themselves at 95 health.</p>`;
-      h+=pats.length?pats.map(r=>{const rate=wardRate(r);const ph=Math.max(1,Math.ceil((95-r.hp)/rate));return `<div class="prow2 job-medic"><span class="big2">${faceOf(r)}</span><div style="min-width:0"><div class="nm"><b>${esc(r.short)}</b> <span class="small mute">+${rate.toFixed(1)} a phase · about ${ph} phase${ph>1?'s':''} to go</span></div><div class="row" style="gap:6px;flex-wrap:nowrap"><span class="small mute">Health</span>${bar(r.hp,r.hp>50?'var(--ok)':'var(--blood)')}<span class="mono small">${Math.round(r.hp)}</span></div><div class="row" style="margin-top:4px"><button data-act="wardmeds" data-v="${r.id}" ${S.store.meds?'':'disabled'}>Give 1 meds (+25 health)</button><button data-act="discharge" data-v="${r.id}">Discharge now</button></div></div></div>`}).join(''):'<p class="mute">No patients.</p>';
+      h+=`<p class="small mute">Patients can't work, guard or go out until they're healed. They heal ${wardBase({hun:0,thi:0})} health a phase on their own (less if hungry or thirsty), plus a share of every medic's work. Elderly patients heal 30% slower (45% over 75), and anyone below 30 health a further 25% slower. Meds work less well on them too. They leave by themselves at 95 health.</p>`;
+      h+=pats.length?pats.map(r=>{const rate=wardRate(r);const ph=Math.max(1,Math.ceil((95-r.hp)/rate));return `<div class="prow2 job-medic"><span class="big2">${faceOf(r)}</span><div style="min-width:0"><div class="nm"><b>${esc(r.short)}</b> <span class="small mute">+${rate.toFixed(1)} a phase · about ${ph} phase${ph>1?'s':''} to go${healWhy(r)?' · heals slowly ('+healWhy(r)+')':''}</span></div><div class="row" style="gap:6px;flex-wrap:nowrap"><span class="small mute">Health</span>${bar(r.hp,r.hp>50?'var(--ok)':'var(--blood)')}<span class="mono small">${Math.round(r.hp)}</span></div><div class="row" style="margin-top:4px"><button data-act="wardmeds" data-v="${r.id}" ${S.store.meds?'':'disabled'}>Give 1 meds (+${medsGain(r)} health)</button><button data-act="discharge" data-v="${r.id}">Discharge now</button></div></div></div>`}).join(''):'<p class="mute">No patients.</p>';
       if(pats.length<BEDS)h+=cands.length?`<div class="card stack"><b>🩹 Admit a patient</b><div class="row"><select id="patsel" aria-label="Patient">${cands.map(r=>`<option value="${r.id}">${esc(r.short)} (health ${Math.round(r.hp)}${r.job!=='rest'?', now: '+JOBS[r.job]:''})</option>`).join('')}</select><button data-act="admitsel">Admit</button></div><span class="small mute">Most injured first.</span></div>`:'<p class="small mute">Nobody needs a bed right now.</p>';
     }
     if(u.room==='depot'){const w=staffAssign('depot','salvage')[u.id];
@@ -1735,7 +1741,7 @@ function panelPeople(){
   h+=`<div class="row" style="margin:8px 0">${[['job','By job'],['hh','Households'],['kampung','Kampung'],['inventor','Inventors'],['fighters','Fighters'],['flat','By flat']].map(([k,n])=>`<button class="${F===k?'btn-main':''}" data-act="pf" data-v="${k}">${n}</button>`).join('')}</div>`;
   h+=`<button class="guide-t" data-act="guide">${UI.guide?'▾':'▸'} What makes someone good at each job?</button>`;
   if(UI.guide)h+=`<div class="card guide small">
-    <p><b class="job-guard jc">Guard.</b> <b>Strength</b> counts most, then a <b>weapon</b> (each attack point is worth about 3 Strength). Health and sanity matter too: a guard below 25 sanity fights at 60%. <b>Garang</b>, NSmen, NSFs and construction workers get +2. People aged 70+ fight at 40%. The <b>Fighting</b> number on each person combines all of this.</p>
+    <p><b class="job-guard jc">Guard.</b> <b>Strength</b> counts most, then a <b>weapon</b> (each attack point is worth about 3 Strength). Health and sanity matter too: a guard below 25 sanity fights at 60%. <b>Garang</b>, NSmen, NSFs and construction workers get +2. People aged 70+ fight at 40%. The <b>Fighting</b> number on each person combines all of this. In the <b>morning and afternoon</b>, guards also <b>repair the barricade, using 1 scrap per 4 points</b>. With no scrap they can only patch it at 40% speed.</p>
     <p><b class="job-run jc">Supply runs.</b> <b>Agility</b> is what keeps people alive. Each point above 5 cuts their risk by 5%, and each point below 5 raises it. Strength doesn't help on runs. <b>Armour</b> lowers the wearer's risk. <b>Weapons</b> lower the risk for the whole team. Grab drivers bring back 30% more. Rain and haze make runs safer. Rooftop lookouts help, especially when sneaking out at night.</p>
     <p><b class="job-invent jc">Workshop.</b> Only people with the <b>Inventor</b> trait make real progress, and higher <b>Intellect</b> makes them faster. Anyone else on Workshop only helps a little.</p>
     <p><b class="job-medic jc">Medic.</b> <b>Intellect</b> sets how fast they heal and how often they spot hidden bites. Nurses get a big bonus. A sick bay doubles healing.</p>
@@ -1750,7 +1756,7 @@ function panelPeople(){
   if(F==='job'){
     const working=ks.filter(r=>r.age>=13&&!r.away&&!r.quar&&!r.ward);
     const G=jobbers('guard');
-    h+=sec('Guards',working.filter(r=>r.job==='guard').sort((a,b)=>guardPow(b)-guardPow(a)),isOut()?`Line strength ${(G.reduce((a,r)=>a+guardPow(r),0)*(S.front>0?1.25:1)).toFixed(1)} vs ~${Math.round(expPressure())} attackers tonight (more during hordes). Some damage always gets through; guards repair by day, faster with scrap · barricade ${Math.max(0,Math.round(S.bar.hp))}/${S.bar.max}`:'');
+    h+=sec('Guards',working.filter(r=>r.job==='guard').sort((a,b)=>guardPow(b)-guardPow(a)),isOut()?`Line strength ${(G.reduce((a,r)=>a+guardPow(r),0)*(S.front>0?1.25:1)).toFixed(1)} vs ~${Math.round(expPressure())} attackers tonight (more during hordes). Some damage always gets through. In the morning and afternoon guards repair the barricade, using 1 scrap per 4 points (40% speed with no scrap) · barricade ${Math.max(0,Math.round(S.bar.hp))}/${S.bar.max}`:'');
     h+=sec('Rooftop lookouts',working.filter(r=>r.job==='lookout'));
     h+=sec('Workshop',working.filter(r=>r.job==='invent'),S.proj?'Building: '+RECIPES.find(x=>x.id===S.proj.id).n:'No project. Start one in the Workshop tab.');
     h+=sec('Medics',working.filter(r=>r.job==='medic'));
@@ -1870,6 +1876,7 @@ function panelBlock(){
       <div class="mute">Why more guards help: attackers beyond your line strength damage the barricade (15% always gets through). More guards also means each guard is less likely to be hurt, more repairs each daylight phase, and 3+ guards are needed to retake a floor. Hordes double the attack and noise adds to it, so leave a margin.</div></div>`}
   h+=`<h3>Defence</h3><div class="stack">
     ${S.flags.liftOpen&&!S.flags.liftSealed?`<button data-act="seallift" ${S.store.scrap>=8?'':'disabled'}>🛗 Seal the lift doors on every floor (−8 scrap). Zombies are climbing the shaft.</button>`:''}
+    <p class="small mute" style="margin:0">🔩 Guards repair the barricade every morning and afternoon, using 1 scrap per 4 points. Without scrap they only patch it at 40% speed, so keep some scrap in the store.</p>
     <button data-act="reinforce" ${S.store.scrap>=5&&isOut()?'':'disabled'}>🔩 Reinforce the line (−5 scrap, +20)</button>
     <button data-act="lure" ${S.built.lure&&isOut()&&!S.flags.lure?'':'disabled'}>⏰ Throw a noise lure tonight (${S.built.lure})</button>
     ${S.front>0?`<button class="btn-bad" data-act="retake" ${jobbers('guard').length>=3?'':'disabled'}>⚔️ Push down and retake ${S.front===1?'the void deck':'floor '+pad(S.front)} (all guards, needs 3+)</button>`:''}
@@ -1922,7 +1929,7 @@ const ACT={
   admit:d=>admit(+d.v),
   admitsel:()=>{const el=document.getElementById('patsel');if(el)admit(+el.value)},
   discharge:d=>{const r=RS(+d.v);if(r){r.ward=null;log(r.short+' was discharged from the sick bay.','');save();render()}},
-  wardmeds:d=>{const r=RS(+d.v);if(r&&S.store.meds>0){S.store.meds--;r.hp=Math.min(100,r.hp+25);if(r.hp>=95){r.ward=null;log(r.short+' has recovered and left the sick bay.','good')}save();render()}},
+  wardmeds:d=>{const r=RS(+d.v);if(r&&S.store.meds>0){S.store.meds--;r.hp=Math.min(100,r.hp+medsGain(r));if(r.hp>=95){r.ward=null;log(r.short+' has recovered and left the sick bay.','good')}save();render()}},
   route:d=>{UI.route=d.v;UI.teamKey=null;render()},
   evict:d=>evict(+d.v),
   tip:(d,el)=>showTip(d,el),
