@@ -191,6 +191,11 @@ button.trait{padding:0 5px;border-radius:4px}
 .jc{color:var(--jc)}
 .guide-t{background:transparent;border:none;color:var(--lamp);padding:2px 0;margin-bottom:6px;text-align:left}
 .guide p{margin:0 0 8px}
+.budget{width:100%;border-collapse:collapse;font-size:13px}
+.budget th{text-align:left;font-weight:400;color:var(--mute);font-size:11px;padding:2px 6px 4px 0;white-space:nowrap}
+.budget td{padding:4px 6px 2px 0;vertical-align:top;white-space:nowrap}
+.budget td[colspan]{white-space:normal}
+.budget tbody tr:nth-child(2n){border-bottom:1px solid var(--line)}
 .prow .nm{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .prow select{width:100%;font-size:12px}
 .itemchips{display:flex;flex-wrap:wrap;gap:4px}
@@ -1821,14 +1826,48 @@ function panelWorkshop(){
     return `<div class="card stack" style="gap:4px"><b>${rc.n}</b><span class="small mute">${rc.d}</span><span class="small">${need} · ${rc.work} work</span><div class="row"><button data-act="build" data-v="${rc.id}" ${!S.proj&&hasNeeds(rc)&&!done?'':'disabled'}>Build</button>${done?'<span class="small mute">'+why+'.</span>':S.proj?'<span class="small mute">Workshop busy. One project at a time.</span>':!hasNeeds(rc)?'<span class="small mute">Missing items (in red).</span>':''}</div></div>`}).join('')+`</div>`;
   return h;
 }
+// expected barricade change per day with the current guards (noise and hordes not included); extra = an added guard
+function guardRepair(r){return 1+r.st.S*.15+(r.arch==='worker'?1.5:0)+(r.arch==='cleaner'?1:0)}
+function lineForecast(extra){
+  const guards=jobbers('guard').concat(extra?[extra]:[]);
+  const G=guards.reduce((a,r)=>a+guardPow(r),0)*(S.front>0?1.25:1);
+  const P=isOut()?expPressure()+((S.flags.gen||0)>S.t?3:0)+guards.filter(g=>g.wpn==='rifle').length*1.5:0;
+  let dmg=0;[.25,.2,.5,1].forEach(f=>{const p=P*f;if(p>0)dmg+=Math.max(p*.15,p-G)*2.2});
+  const want=guards.reduce((a,r)=>a+guardRepair(r),0)*2;const wsc=Math.min(want,S.store.scrap*4);const rep=wsc+(want-wsc)*.4;
+  const net=rep-dmg;return {G,P,dmg,rep,scrap:Math.ceil(wsc/4),net,days:net<0?Math.max(0,S.bar.hp)/-net:Infinity,n:guards.length};
+}
+function budget(){
+  const hs=S.hh.filter(h=>h.known&&members(h).length);const people=known().length;
+  let eat=0;hs.forEach(h=>{const ms=members(h);eat+=Math.ceil(ms.length*(ms.some(r=>r.arch==='hawker'&&act(r))?.85:1)*(S.flags.preserve?.9:1))});
+  const kopi=S.units.filter(u=>u.room==='kopi'&&u.st==='empty'&&u.lvl>S.front).length;const g=rooms('garden');const tended=Math.min(g,jobbers('garden').length);
+  const dry=!S.grid.water;const out=isOut();
+  const food={store:S.store.food,home:hs.reduce((a,h)=>a+h.food,0),use:(out?eat:0)+kopi*2+(S.flags.cat?1:0),prod:(tended*5+(g-tended)*2)+((S.flags.ally&&S.flags.ally.until>S.t)?4:0),
+    notes:[out?eat+' for '+people+' people':'Nobody eats from stock until the outbreak',kopi?kopi*2+' for kopi corners':'',S.flags.cat?'1 for the cat':'',g?'gardens +'+(tended*5+(g-tended)*2):'',(S.flags.ally&&S.flags.ally.until>S.t)?'Blk '+S.flags.allyBlk+' +4':'',S.flags.preserve?'salted food: 10% less':''].filter(Boolean)};
+  const water={store:S.store.water,home:hs.reduce((a,h)=>a+h.water,0),use:dry?(people+kopi*2+g):0,prod:0,
+    notes:[dry?people+' to drink':'Taps still running: drinking is free',dry&&kopi?kopi*2+' for kopi corners':'',dry&&g?g+' for gardens':'',S.built.rain?'rain catchers +'+S.built.rain*9+' on rainy days':''].filter(Boolean)};
+  const lf=lineForecast();const depot=staffAssign('depot','salvage');let dep=0;for(const id in depot){const w=depot[id];if(w)dep+=Math.min(U(id).scrapLeft,w.arch==='karang'?6:3)}
+  const meds={store:S.store.meds,home:0,use:(S.flags.insulin?1:0),prod:0,notes:[S.flags.insulin?'1 a day for diabetes':'Used for treatment and events'].filter(Boolean)};
+  const scrap={store:S.store.scrap,home:0,use:out?lf.scrap:0,prod:dep,notes:[out&&lf.scrap?'about '+lf.scrap+' for barricade repairs':'',dep?'depots +'+dep:''].filter(Boolean)};
+  return {food,water,meds,scrap};
+}
 function panelBlock(){
   let h=`<h2>Blk ${esc(S.blk)}</h2>`;
+  {const B=budget();const row=(icon,nm,x)=>{const net=x.prod-x.use;const tot=x.store+x.home;const lasts=net<0?Math.floor(tot/-net):null;
+      return `<tr><td>${icon} ${nm}</td><td class="mono">${x.store}${x.home?` <span class="mute">+${x.home}</span>`:''}</td><td class="mono">${x.use?'−'+x.use:'0'}</td><td class="mono">${x.prod?'+'+x.prod:'0'}</td><td class="mono ${net<0?'badline':net>0?'goodline':''}">${net>0?'+':''}${net}</td><td class="${lasts!=null&&lasts<5?'badline':lasts!=null&&lasts<10?'warnline':'mute'}">${lasts==null?'—':lasts+' day'+(lasts===1?'':'s')}</td></tr><tr><td></td><td colspan="5" class="small mute" style="padding-top:0">${x.notes.map(esc).join(' · ')}</td></tr>`};
+    h+=`<h3>Daily budget</h3><div style="overflow-x:auto"><table class="budget"><thead><tr><th></th><th>Have</th><th>Use/day</th><th>Make/day</th><th>Net</th><th>Lasts</th></tr></thead><tbody>${row('🍚','Food',B.food)}${row('💧','Water',B.water)}${row('🩹','Meds',B.meds)}${row('🔩','Scrap',B.scrap)}</tbody></table></div><p class="small mute" style="margin:4px 0 0">"Have" is the communal store, plus what households hold themselves (in grey). Households eat their own food first, then the store tops them up at your ration level. Supply runs, events and rain aren't counted.</p>`;}
   h+=`<div class="kv"><span class="mute">Line</span><span>${S.front===0?'Void deck shutter':'Floor '+pad(S.front+1)+' stairwell'} · ${Math.max(0,Math.round(S.bar.hp))}/${S.bar.max}</span>
   <span class="mute">Guards</span><span>${jobbers('guard').length}</span><span class="mute">Lookouts</span><span>${lookouts().length}</span>
   <span class="mute">Power</span><span>${S.grid.power?'On':'Off'}</span><span class="mute">Taps</span><span>${S.grid.water?'Running':'Dry'}</span><span class="mute">Phones</span><span>${S.grid.telco?'Working':'Dead'}</span>
   <span class="mute">Isolation</span><span>${S.isoMult>1?'Sanity drains '+Math.round((S.isoMult-1)*100)+'% faster':'Not yet'}</span>
   <span class="mute">Lures</span><span>${S.built.lure}</span><span class="mute">Lamps</span><span>${S.built.lamp}</span></div>`;
   h+=`<h3>Rations from the communal store</h3><div class="row">${['full','half','none'].map(v=>`<button class="${S.ration===v?'btn-main':''}" data-act="ration" data-v="${v}">${{full:'Full',half:'Half',none:'None'}[v]}</button>`).join('')}</div><p class="small mute">Households eat their own food first. When it runs out, the store tops them up at this level.</p>`;
+  if(isOut()){const F=lineForecast();const cand=known().filter(r=>able(r)&&r.job!=='guard').sort((a,b)=>guardPow(b)-guardPow(a))[0];const F2=cand?lineForecast(cand):null;
+    const verdict=f=>f.net>=0?'<span class="goodline">holds: repairs keep up</span>':'<span class="'+(f.days<3?'badline':'warnline')+'">loses ~'+Math.round(-f.net)+' a day, breaks in about '+Math.max(1,Math.floor(f.days))+' day'+(Math.floor(f.days)===1?'':'s')+'</span>';
+    h+=`<h3>Defence forecast</h3><div class="card stack small" style="gap:6px">
+      <div>Tonight: about <b>${Math.round(F.P)}</b> attackers vs your line strength of <b>${F.G.toFixed(1)}</b> (${F.n} guard${F.n===1?'':'s'}).</div>
+      <div>Expected per day: <b class="badline">−${Math.round(F.dmg)}</b> damage, <b class="goodline">+${Math.round(F.rep)}</b> repairs${F.scrap?' (uses ~'+F.scrap+' scrap)':''}. The barricade ${verdict(F)}.</div>
+      ${F2?`<div>With <b>${esc(cand.short)}</b> on guard too (strength ${guardPow(cand).toFixed(1)}): −${Math.round(F2.dmg)} damage, +${Math.round(F2.rep)} repairs. The barricade ${verdict(F2)}.</div>`:''}
+      <div class="mute">Why more guards help: attackers beyond your line strength damage the barricade (15% always gets through). More guards also means each guard is less likely to be hurt, more repairs each daylight phase, and 3+ guards are needed to retake a floor. Hordes double the attack and noise adds to it, so leave a margin.</div></div>`}
   h+=`<h3>Defence</h3><div class="stack">
     ${S.flags.liftOpen&&!S.flags.liftSealed?`<button data-act="seallift" ${S.store.scrap>=8?'':'disabled'}>🛗 Seal the lift doors on every floor (−8 scrap). Zombies are climbing the shaft.</button>`:''}
     <button data-act="reinforce" ${S.store.scrap>=5&&isOut()?'':'disabled'}>🔩 Reinforce the line (−5 scrap, +20)</button>
