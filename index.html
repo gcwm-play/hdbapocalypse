@@ -137,7 +137,7 @@ select{background:var(--panel2);border:1px solid var(--line);border-radius:6px;p
 .vd-in.lost .vd-label{color:var(--zed)}
 .shutter{display:flex;flex-direction:column;align-items:flex-end;gap:3px}
 .shutter .barbar{width:110px;height:8px}
-.ground{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;padding:10px 4px 14px;background:linear-gradient(#3b4a3a,#2a3529)}
+.ground{display:grid;grid-template-columns:repeat(auto-fit,minmax(56px,1fr));gap:6px;padding:10px 4px 14px;background:linear-gradient(#3b4a3a,#2a3529)}
 .site{background:#00000044;border:1px solid #ffffff22;border-radius:6px;padding:6px;color:#fff;display:flex;flex-direction:column;align-items:center;gap:1px;font-size:11px;text-align:center}
 .site b{font-size:20px;line-height:1}
 .site .mono{font-size:10px;opacity:.8}
@@ -191,6 +191,7 @@ button.trait{padding:0 5px;border-radius:4px}
 .jc{color:var(--jc)}
 .guide-t{background:transparent;border:none;color:var(--lamp);padding:2px 0;margin-bottom:6px;text-align:left}
 .guide p{margin:0 0 8px}
+.ends{list-style:none;margin:6px 0 0;padding:0;display:flex;flex-direction:column;gap:3px}
 .budget{width:100%;border-collapse:collapse;font-size:13px}
 .budget th{text-align:left;font-weight:400;color:var(--mute);font-size:11px;padding:2px 6px 4px 0;white-space:nowrap}
 .budget td{padding:4px 6px 2px 0;vertical-align:top;white-space:nowrap}
@@ -298,6 +299,7 @@ const ARCH={
   karang:{l:'Karang guni man',i:'♻️',age:[55,72],st:[6,4,4,6,7],sex:'M'},
   ahbeng:{l:'Ah Beng',i:'🏍️',age:[19,30],st:[4,4,7,7,6],sex:'M'},
   teacher:{l:'Teacher',i:'📚',age:[28,55],st:[7,7,4,4,5]},
+  doctor:{l:'Doctor',i:'🩻',age:[32,60],st:[5,9,4,4,5]},
   worker:{l:'Construction worker',i:'🏗️',age:[24,40],st:[5,5,6,8,8],sex:'M'},
 };
 const STK=['K','I','A','S','U'];
@@ -345,6 +347,7 @@ const RECIPES=[
   {id:'noiseLure',n:'Noise lure',need:{clock:1,battery:1},work:5,d:'Thrown far away, it pulls zombies off a night attack or a supply run.',hint:'Something that rings, and something to keep it ringing.'},
   {id:'lamp',n:'Battery lamp',need:{battery:1,wire:1},work:6,d:'Light after the grid dies. Less sanity loss at night.',hint:'Light without the grid.'},
   {id:'flyingFox',n:'Flying fox',need:{rope:2,bicycle:1,sheets:1},work:16,d:'A one-way line from the block down to a nearby rooftop. When it\'s done, you choose where it goes. Runs there are half as risky. Max 2 riders. You can build one for each destination.',hint:'A wheel on a line, all the way across to another rooftop...'},
+  {id:'booster',secret:1,n:'Radio signal booster',need:{battery:1,wire:1,umbrella:1},work:14,d:'An umbrella turned into a dish, wired to a car battery and the police radio. Strong enough to reach Changi Naval Base. Needs two workshops working together.',hint:'A dish to catch a faraway voice...'},
   {id:'zipline',n:'Two-way zipline (upgrade)',need:{battery:1,wire:1,rope:1},work:10,d:'Motorises a flying fox so it runs both ways: a quarter of the normal risk, up to 3 riders. When it\'s done, you choose which flying fox to upgrade.',hint:'Something to pull the line back up...'},
 ];
 const ROOMS={
@@ -361,6 +364,7 @@ const DEST={
   park:{n:'Neighbourhood park',e:'🌳',risk:.07,dur:1,d:'Fresh air and open sky. Big sanity boost. Fishing pond, gardener\'s shed.'},
   school:{n:'Primary school',e:'🏫',risk:.16,dur:1,d:'Canteen, science lab, sick bay, store rooms. Maybe survivors.'},
   hawker:{n:'Hawker centre',e:'🍜',risk:.13,dur:1,d:'Stall store rooms: rice sacks, tinned food, gas cylinders. Hawkers keep a lot of dry stock.'},
+  poly:{n:'Polyclinic',e:'🏥',risk:.2,dur:1,d:'The medical team knows where the polyclinic kept its stock. Medicine, and lots of it.'},
   police:{n:'Neighbourhood Police Centre',e:'🚓',risk:.22,dur:2,d:'Batons, riot shields, radios, first aid. Takes two phases.'},
 };
 const WEATHER={sunny:['☀️','Sunny'],hot:['🥵','Sweltering'],cloudy:['☁️','Overcast'],rain:['🌧️','Rain'],storm:['⛈️','Thunderstorm'],squall:['🌬️','Sumatra squall'],haze:['🌫️','Haze']};
@@ -446,7 +450,7 @@ function newGame(diff){
   S={v:1,diff,floors:cfg.floors,upf:cfg.upf,rs:(Math.random()*4294967296)>>>0,t:0,ph:0,outbreakAt:0,date0:0,blk:'',estate:'',
     grid:{power:true,water:true,telco:true},failAt:{},front:0,bar:{hp:80,max:80},noise:0,units:[],hh:[],res:[],nid:1,
     store:{food:10,water:12,meds:3,scrap:12},items:{tape:1},known:{},proj:null,built:{rain:0,lamp:0,lure:0,fox:{},rope:false,kits:0},
-    market:100,ration:'full',talks:2,chatUsed:{},exps:[],log:[],mem:[],queue:[],weather:null,flags:{},evcd:{},over:false,news:'',stats:{runs:0,born:0}};
+    end:{phil:0},market:100,ration:'full',talks:2,chatUsed:{},exps:[],log:[],mem:[],queue:[],weather:null,flags:{},evcd:{},over:false,news:'',stats:{runs:0,born:0}};
   S.outbreakAt=ri(7,14);
   const y=2027,start=new Date(y,ri(0,11),ri(1,28));S.date0=start.getTime();
   S.blk=String(ri(101,899))+(chance(.3)?pick(['A','B','C']):'');S.estate=pick(ESTATES);
@@ -507,6 +511,10 @@ function nearKopi(u){return !!u&&S.units.some(k=>k.room==='kopi'&&k.open&&k.st==
 const hasPower=()=>S.grid.power||(S.flags.gen||0)>S.t;
 function addTimer(days,k,a){S.timers=S.timers||[];S.timers.push({d:S.t+days,k,a:a||{}})}
 const TIMERS={
+  doctors:a=>queue('doctors',a),
+  medTrouble:a=>{if(medActive()){queue('medTrouble',{k:pick(['rations','meds','arrogance'])});addTimer(ri(6,10),'medTrouble',{})}},
+  cureDone:a=>{if(medActive())queue('cureDone',{})},
+  evacDay:a=>queue('evacDay',a),
   labour:a=>queue('labour',a),
   convoyNews:a=>queue('convoyNews',a),
   deserter:a=>queue('deserter2',a),
@@ -536,6 +544,45 @@ function isolationSets(m){
   log('Month '+m+' of isolation: sanity now drains '+tot+'% faster.','bad');
   queue('info',{i:'🪟',t:'Month '+m+': the walls close in',x:ISO_TEXT[Math.min(m-1,ISO_TEXT.length-1)]+'\n\nFrom now on, everyone loses sanity '+inc+'% faster ('+tot+'% faster in total since the outbreak). Kopi corners, comfort, park runs and good news matter more than ever.',bad:1});
 }
+/* ================= endings ================= */
+function addPhil(n){S.end=S.end||{};S.end.phil=(S.end.phil||0)+n}
+function medTeam(){return S.res.filter(r=>r.alive&&r.big)}
+function medActive(){return !!(S.end&&S.end.med&&S.end.med.active&&medTeam().length)}
+const RADIO_MSGS=[
+  '"...any station, any station, this is Changi Naval Base. If you can hear this, you are not alone..."',
+  '"...Operation Lifeboat. Navy vessels are holding off Changi. Repeat, ships are holding off Changi..."',
+  '"...survivor groups, identify yourselves on this frequency. State your block number and headcount..."',
+  '"...do not use the expressways. The PIE is impassable at Paya Lebar. Use Upper Changi Road..."',
+  '"...evacuation will be by convoy from collection points. Groups must bring their own provisions for the voyage..."',
+  '"...we are receiving fragments from the east and the north. Your signal is too weak to read. Boost your signal..."',
+  '"...Bedok, Tampines, Pasir Ris: we hear you. Hold on. Keep transmitting..."',
+  '"...this is the last scheduled broadcast before the final convoys. Groups who have made contact will be given a date..."'];
+function checkEndings(){
+  S.end=S.end||{};const E=S.end;
+  // medical team: do they still exist?
+  if(E.med&&E.med.active&&!medTeam().length){E.med.active=false;log('The medical team is gone. The cure will have to wait for someone else.','bad')}
+  // radio messages (need the police radio)
+  const R_=E.radio||(E.radio={got:0,ans:0,lost:false});
+  if(isOut()&&S.items.radio&&!R_.lost&&R_.got<RADIO_MSGS.length&&R_.ans===R_.got&&!S.queue.some(q=>q.id==='radioMsg')&&chance(.12)){queue('radioMsg',{n:R_.got});R_.got++}
+  if(R_.ans>=RADIO_MSGS.length&&!R_.unlocked&&isOut()&&pday()>=60){R_.unlocked=1;S.known.booster=true;queue('info',{i:'📻',t:'Too weak to reach them',x:'You have answered every broadcast, and none of them heard you. The inventor takes the radio apart on the kitchen table.\n\n"Our signal is too weak. If we build a booster, we can talk to them properly. But it\'s a big job: we need two workshops working on it together."\n\nNew blueprint: Radio signal booster. You can now repurpose a second workshop.'})}
+  // medical ending
+  if(medActive()){const M=E.med;const days=S.t-M.t;const contam=S.units.some(u=>u.contam);
+    if(days>=60&&S.store.meds>=100&&contam&&rooms('sickbay')>=2&&!M.trial&&S.t-(M.asked||-99)>=5){M.asked=S.t;queue('cureReady',{})}}
+  // kampung ending
+  if(isOut()&&pday()>=45&&(E.phil||0)>=60&&blockTrust()>=70&&!E.kampungDone&&S.t-(E.kampungAsked||-99)>=7){E.kampungAsked=S.t;queue('kampungEnd',{})}
+}
+const ENDINGS={
+  kampung:{i:'🤝',t:'Kampung Spirit',good:1,x:()=>'Word of Blk '+S.blk+' spread from block to block by torchlight. The flats that shared their rice, took in strangers and lent their fighters became the heart of a network across all of '+S.estate+'.\n\nWhen the SAF finally rolled down the avenue, they found not scattered survivors but a community: lines strung between blocks, gardens on every corridor, and a list of every family that had made it.\n\n"How did you all hold together?" an officer asks. Nobody has a short answer.'},
+  cure:{i:'🧪',t:'The Cure',good:1,x:()=>'Seven days in the sick bays, under torchlight, with samples from the sealed quarantine room. Then one morning the doctors come out with red eyes and a single vial.\n\nIt works. Not perfectly, not for everyone, but a bitten resident runs a fever and then simply... gets better.\n\nThe recipe goes out over every radio the block can find. Blk '+S.blk+' will be in the history books as the place where the outbreak started to end.'},
+  escape:{i:'🚢',t:'Lifeboat',good:1,final:1,x:()=>'The trucks came at dawn, as promised. '+(S.end.evacGo||0)+' people climbed aboard with their bags of rice and bottles of water'+((S.end.evacLeft||0)?', and '+S.end.evacLeft+' stayed behind, waving from the corridors':'')+'.\n\nBy noon the convoy reached Changi. By dusk, Blk '+S.blk+' was a silhouette on the horizon behind a grey navy ship.\n\n'+((S.end.evacLeft||0)?'Some nights you still wonder about the ones who stayed.':'Everyone you could save is on this ship.')},
+  alone:{i:'🕯️',t:'The Last Light',good:0,x:()=>'The block is silent. Every flat you once knocked on is empty, or worse.\n\nYou sit on the corridor floor of floor '+pad(Math.max(2,S.front+1))+' and look out over '+S.estate+' as the sun goes down. There is food left, and water. There is just nobody left to share it with.\n\nYou light a candle in the window, the way someone might have done for you. Then you stop counting the days.'},
+};
+function finishGame(id){
+  S.over=true;S.ending=id;log('Ending reached: '+ENDINGS[id].t+'.','big');
+  try{const k='hdbapoc-endings';const seen=JSON.parse(localStorage.getItem(k)||'[]');if(!seen.includes(id)){seen.push(id);localStorage.setItem(k,JSON.stringify(seen))}}catch(e){}
+  save();
+}
+function endingsSeen(){try{return JSON.parse(localStorage.getItem('hdbapoc-endings')||'[]')}catch(e){return[]}}
 function newDay(){
   S.talks=2+(known().some(r=>act(r)&&r.arch==='rcauntie')?1:0);S.chatUsed={};
   rollWeather();
@@ -565,6 +612,7 @@ function newDay(){
   if(S.infest)for(const l in S.infest){if(+l<=S.front){delete S.infest[l];continue}if(!S.infest[l].sealed&&chance(.4))attackNear(+l,'Zombies from the overrun floor '+pad(+l)+' came through the stairwell','floor '+pad(+l))}
   if(S.flags.cat&&S.store.food>0)S.store.food--;
   kopiUpkeep();
+  checkEndings();
   // scheduled follow-ups and ongoing deals
   S.timers=S.timers||[];
   if(S.timers.length){const due=S.timers.filter(t=>t.d<=S.t);S.timers=S.timers.filter(t=>t.d>S.t);due.forEach(t=>{if(TIMERS[t.k])TIMERS[t.k](t.a)})}
@@ -583,6 +631,7 @@ function newDay(){
   if(d>1&&(d-1)%30===0)isolationSets(Math.round((d-1)/30));
 }
 function outbreak(){
+  S.end=S.end||{};if(!S.end.docSched){S.end.docSched=1;addTimer(ri(3,28),'doctors',{})}
   S.failAt={telco:ri(3,7),power:ri(7,15),water:ri(10,19)};
   S.news='PUBLIC WARNING SYSTEM ACTIVATED. Stay indoors. Lock your gates.';
   log('The sirens are going. It has started.','big');
@@ -600,7 +649,7 @@ function consume(){
   S.hh.forEach(h=>{
     if(!h.known)return;const ms=members(h);if(!ms.length)return;
     const hawk=(ms.some(r=>r.arch==='hawker'&&act(r))?.85:1)*(S.flags.preserve?.9:1);
-    const needF=Math.ceil(ms.length*hawk);let got=Math.min(h.food,needF);h.food-=got;
+    const needF=Math.ceil(ms.reduce((a,r)=>a+(r.big?2:1),0)*hawk);let got=Math.min(h.food,needF);h.food-=got;
     let short=needF-got;if(short>0){const give=ration==='full'?short:ration==='half'?Math.ceil(short/2):0;const g=Math.min(give,S.store.food);S.store.food-=g;got+=g}
     const fF=clamp(got/needF,0,1);
     let fW=1;
@@ -848,7 +897,7 @@ function askHost(gid,hid){
   if(!chance(hostScore(h))){h.trust=clamp(h.trust-3,0,100);flash('The '+h.name+' say they can\'t take anyone in. Try another household, or again later.');save();render();return}
   const gm=members(g);gm.forEach(r=>r.hh=h.id);h.food+=g.food;h.water+=g.water;for(const k in g.items)itemAdd(h.items,k,g.items[k]);g.food=0;g.water=0;g.items={};
   h.guests=(h.guests||[]).concat(g.name);h.trust=clamp(h.trust+5,0,100);gm.forEach(r=>r.san=clamp(r.san+10,0,100));
-  log('The '+h.name+' took in the '+g.name+' at '+h.unit+'.','good');
+  log('The '+h.name+' took in the '+g.name+' at '+h.unit+'.','good');addPhil(4);
   queue('info',{i:'🏠',t:'Taken in',x:'The '+h.name+' make room at '+h.unit+' for the '+g.name+'. Mattresses on the floor, shared rice, too many people for one bathroom, but a door that locks.\n\nThe flat now holds '+members(h).length+' people. Above 4, everyone there loses a little sanity each phase from the crowding'+(members(h).some(r=>r.st.K>=8)?', though the host\'s Kampung spirit softens it.':'.')});
   save();render();
 }
@@ -877,6 +926,7 @@ function kill(r,cause){
     known().forEach(m=>{if(m.hh!==r.hh)m.san=clamp(m.san-(has(m,'bochap')?2:4),0,100)});
   }
   handover(r);vacate(h);
+  if(S.end&&!S.end.lastAsked&&!S.over&&known().length===1){S.end.lastAsked=1;queue('lastOne',{})}
 }
 function handover(r){if(!r.leader)return;r.leader=false;const nl=best('K',known().filter(x=>x.alive&&x.age>=16));if(nl){nl.leader=true;log(nl.name+' steps up to lead the block.','big');queue('info',{i:'⭐',t:'A new leader',x:'With '+r.name+' gone, the block turns to '+nl.name+'. You play on as them.',bad:1})}}
 function vacate(h){if(h&&!members(h).length&&h.unit){const u=U(h.unit);if(u&&u.st==='known'){u.st='empty';u.hh=null;u.looted=false}}}
@@ -892,6 +942,7 @@ function checkOver(){
 
 /* ================= expeditions ================= */
 // every route the player might see for a destination; ok=false ones show as disabled buttons with a reason
+const destOk=k=>k!=='poly'||!!(S.end&&S.end.polyOpen);
 function routes(dest){
   const fx=(S.built.fox||{})[dest]||0;const lost=S.front>0;
   return [
@@ -969,6 +1020,7 @@ function resolveExps(){
       if(e.dest==='hawker'){loot.food+=Math.round(ri(3,8)*Math.max(.25,1-(S.flags.hawkerRuns||0)*.06)*cap);S.flags.hawkerRuns=(S.flags.hawkerRuns||0)+1;if(chance(.3))itemAdd(loot.items,pick(['wok','pot','knife','pail']));loot.scrap+=ri(0,2)}
       if(e.dest==='park'){r.san=clamp(r.san+ri(18,30),0,100);loot.food+=ri(0,3);if(chance(.45))itemAdd(loot.items,pick(['bamboo','rope','tarp','changkol','pail','pipe']))}
       if(e.dest==='school'){for(let i=0;i<ri(1,2);i++)itemAdd(loot.items,pick(['pipe','tape','rope','sheets','extinguisher','wire','pail','tarp','clock']));loot.meds+=ri(0,1);loot.food+=ri(0,4);loot.scrap+=ri(1,4)}
+      if(e.dest==='poly'){loot.meds+=ri(2,5);if(chance(.3))itemAdd(loot.items,pick(['sheets','tape','pail']))}
       if(e.dest==='police'){if(chance(.5))itemAdd(loot.items,'baton');if(chance(.3))itemAdd(loot.items,'riot');if(chance(.25))itemAdd(loot.items,'helmet');if(chance(.15)&&!S.items.radio&&!loot.items.radio)itemAdd(loot.items,'radio');loot.meds+=ri(0,2);loot.scrap+=ri(0,2)}
     });
     if(e.dest==='park'&&survivors.length)lines.push('🌳 Sunlight and open sky. The team feels human again.');
@@ -1006,6 +1058,7 @@ function returnLoner(e){
 function hasNeeds(rc){for(const k in rc.need)if((S.items[k]||0)<rc.need[k])return false;return true}
 function startProj(id){
   const rc=RECIPES.find(r=>r.id===id);if(!rc||S.proj||!hasNeeds(rc))return;
+  if(id==='booster'&&rooms('workshop')<2){flash('The booster needs two workshops.');return}
   for(const k in rc.need)itemAdd(S.items,k,-rc.need[k]);
   S.proj={id,prog:0,work:rc.work};log('The workshop starts on: '+rc.n+'.','');save();render();
 }
@@ -1018,12 +1071,14 @@ function finishProj(){
   if(rc.id==='noiseLure'){S.built.lure++;x='Use it on a run (Outside tab) or throw it on a bad night (Block tab).'}
   if(rc.id==='lamp'){S.built.lamp++;x='Nights are less dark.'}
   if(rc.id==='flyingFox'){x='Next, choose where to rig it.'}
+  if(rc.id==='booster'){S.end.radio.booster=1;x='The inventor flicks the switch. Static, then a clear carrier tone.'}
   if(rc.id==='zipline'){x='Next, choose which flying fox to upgrade.'}
   log('Workshop finished: '+rc.n+'.','good');
   queue('info',{i:'🛠️',t:rc.n+' is ready',x:rc.d+'\n\n'+x});
   // the placement choice comes after the 'ready' message
   if(rc.id==='flyingFox')queue('foxwhere',{});
   if(rc.id==='zipline')queue('zipwhere',{});
+  if(rc.id==='booster')queue('radioContact',{});
 }
 function revealed(rc){S.hintRev=S.hintRev||{};if(!S.hintRev[rc.id])S.hintRev[rc.id]=[Object.keys(rc.need)[0]];return S.hintRev[rc.id]}
 function revealItem(rc,k){const rv=revealed(rc);if(rv.includes(k))return false;rv.push(k);if(rv.length>=Object.keys(rc.need).length&&!S.known[rc.id]){S.known[rc.id]=true;log('Worked it out: '+rc.n+'.','good')}return true}
@@ -1033,12 +1088,12 @@ function experiment(){
   if(S.flags.expT===tick()){flash('The inventor already tried something this phase.');return}
   const inv=known().some(r=>act(r)&&has(r,'inventor'));if(!inv){flash('You need a free resident with the Inventor trait.');return}
   S.flags.expT=tick();S.tried.push(key);
-  const rc=RECIPES.find(r=>{const k=Object.keys(r.need).sort();return k.length===sel.length&&k.every((x,i)=>x===sel[i])});
+  const rc=RECIPES.filter(r=>!r.secret||S.known[r.id]).find(r=>{const k=Object.keys(r.need).sort();return k.length===sel.length&&k.every((x,i)=>x===sel[i])});
   if(rc&&!S.known[rc.id]){S.known[rc.id]=true;log('Eureka: '+rc.n+'!','good');queue('info',{i:'💡',t:'Eureka: '+rc.n,x:'Turning the '+sel.map(k=>ITEMS[k].toLowerCase()).join(' and the ')+' over and over, the inventor sees it.\n\n'+rc.d+'\n\nThe blueprint is now in the workshop.'})}
   else if(rc)flash('You already know that one: '+rc.n+'.');
   else{
     const found=[];
-    RECIPES.filter(r=>!S.known[r.id]).forEach(r=>sel.forEach(k=>{if(r.need[k]&&revealItem(r,k))found.push(ITEMS[k]+(S.known[r.id]?' (completes the '+r.n.toLowerCase()+'!)':''))}));
+    RECIPES.filter(r=>!S.known[r.id]&&!r.secret).forEach(r=>sel.forEach(k=>{if(r.need[k]&&revealItem(r,k))found.push(ITEMS[k]+(S.known[r.id]?' (completes the '+r.n.toLowerCase()+'!)':''))}));
     if(found.length){log('Close! The inventor realised the '+found.join(' and the ').toLowerCase()+' belong in an unknown idea.','good');flash('Close! New ingredient found: '+found.join(', ')+'. Check the blueprints.')}
     else{log('The inventor fiddled with '+sel.map(k=>ITEMS[k].toLowerCase()).join(' + ')+'. Nothing useful.','');flash('Nothing new. Those items either aren\'t part of an unknown idea, or you already found them there.')}
   }
@@ -1130,8 +1185,8 @@ const REV=[
  {id:'neighbour',w:2,once:1,c:()=>isOut()&&pday()>=6&&known().filter(able).length>=4,make:()=>{
   const blk=String(ri(101,899));S.flags.allyBlk=blk;const lend=known().filter(able).sort((a,b)=>guardPow(b)-guardPow(a)).slice(0,2);
   return card({i:'🔦',t:'Torches from Blk '+blk,x:'Every night this week someone across the road has flashed a torch at your block: three long, three short. Tonight a note arrives tied to a brick.\n\n"Blk '+blk+'. We have rice from the wet market but our line is breaking. Lend us 2 fighters for a week and we send food every day. — Uncle Lim"',c:[
-   {t:'Lend '+lend.map(r=>r.short).join(' and '),s:'Your 2 best fighters are gone for 7 days. +4 food a day while the deal lasts. They might not both come back.',dis:lend.length<2,f:()=>{lend.forEach(r=>{r.away=true;S.exps.push({dest:'lend',route:'gate',rm:1,team:[r.id],back:tick()+28,lend:1})});S.flags.ally={until:S.t+7};return lend.map(r=>r.short).join(' and ')+' cross the road at night with their weapons. Your own line is thinner now.'}},
-   {t:'Trade scrap for rice instead',s:'−10 scrap, +18 food, once',dis:S.store.scrap<10,f:()=>{S.store.scrap-=10;S.store.food+=18;return 'A rope is strung between the blocks. Scrap goes over, rice comes back.'}},
+   {t:'Lend '+lend.map(r=>r.short).join(' and '),s:'Your 2 best fighters are gone for 7 days. +4 food a day while the deal lasts. They might not both come back.',dis:lend.length<2,f:()=>{addPhil(6);lend.forEach(r=>{r.away=true;S.exps.push({dest:'lend',route:'gate',rm:1,team:[r.id],back:tick()+28,lend:1})});S.flags.ally={until:S.t+7};return lend.map(r=>r.short).join(' and ')+' cross the road at night with their weapons. Your own line is thinner now.'}},
+   {t:'Trade scrap for rice instead',s:'−10 scrap, +18 food, once',dis:S.store.scrap<10,f:()=>{addPhil(2);S.store.scrap-=10;S.store.food+=18;return 'A rope is strung between the blocks. Scrap goes over, rice comes back.'}},
    {t:'Ignore the torches',f:()=>'You draw the curtains. The torches stop after a few nights.'}]})}},
  {id:'fire',w:2,c:()=>isOut()&&S.hh.some(h=>h.known&&h.unit&&!members(h).some(r=>r.leader)),make:()=>{
   const h=pick(S.hh.filter(x=>x.known&&x.unit&&!members(x).some(r=>r.leader)));const u=U(h.unit);
@@ -1185,7 +1240,7 @@ const REV=[
   {t:'Calm the group chat',s:'Kampung spirit check',f:()=>{const k=best('K');if(k&&k.st.K*10+ri(0,30)>70){known().forEach(r=>r.san=clamp(r.san+4,0,100));return k.short+' posts a long, calm message. People settle down.'}known().filter(r=>has(r,'kiasu')).forEach(r=>r.san=clamp(r.san-6,0,100));return 'Nobody listens. Three more forwards arrive.'}},
   {t:'Ignore it',f:()=>'The chat scrolls on.'}]})}},
  {id:'relative',w:2,c:()=>!isOut()&&S.hh.some(h=>h.known&&h.unit),make:()=>{const h=pick(S.hh.filter(x=>x.known&&x.unit));return card({i:'🧳',t:'A cousin at the door',x:'The '+h.name+' want to take in a cousin from '+pick(ESTATES)+', whose block is already locked down. One more pair of hands, one more mouth.',c:[
-  {t:'Welcome them',s:'+1 resident, they bring some food',f:()=>{const r=mkRes(pick(['pmet','driver','teacher','ahbeng','nurse']),h);h.food+=4;return r.name+' ('+ARCH[r.arch].l+') moves in with a suitcase and a bag of rice.'}},
+  {t:'Welcome them',s:'+1 resident, they bring some food',f:()=>{addPhil(2);const r=mkRes(pick(['pmet','driver','teacher','ahbeng','nurse']),h);h.food+=4;return r.name+' ('+ARCH[r.arch].l+') moves in with a suitcase and a bag of rice.'}},
   {t:'Advise against it',s:'Family trust drops',f:()=>{h.trust=clamp(h.trust-10,0,100);members(h).forEach(m=>m.san=clamp(m.san-8,0,100));return 'They don\'t say anything, but they stop replying in the chat.'}}]})}},
  {id:'fakenews',w:2,c:()=>!isOut(),make:()=>card({i:'📱',t:'A viral forward',x:'"URGENT from a doctor friend: gargling salt water and eating raw garlic kills the virus. Share to 10 groups!"',c:[
   {t:'Debunk it in the chat',s:'Intellect check',f:()=>{const b=best('I');if(b&&b.st.I*10+ri(0,30)>70){S.hh.forEach(h=>{if(h.known)h.trust=clamp(h.trust+5,0,100)});return b.short+' posts the MOH fact check. Trust in the block goes up.'}return 'Someone replies "better safe than sorry lor". Garlic sells out.'}},
@@ -1210,7 +1265,7 @@ const REV=[
   {t:'Shoo her away',f:()=>{S.flags.catNo=1;return 'She leaves. Some people don\'t talk to you for a day.'}}]})},
  {id:'kidsgate',w:1,c:()=>isOut()&&S.front===0&&!S.flags.gateKids&&pday()<25,make:()=>{S.flags.gateKids=1;return EV.kids.make()}},
  {id:'workers',w:1,c:()=>isOut()&&S.front===0&&!S.flags.workers,make:()=>{S.flags.workers=1;return card({i:'🏗️',t:'Men at the shutter',x:'Three construction workers from the dormitory down the road bang on the shutter. They have hammers and pipes, and they\'re asking for shelter.',c:[
-  {t:'Let them in',s:'+3 strong residents, with tools. Some neighbours object.',f:()=>{const h=newHousehold('cn');h.name='The dorm group';h.eth='cn';h.sur='';for(let i=0;i<3;i++)mkRes('worker',h);itemAdd(S.items,'hammer');itemAdd(S.items,'pipe',2);S.hh.forEach(x=>{if(x.known&&members(x).some(m=>has(m,'atas')))x.trust=clamp(x.trust-10,0,100)});return 'They come in with their tools. Find them a flat, or they sleep in the stairwell.'}},
+  {t:'Let them in',s:'+3 strong residents, with tools. Some neighbours object.',f:()=>{addPhil(5);const h=newHousehold('cn');h.name='The dorm group';h.eth='cn';h.sur='';for(let i=0;i<3;i++)mkRes('worker',h);itemAdd(S.items,'hammer');itemAdd(S.items,'pipe',2);S.hh.forEach(x=>{if(x.known&&members(x).some(m=>has(m,'atas')))x.trust=clamp(x.trust-10,0,100)});return 'They come in with their tools. Find them a flat, or they sleep in the stairwell.'}},
   {t:'Turn them away',f:()=>{known().forEach(r=>r.san=clamp(r.san-5,0,100));return 'You watch them walk away down Ave 3. Nobody says anything at dinner.'}}]})}},
  {id:'aircon',w:2,c:()=>isOut()&&S.grid.power&&(S.weather.type==='hot'||S.weather.type==='sunny'),make:()=>card({i:'❄️',t:'The grid is straining',x:'The power keeps tripping. A notice from the town council asks every block to cut aircon use or risk losing power completely.',c:[
   {t:'Aircon for the elderly and babies only',s:'Grid lasts longer',f:()=>{S.failAt.power+=2;known().forEach(r=>{if(r.age>=65||r.age<8)r.san=clamp(r.san+8,0,100);else r.san=clamp(r.san-3,0,100)});return 'Most people sweat it out. The grid holds on a bit longer.'}},
@@ -1242,7 +1297,7 @@ const REV=[
   {t:'Check them over carefully',s:'Medic or Kaypoh helps',f:()=>{if(r.inf){r.inf.hidden=false;S.queue.unshift({id:'infected',a:{id:r.id}});return 'There it is, under the sleeve. A bite.'}return 'No wounds. Just a fever. Probably.'}},
   {t:'Give medicine',s:'−1 meds',dis:S.store.meds<1,f:()=>{S.store.meds--;r.hp=Math.min(100,r.hp+15);return 'The fever breaks overnight.'}},
   {t:'Watch and wait',f:()=>'Everyone watches '+r.short+' a bit more closely.'}]})}},
- {id:'idea',w:1,c:()=>known().some(r=>act(r)&&has(r,'inventor'))&&RECIPES.some(r=>!S.known[r.id]),make:()=>{const rc=pick(RECIPES.filter(r=>!S.known[r.id]));const inv=known().find(r=>act(r)&&has(r,'inventor'));if(!inv||!rc)return null;const nk=Object.keys(rc.need).find(k=>!revealed(rc).includes(k));if(nk)revealItem(rc,nk);return card({i:'💡',t:inv.short+' has an idea',x:(nk?'"It needs a '+ITEMS[nk].toLowerCase()+'..." ':'')+'"'+rc.hint+'" '+inv.short+' sketches on the back of a Town Council notice. Try combining items in the Workshop tab.',c:ok('Noted')})}},
+ {id:'idea',w:1,c:()=>known().some(r=>act(r)&&has(r,'inventor'))&&RECIPES.some(r=>!S.known[r.id]&&!r.secret),make:()=>{const rc=pick(RECIPES.filter(r=>!S.known[r.id]&&!r.secret));const inv=known().find(r=>act(r)&&has(r,'inventor'));if(!inv||!rc)return null;const nk=Object.keys(rc.need).find(k=>!revealed(rc).includes(k));if(nk)revealItem(rc,nk);return card({i:'💡',t:inv.short+' has an idea',x:(nk?'"It needs a '+ITEMS[nk].toLowerCase()+'..." ':'')+'"'+rc.hint+'" '+inv.short+' sketches on the back of a Town Council notice. Try combining items in the Workshop tab.',c:ok('Noted')})}},
  {id:'theft',w:1,c:()=>isOut()&&S.store.food>12,make:()=>{const f=ri(4,8);S.store.food-=f;return card({i:'🔍',t:'The store has been raided',x:f+' food has gone missing from the communal store overnight.',bad:1,c:[
   {t:'Investigate',s:'Best Intellect or a Kaypoh',f:()=>{const k=known().find(r=>has(r,'kaypoh'))||best('I');if(k&&chance(.55)){S.store.food+=f;const cul=pick(S.hh.filter(h=>h.known));cul.trust=clamp(cul.trust-10,0,100);return k.short+' follows the trail of grains to the '+cul.name+'. The food comes back.'}return 'No luck. People start locking their gates.'}},
   {t:'Let it go',f:()=>'Suspicion lingers in the corridor.'}]})}},
@@ -1263,7 +1318,7 @@ EV.convoySupply={make:a=>{
     t:i===0?'Send them with nothing extra':'Send '+f*n+' food and '+w*n+' water',
     s:'Chance they reach Tekong: '+Math.round(p*100)+'%'+(i===0?'':' ('+f+' food and '+w+' water each)'),
     dis:S.store.food<f*n||S.store.water<w*n,
-    f:()=>{S.store.food-=f*n;S.store.water-=w*n;addTimer(ri(4,8),'convoyNews',{hs:a.hs,p});log('The convoy left'+(i?' with '+f*n+' food and '+w*n+' water from the store':'')+'. Chance of reaching Tekong: '+Math.round(p*100)+'%.','');return i?'Sacks of rice and cases of bottled water go onto the trucks with them. The block\'s store is lighter, but the odds are better.':'They leave with only what they can carry.'}}))});
+    f:()=>{addPhil(i*2);S.store.food-=f*n;S.store.water-=w*n;addTimer(ri(4,8),'convoyNews',{hs:a.hs,p});log('The convoy left'+(i?' with '+f*n+' food and '+w*n+' water from the store':'')+'. Chance of reaching Tekong: '+Math.round(p*100)+'%.','');return i?'Sacks of rice and cases of bottled water go onto the trucks with them. The block\'s store is lighter, but the odds are better.':'They leave with only what they can carry.'}}))});
 }};
 EV.convoyNews={make:a=>{
   const fam=known().filter(m=>(a.hs||[]).includes(m.hh));if(!fam.length)return null;const good=chance(a.p||.6);
@@ -1281,10 +1336,10 @@ EV.armedLooters={make:()=>card({i:'🔫',t:'He came back',x:'The soldier you tur
   {t:'Pay them',s:'−30 food',dis:S.store.food<30,f:()=>{S.store.food-=30;return 'They take it and leave. Nobody says anything for the rest of the day.'}},
   {t:'Hold the line',s:'They will shoot up the barricade',f:()=>{S.bar.hp-=35;S.noise+=12;const g=pick(jobbers('guard'));let x='Bullets chew into the barricade before they give up and leave.';if(g&&chance(.4)){g.hp-=ri(20,40);if(g.hp<=0){kill(g,'Shot by armed looters');x+=' '+g.short+' was killed.'}else x+=' '+g.short+' was hit.'}if(S.bar.hp<=0)levelFalls();return x}}]})};
 EV.kids={make:()=>card({i:'🏫',t:'Survivors at the gate',x:'A teacher and three students from the primary school are hammering on the gate. They have been hiding in the school hall for days.',c:[
-  {t:'Take them in',s:'+4 residents. More mouths.',f:()=>{const h=newHousehold('cn');mkRes('teacher',h);for(let i=0;i<3;i++)mkRes('kid',h);nameHH(h);h.name='School survivors';return 'They come in shaking. Find them a flat, or they sleep in the stairwell.'}},
+  {t:'Take them in',s:'+4 residents. More mouths.',f:()=>{addPhil(5);const h=newHousehold('cn');mkRes('teacher',h);for(let i=0;i<3;i++)mkRes('kid',h);nameHH(h);h.name='School survivors';return 'They come in shaking. Find them a flat, or they sleep in the stairwell.'}},
   {t:'Give them food, send them on',s:'−4 food',dis:S.store.food<4,f:()=>{S.store.food-=4;known().forEach(r=>r.san=clamp(r.san-4,0,100));return 'They walk off toward the MRT station.'}},
   {t:'Keep the gate shut',f:()=>{known().forEach(r=>r.san=clamp(r.san-10,0,100));return 'The banging stops after an hour. Nobody sleeps well.'}}]})};
-function helpNote(h){S.store.food-=5;h.food+=5;h.trust=80;reveal(U(h.unit),'They open the gate in tears.')}
+function helpNote(h){addPhil(3);S.store.food-=5;h.food+=5;h.trust=80;reveal(U(h.unit),'They open the gate in tears.')}
 EV.note={make:a=>{
   const list=(a.multi||[a]).map(x=>H(x.h)).filter(h=>h&&!h.known&&!h.fate&&h.unit);if(!list.length)return null;
   if(list.length===1){const h=list[0];const u=U(h.unit);return card({i:'✉️',t:'A note under the door',x:'Someone slid a note through the corridor: "This is '+u.id+'. No more food. Please help. — '+members(h)[0].short+'"',c:[
@@ -1316,13 +1371,56 @@ EV.ousted={make:()=>{
 }};
 const DEST_WHY={market:'Food and water',park:'Sanity for the stressed',school:'Tools, medicine, survivors',hawker:'Rice and dry goods',police:'Weapons, armour, radio'};
 EV.foxwhere={make:()=>{
-  const fx=S.built.fox||(S.built.fox={});const opts=Object.keys(DEST).filter(k=>!fx[k]);if(!opts.length)return null;
+  const fx=S.built.fox||(S.built.fox={});const opts=Object.keys(DEST).filter(k=>destOk(k)&&!fx[k]);if(!opts.length)return null;
   return card({i:'🪢',t:'Where should the flying fox go?',x:'The inventor can string the line from the block to one nearby rooftop. Runs there will be half as risky, 2 riders at a time, and it works even after the void deck falls.',c:opts.map(k=>({t:DEST[k].e+' '+DEST[k].n,s:DEST_WHY[k],f:()=>{fx[k]=1;const first=!S.known.zipline;S.known.zipline=true;log('Flying fox rigged to the '+DEST[k].n.toLowerCase()+'.','good');return 'The line hums tight across to the '+DEST[k].n.toLowerCase()+'. Pick the Flying fox route on the Outside tab.'+(first?'\n\nThe inventor is already sketching a motorised two-way version: see the two-way zipline in the Workshop.':'')}}))});
 }};
 EV.zipwhere={make:()=>{
   const fx=S.built.fox||{};const opts=Object.keys(fx).filter(k=>fx[k]===1);if(!opts.length)return null;
   return card({i:'🔋',t:'Which flying fox gets the motor?',x:'A car battery and a wiper motor will pull the trolley back up. That flying fox becomes a two-way zipline: a quarter of the normal risk, 3 riders at a time.',c:opts.map(k=>({t:DEST[k].e+' '+DEST[k].n,s:DEST_WHY[k],f:()=>{fx[k]=2;log('The '+DEST[k].n.toLowerCase()+' line is now a two-way zipline.','good');return 'The motor whines and the trolley crawls back up the line by itself. Runs to the '+DEST[k].n.toLowerCase()+' are now much safer.'}}))});
 }};
+EV.doctors={make:()=>card({i:'🩺',t:'A medical team at the barricade',x:'Two doctors and two nurses in filthy scrubs from Changi General Hospital. They held their ward for three weeks before it fell.\n\n"We can help your sick and injured. But we\'re exhausted and starving. We\'ll need a lot of food." (Each of them eats like two people.)',c:[
+  {t:'Take them in',s:'4 skilled medics. Each eats double. They may cause trouble.',f:()=>{const h=newHousehold('cn');mkRes('doctor',h);mkRes('doctor',h);mkRes('nurse',h);mkRes('nurse',h);members(h).forEach(r=>{r.big=true;r.job='medic'});nameHH(h);h.name='The medical team';S.end.med={t:S.t,active:true};S.end.polyOpen=1;addTimer(ri(5,9),'medTrouble',{});log('A medical team from Changi General joined the block.','good');return 'They come in and fall asleep almost at once, in their shoes. Find them a flat.\n\nThey know where the polyclinic kept its stock: the Polyclinic is now on the Outside tab.'}},
+  {t:'We can\'t feed four more like that',f:()=>{S.end.med={active:false,refused:1};return 'They nod, too tired to argue, and walk on toward Tampines.'}}]})};
+EV.medTrouble={make:a=>{
+  if(!medActive())return null;const team=medTeam();const doc=team.find(r=>r.arch==='doctor')||team[0];
+  const leave={t:'Ask the medical team to leave',s:'Ends their stay for good',f:()=>{medTeam().forEach(r=>exile(r,'Left the block with the medical team'));S.end.med.active=false;return 'They pack their bags in silence and leave before dawn.'}};
+  if(a.k==='rations')return card({i:'🍚',t:'The doctors want more',x:doc.name+' corners you. "We\'re treating your people all day. Our team needs more than this." They want 15 food from the store for their household.',c:[
+    {t:'Give them 15 food',s:'−15 food',dis:S.store.food<15,f:()=>{S.store.food-=15;H(doc.hh).food+=15;team.forEach(r=>r.san=clamp(r.san+10,0,100));S.hh.forEach(h=>{if(h.known&&h.id!==doc.hh)h.trust=clamp(h.trust-3,0,100)});return 'They take it. Some neighbours mutter about "special treatment".'}},
+    {t:'Everyone eats the same',s:'They might walk out',f:()=>{if(chance(.3))return leave.f();team.forEach(r=>r.san=clamp(r.san-12,0,100));return 'They grumble, but stay.'}},leave]});
+  if(a.k==='meds')return card({i:'💊',t:'Missing medicine',x:'The medicine box is lighter. '+doc.name+' admits taking some "for research". "If we\'re ever going to find a cure, we need to study it."',c:[
+    {t:'Let them keep it',s:'−'+Math.min(5,S.store.meds)+' meds',f:()=>{S.store.meds-=Math.min(5,S.store.meds);S.end.med.research=(S.end.med.research||0)+1;return '"Thank you. This matters more than you know."'}},
+    {t:'Make them put it back',s:'Their morale drops. They might leave.',f:()=>{if(chance(.25))return leave.f();team.forEach(r=>r.san=clamp(r.san-10,0,100));return 'The medicine goes back in the box. The doctors stop talking to you.'}},leave]});
+  const fam=pick(S.hh.filter(h=>h.known&&members(h).length&&!members(h).some(r=>r.big)));if(!fam)return null;
+  return card({i:'😤',t:'A clash in the sick bay',x:doc.name+' refused to treat the '+fam.name+'\'s grandmother: "We have to prioritise people who can still fight." The family is furious and wants you to choose a side.',c:[
+    {t:'Back the doctors',s:'The '+fam.name+' lose trust',f:()=>{fam.trust=clamp(fam.trust-15,0,100);members(fam).forEach(r=>r.san=clamp(r.san-10,0,100));return 'The doctors nod. The '+fam.name+' won\'t look at you.'}},
+    {t:'Back the family',s:'The doctors might leave',f:()=>{fam.trust=clamp(fam.trust+8,0,100);if(chance(.2))return leave.f();team.forEach(r=>r.san=clamp(r.san-15,0,100));return 'The grandmother is treated. The doctors are cold to you for days.'}},leave]});
+}};
+EV.cureReady={make:()=>{if(!medActive())return null;return card({i:'🧪',t:'The doctors are ready',x:'Two months of work. Samples from the sealed quarantine room. Two sick bays, a hundred doses of medicine. '+medTeam()[0].name+' gathers everyone in the corridor.\n\n"We think we can make something that stops the turning. It will take a week and most of our medicine. It might not work."',c:[
+  {t:'Begin the trials',s:'−50 meds. A week of work.',f:()=>{S.store.meds-=50;S.end.med.trial=S.t;addTimer(7,'cureDone',{});return 'The sick bays go quiet and smell of disinfectant. Nobody is allowed in.'}},
+  {t:'Not yet',s:'They\'ll ask again in a few days',f:()=>'"We\'ll be ready when you are."'}]})}};
+EV.cureDone={make:()=>card({i:'🧪',t:'A single vial',x:'On the seventh morning, the doctors come out with red eyes and a single glass vial.',c:[{t:'See what happens',f:()=>{finishGame('cure');return null}}]})};
+EV.radioMsg={make:a=>{const R_=S.end.radio;return card({i:'📻',t:'Radio message '+(a.n+1)+' of '+RADIO_MSGS.length,x:'The police radio crackles to life:\n\n'+RADIO_MSGS[a.n]+'\n\nNobody knows if anyone can hear you. They have never answered.',c:[
+  {t:'Respond: "This is Blk '+S.blk+', '+S.estate+'. We hear you."',s:'Keep the channel alive. The transmission makes some noise.',f:()=>{R_.ans++;S.noise+=3;known().forEach(r=>r.san=clamp(r.san+3,0,100));return R_.ans>=RADIO_MSGS.length?'Static. Then nothing. You have answered every message.':'Static. No reply. But you keep the frequency written on the wall.'}},
+  {t:'Stay silent',s:'They will stop trying to reach you',f:()=>{R_.lost=true;return 'You switch the radio off. The next night, the frequency is just static.'}}]})}};
+EV.radioContact={make:()=>{const n=ri(6,9);return card({i:'📡',t:'Changi answers',x:'For the first time, a voice answers YOU.\n\n"Blk '+S.blk+', this is Changi Naval Base, we read you loud and clear. You have been on our list for weeks. Final convoy collection in '+n+' days, at your void deck, at dawn. Every evacuee must bring 3 days of food and water for the voyage. We cannot feed you on board. Do you copy?"',c:[
+  {t:'"We copy. We\'ll be there."',s:'Each evacuee needs 3 food and 3 water. You can still choose to stay.',f:()=>{S.end.evacDay=S.t+n;addTimer(n,'evacDay',{});log('Evacuation convoy in '+n+' days. Each evacuee needs 3 food and 3 water.','big');return 'The whole block hears the news in an hour. Some people cry. Some start packing right away.'}}]})}};
+EV.evacDay={make:()=>{
+  const ppl=known().filter(r=>!r.away);const n=ppl.length;const food=S.store.food+S.hh.reduce((a,h)=>a+(h.known?h.food:0),0);const water=S.store.water+S.hh.reduce((a,h)=>a+(h.known?h.water:0),0);
+  const cap=Math.min(n,Math.floor(food/3),Math.floor(water/3));const lost=S.front>0;
+  const go=(list,left)=>{S.end.evacGo=list.length;S.end.evacLeft=left;S.end.evac=1;finishGame('escape');return null};
+  const hhList=S.hh.filter(h=>h.known&&members(h).some(r=>!r.away)).sort((a,b)=>members(b).filter(r=>r.age<13||r.age>=65).length-members(a).filter(r=>r.age<13||r.age>=65).length);
+  const pickFamilies=()=>{const out=[];for(const h of hhList){const ms=members(h).filter(r=>!r.away);if(out.length+ms.length<=cap)out.push(...ms)}return out};
+  return card({i:'🚛',t:'The trucks are here',x:'Dawn. Engines on Ave 3. Soldiers in full gear wave from army trucks parked by the void deck'+(lost?', firing into the dead that fill it':'')+'.\n\n'+n+' residents. Supplies for the voyage: you have '+food+' food and '+water+' water in total, enough for '+cap+' people (3 food + 3 water each).',c:[
+    {t:'Everyone goes',s:'Needs '+n*3+' food and '+n*3+' water',dis:cap<n,f:()=>go(ppl,0)},
+    {t:'Take whole families, as many as supplies allow',s:cap+' can go. Families with children and elderly first. '+Math.max(0,n-pickFamilies().length)+' stay behind.',dis:cap<1||cap>=n,f:()=>{const g=pickFamilies();return go(g,n-g.length)}},
+    {t:'Stay. This block is home.',s:'The convoy leaves without you. You keep playing.',f:()=>{S.end.evacDeclined=1;return 'The trucks pull away. The block watches them go from the corridors. Nobody says it was the wrong choice. Not yet.'}}]});
+}};
+EV.lastOne={make:()=>{const r=known()[0];if(!r)return null;return card({i:'🕯️',t:'The last one',x:'Everyone else is gone. '+r.name+' walks the silent corridors, past doors that will never open again.\n\nThere is still food. There is still water. There is nobody to share it with.',bad:1,c:[
+  {t:'Keep going',s:'Somebody might still come',f:()=>'You lock the gate, eat something, and wait for morning.'},
+  {t:'Give up',s:'Ending',f:()=>{finishGame('alone');return null}}]})}};
+EV.kampungEnd={make:()=>card({i:'🤝',t:'The whole estate knows your name',x:'Torches flash from block to block every night now, passing messages along a line that runs right across '+S.estate+'. Families you fed, people you took in, blocks you lent your fighters to: they have all become one network, and Blk '+S.blk+' is at its heart.\n\nThis morning, an SAF patrol followed the torch signals to your void deck.',c:[
+  {t:'"We made it, together."',s:'Ending',f:()=>{S.end.kampungDone=1;finishGame('kampung');return null}},
+  {t:'Not yet. There\'s more to do.',s:'Keep playing',f:()=>'The patrol leaves supplies and promises to come back.'}]})};
 EV.natday={make:()=>card({i:'🇸🇬',t:'National Day',x:'9 August. Someone hangs a flag from the roof. On the radio, a recording of "Home".',c:[{t:'Sing along from the corridors',s:'Morale up, noise up',f:()=>{known().forEach(r=>r.san=clamp(r.san+12,0,100));S.noise+=4;return 'Off key, all of it. Nobody cares.'}},{t:'Keep quiet',f:()=>'The flag flutters in silence.'}]})};
 EV.tdd={make:()=>card({i:'📢',t:'Total Defence Day',x:'15 February, 12.05pm. Somewhere, a timer still works: the Public Warning System sounds its yearly test. Every zombie for miles turns toward the sirens.',zed:1,c:[{t:'Brace',f:()=>{S.flags.horde=1;return 'Tonight will be bad.'}}]})};
 function newHousehold(eth){const h=mkHH(eth);h.known=true;h.kind='family';h.trust=60;S.hh.push(h);return h}
@@ -1376,7 +1474,7 @@ function search(uid){
   if(chance(.25))S.store.meds++;
   const msg=r.short+' searched '+u.id+': '+f+' food, '+sc+' scrap, '+it.join(', ')+'.';log(msg,'good');flash(msg);save();render();
 }
-function convert(uid){const u=U(uid);const k=document.getElementById('roomsel').value;const rm=ROOMS[k];if(!u||u.st!=='empty'||!rm||S.store.scrap<rm.cost)return;if(rm.once&&rooms(k)){flash('You already have a '+rm.n.toLowerCase()+'. A second one adds nothing.');return}S.store.scrap-=rm.cost;u.room=k;if(k==='depot'&&u.scrapLeft==null)u.scrapLeft=ri(20,35);if(k==='kopi'){const needW=S.grid.water?0:2;u.open=S.store.food>=2&&S.store.water>=needW;if(u.open){S.store.food-=2;S.store.water-=needW}}log(u.id+' converted into a '+rm.n.toLowerCase()+'.','good');save();render()}
+function convert(uid){const u=U(uid);const k=document.getElementById('roomsel').value;const rm=ROOMS[k];if(!u||u.st!=='empty'||!rm||S.store.scrap<rm.cost)return;if(rooms(k)>=maxRooms(k)){flash('You already have a '+rm.n.toLowerCase()+'. A second one adds nothing.');return}S.store.scrap-=rm.cost;u.room=k;if(k==='depot'&&u.scrapLeft==null)u.scrapLeft=ri(20,35);if(k==='kopi'){const needW=S.grid.water?0:2;u.open=S.store.food>=2&&S.store.water>=needW;if(u.open){S.store.food-=2;S.store.water-=needW}}log(u.id+' converted into a '+rm.n.toLowerCase()+'.','good');save();render()}
 function moveIn(uid){const u=U(uid);const h=H(+document.getElementById('hhsel').value);if(!u||!h||u.st!=='empty'||u.room)return;if(h.unit){const old=U(h.unit);if(old){old.st='empty';old.hh=null;old.looted=true}}h.unit=u.id;u.hh=h.id;u.st='known';log('The '+h.name+' moved into '+u.id+'.','');save();render()}
 function seal(uid){const u=U(uid);if(!u||u.st!=='danger'||S.store.scrap<5)return;S.store.scrap-=5;u.st='sealed';log(u.id+' sealed shut with planks and wire.','');save();render()}
 function clearUnit(uid){
@@ -1398,7 +1496,7 @@ function donate(hid,k){
 function moveFood(hid,dir,kind){
   const h=H(hid);if(!h)return;kind=kind||'food';
   if(dir==='in'){const n=Math.min(5,h[kind]);if(!n)return;const ms=members(h);let p=.4+h.trust/150;if(ms.some(r=>has(r,'kiasu')))p-=.2;if(S.flags['askf'+hid]===tick()){flash('Already asked this phase.');return}S.flags['askf'+hid]=tick();if(chance(p)){h[kind]-=n;S.store[kind]+=n;flash('The '+h.name+' share '+n+' '+kind+'.')}else{h.trust=clamp(h.trust-3,0,100);flash('The '+h.name+' refuse to share.')}}
-  else{const n=Math.min(5,S.store[kind]);if(!n)return;S.store[kind]-=n;h[kind]+=n;h.trust=clamp(h.trust+3,0,100)}
+  else{const n=Math.min(5,S.store[kind]);if(!n)return;S.store[kind]-=n;h[kind]+=n;h.trust=clamp(h.trust+3,0,100);addPhil(1)}
   save();render();
 }
 function talkTo(id){const r=RS(id);if(!r||S.talks<=0)return;const t=best('K',known().filter(m=>act(m)&&m!==r&&m.age>=16))||leader();S.talks--;const g=Math.round(6+(t?t.st.K*1.6:5)+ri(0,6));r.san=clamp(r.san+g,0,100);flash((t?t.short:'Someone')+' spends time with '+r.short+'. Sanity +'+g+'.');save();render()}
@@ -1481,7 +1579,7 @@ const SKIN=['#f5d0a9','#e8b98a','#d39a6a','#a86b42','#7a4a2a'];
 const SHIRT=['#6c8ebf','#b5677d','#7aa37a','#c08a4b','#8e7cc3','#d08c60','#5c9ea0'];
 const JOBSHIRT={guard:'#d9534f',lookout:'#4a90d9',invent:'#e3a92b',medic:'#eef4f6',garden:'#5a9e3a',salvage:'#8a6a4a'};
 const POSTS=['invent','medic','garden','salvage'];
-const SPR_ROW={you:0,ahma:1,ahgong:2,tinker:3,polystu:4,nsman:5,nsf:6,helper:7,nurse:8,driver:9,hawker:10,cleaner:11,rcauntie:12,student:13,kid:14,pmet:15,karang:16,ahbeng:17,teacher:18,worker:19};
+const SPR_ROW={doctor:8,you:0,ahma:1,ahgong:2,tinker:3,polystu:4,nsman:5,nsf:6,helper:7,nurse:8,driver:9,hawker:10,cleaner:11,rcauntie:12,student:13,kid:14,pmet:15,karang:16,ahbeng:17,teacher:18,worker:19};
 // i/arr come from Array.map: each sprite in a flat gets its own slice of floor so they never cross.
 // renderTower skips rebuilding when nothing changed, and re-phases animations from the clock when it does.
 function sprite(r,i,arr){
@@ -1500,9 +1598,10 @@ function zz(n,delay){const d=typeof pday==='function'&&S&&S.outbreakAt!=null?pda
   return `<span class="zz" title="Zombie" data-o="${dl}" style="--r:${row};animation-delay:-${dl}s"></span>`}
 
 // who is physically in their flat right now: guards/lookouts are at their posts, workers are at their rooms by day
-const BEDS=4;
+const BEDS_PER=4;function beds(){return BEDS_PER*Math.max(1,rooms('sickbay'))}
+function maxRooms(k){if(!ROOMS[k].once)return 99;if(k==='sickbay'&&medActive())return 2;if(k==='workshop'&&S.end&&S.end.radio&&S.end.radio.unlocked)return 2;return 1}
 function sickbayUnit(){return S.units.find(u=>u.room==='sickbay'&&u.st==='empty'&&u.lvl>S.front)||null}
-function medAmt(m){return (3+m.st.I*.7+(m.arch==='nurse'?3:0))*(rooms('sickbay')>0?2:1)*(S.flags.herbs?1.25:1)}
+function medAmt(m){return (3+m.st.I*.7+(m.arch==='nurse'?3:0)+(m.arch==='doctor'?5:0))*(rooms('sickbay')>0?2:1)*(S.flags.herbs?1.25:1)}
 function wardBase(r){return 3+(r.hun<60&&r.thi<60?1:0)}
 // older bodies and serious wounds heal slower, from every source (rest, medics, the ward, meds)
 function healMult(r){return (r.age>=75?.55:r.age>=65?.7:1)*(r.hp<30?.75:1)}
@@ -1512,7 +1611,7 @@ function wardRate(r){const n=Math.max(1,known().filter(x=>x.ward).length);return
 function admit(id){
   const r=RS(id);const u=sickbayUnit();if(!r||!r.alive||r.ward||r.away||r.quar)return;
   if(!u){flash('You need a sick bay first. Convert an empty flat.');return}
-  if(known().filter(x=>x.ward).length>=BEDS){flash('All '+BEDS+' beds are taken.');return}
+  if(known().filter(x=>x.ward).length>=beds()){flash('All '+beds()+' beds are taken.');return}
   r.ward=u.id;r.job='rest';r.post=null;log(r.short+' was admitted to the sick bay.','');save();render();
 }
 function atHome(r){return !r.away&&!r.ward&&!(r.quar&&r.qRoom)&&r.job!=='guard'&&r.job!=='lookout'&&!(S.ph<3&&POSTS.includes(r.job))}
@@ -1537,7 +1636,7 @@ function unitTile(u){
   if(u.st==='infested'){const sl=S.infest&&S.infest[u.lvl]&&S.infest[u.lvl].sealed;return sl?`<button class="unit st-sealed${sel}" data-act="sel" data-v="${u.id}"><span class="uid">${u.id}</span><span class="unm">Floor sealed</span><span>🚧🧟</span></button>`:`<button class="unit st-lost${sel}" data-act="sel" data-v="${u.id}"><span class="uid">${u.id}</span><span class="unm">Overrun</span>${zz(u.lvl)}</button>`}
   if(u.st==='sealed')return `<button class="unit st-sealed${sel}" data-act="sel" data-v="${u.id}"><span class="uid">${u.id}</span><span class="unm">${u.contam?'Contaminated':'Sealed'}</span><span>🚧</span></button>`;
   if(u.st==='empty'){
-    if(u.room){const rm=ROOMS[u.room];const n=u.room==='quarantine'?known().filter(r=>r.quar&&r.qRoom===u.id).length:0;return `<button class="unit room-${u.room}${sel}" data-act="sel" data-v="${u.id}"><span class="uid">${u.id}</span><span class="unm">${rm.e} ${rm.n}</span>${n?`<span class="small">${n} inside</span>`:''}${u.room==='sickbay'?`<span class="small">Beds ${known().filter(r=>r.ward).length}/${BEDS}${jobbers('medic').length?' · '+jobbers('medic').length+' medic'+(jobbers('medic').length>1?'s':''):' · no medic'}</span>`:''}${u.room==='quarantine'?`<span class="small">Uses ${u.qUsed||0}/2</span>`:''}${u.room==='depot'?(()=>{const w=staffAssign('depot','salvage')[u.id];return `<span class="small">${u.scrapLeft} scrap left${w?' · '+esc(w.short):''}</span>${w?'':'<span class="small" style="color:#fff3b0;font-weight:700">⚠ Needs a worker</span>'}`})():''}${u.room==='kopi'?`<span class="small">${u.open?'Open · floors '+pad(Math.max(2,u.lvl-2))+'–'+pad(Math.min(S.floors,u.lvl+2)):'⚠ Closed: no supplies'}</span>`:''}${u.room==='garden'?(()=>{const g=gardenAssign()[u.id];return g?`<span class="small">🧑‍🌾 ${esc(g.short)} · +5/day</span>`:`<span class="small" style="color:#fff3b0;font-weight:700">⚠ Needs a gardener</span>`})():''}${roomSprites(u)}</button>`}
+    if(u.room){const rm=ROOMS[u.room];const n=u.room==='quarantine'?known().filter(r=>r.quar&&r.qRoom===u.id).length:0;return `<button class="unit room-${u.room}${sel}" data-act="sel" data-v="${u.id}"><span class="uid">${u.id}</span><span class="unm">${rm.e} ${rm.n}</span>${n?`<span class="small">${n} inside</span>`:''}${u.room==='sickbay'?`<span class="small">Beds ${known().filter(r=>r.ward).length}/${beds()}${jobbers('medic').length?' · '+jobbers('medic').length+' medic'+(jobbers('medic').length>1?'s':''):' · no medic'}</span>`:''}${u.room==='quarantine'?`<span class="small">Uses ${u.qUsed||0}/2</span>`:''}${u.room==='depot'?(()=>{const w=staffAssign('depot','salvage')[u.id];return `<span class="small">${u.scrapLeft} scrap left${w?' · '+esc(w.short):''}</span>${w?'':'<span class="small" style="color:#fff3b0;font-weight:700">⚠ Needs a worker</span>'}`})():''}${u.room==='kopi'?`<span class="small">${u.open?'Open · floors '+pad(Math.max(2,u.lvl-2))+'–'+pad(Math.min(S.floors,u.lvl+2)):'⚠ Closed: no supplies'}</span>`:''}${u.room==='garden'?(()=>{const g=gardenAssign()[u.id];return g?`<span class="small">🧑‍🌾 ${esc(g.short)} · +5/day</span>`:`<span class="small" style="color:#fff3b0;font-weight:700">⚠ Needs a gardener</span>`})():''}${roomSprites(u)}</button>`}
     return `<button class="unit st-empty${sel}" data-act="sel" data-v="${u.id}"><span class="uid">${u.id}</span><span class="unm">Empty</span><span class="small">${u.looted?'Searched':'Unsearched'}</span></button>`;
   }
   const h=H(u.hh);const ms=h?members(h):[];
@@ -1562,7 +1661,7 @@ function renderTower(){
     `<span class="vd-label">VOID DECK</span><div class="shutter">${isOut()?`<span class="small" style="color:#33413d">Shutter ${Math.max(0,Math.round(S.bar.hp))}/${S.bar.max}</span><div class="barbar"><i style="width:${clamp(S.bar.hp/S.bar.max*100,0,100)}%"></i></div>`:'<span class="small" style="color:#33413d">Letterboxes · bicycle bay · chess tables</span>'}<span>${g.map(faceOf).join('')}</span></div>`}</div></div>`;
   const zc=isOut()?Math.min(14,Math.floor(Math.sqrt(pday())*2)):0;
   h+=`<div class="horde">${zc?Array.from({length:zc},(_, i)=>zz(i,'-'+(i*.37).toFixed(2)+'s')).join(''):(alertLvl()>=2?'<span style="color:#ddd">Queues at the supermarket</span>':'')}</div><div class="road"></div>`;
-  h+=`<div class="ground">${Object.entries(DEST).map(([k,d])=>{const out=S.exps.filter(e=>e.dest===k);return `<button class="site" data-act="site" data-v="${k}"><b>${d.e}</b>${d.n.replace('Neighbourhood ','')}${k==='market'?`<span class="mono">${S.market<1?'empty':'stock '+Math.round(S.market)+'%'}</span>`:''}${out.length?`<span class="mono">team out (${out[0].team.length})</span>`:''}</button>`}).join('')}</div>`;
+  h+=`<div class="ground">${Object.entries(DEST).filter(([k])=>destOk(k)).map(([k,d])=>{const out=S.exps.filter(e=>e.dest===k);return `<button class="site" data-act="site" data-v="${k}"><b>${d.e}</b>${d.n.replace('Neighbourhood ','')}${k==='market'?`<span class="mono">${S.market<1?'empty':'stock '+Math.round(S.market)+'%'}</span>`:''}${out.length?`<span class="mono">team out (${out[0].team.length})</span>`:''}</button>`}).join('')}</div>`;
   const tw=$('#tower');
   if(h!==UI.towerHTML){
     UI.towerHTML=h;tw.innerHTML=h;
@@ -1648,10 +1747,10 @@ function panelUnit(){
     if(u.room==='sickbay'){
       const pats=known().filter(r=>r.ward);const meds=jobbers('medic');
       const cands=known().filter(r=>!r.ward&&!r.away&&!r.quar&&r.hp<95).sort((a,b)=>a.hp-b.hp);
-      h+=`<div class="kv"><span class="mute">Beds</span><span class="mono">${pats.length}/${BEDS}</span><span class="mute">Medics</span><span>${meds.length?meds.map(m=>esc(m.short)).join(', '):'<span class="warnline">None on duty. Patients still heal, slowly.</span>'}</span></div>`;
+      h+=`<div class="kv"><span class="mute">Beds</span><span class="mono">${pats.length}/${beds()}</span><span class="mute">Medics</span><span>${meds.length?meds.map(m=>esc(m.short)).join(', '):'<span class="warnline">None on duty. Patients still heal, slowly.</span>'}</span></div>`;
       h+=`<p class="small mute">Patients can't work, guard or go out until they're healed. They heal ${wardBase({hun:0,thi:0})} health a phase on their own (less if hungry or thirsty), plus a share of every medic's work. Elderly patients heal 30% slower (45% over 75), and anyone below 30 health a further 25% slower. Meds work less well on them too. They leave by themselves at 95 health.</p>`;
       h+=pats.length?pats.map(r=>{const rate=wardRate(r);const ph=Math.max(1,Math.ceil((95-r.hp)/rate));return `<div class="prow2 job-medic"><span class="big2">${faceOf(r)}</span><div style="min-width:0"><div class="nm"><b>${esc(r.short)}</b> <span class="small mute">+${rate.toFixed(1)} a phase · about ${ph} phase${ph>1?'s':''} to go${healWhy(r)?' · heals slowly ('+healWhy(r)+')':''}</span></div><div class="row" style="gap:6px;flex-wrap:nowrap"><span class="small mute">Health</span>${bar(r.hp,r.hp>50?'var(--ok)':'var(--blood)')}<span class="mono small">${Math.round(r.hp)}</span></div><div class="row" style="margin-top:4px"><button data-act="wardmeds" data-v="${r.id}" ${S.store.meds?'':'disabled'}>Give 1 meds (+${medsGain(r)} health)</button><button data-act="discharge" data-v="${r.id}">Discharge now</button></div></div></div>`}).join(''):'<p class="mute">No patients.</p>';
-      if(pats.length<BEDS)h+=cands.length?`<div class="card stack"><b>🩹 Admit a patient</b><div class="row"><select id="patsel" aria-label="Patient">${cands.map(r=>`<option value="${r.id}">${esc(r.short)} (health ${Math.round(r.hp)}${r.job!=='rest'?', now: '+JOBS[r.job]:''})</option>`).join('')}</select><button data-act="admitsel">Admit</button></div><span class="small mute">Most injured first.</span></div>`:'<p class="small mute">Nobody needs a bed right now.</p>';
+      if(pats.length<beds())h+=cands.length?`<div class="card stack"><b>🩹 Admit a patient</b><div class="row"><select id="patsel" aria-label="Patient">${cands.map(r=>`<option value="${r.id}">${esc(r.short)} (health ${Math.round(r.hp)}${r.job!=='rest'?', now: '+JOBS[r.job]:''})</option>`).join('')}</select><button data-act="admitsel">Admit</button></div><span class="small mute">Most injured first.</span></div>`:'<p class="small mute">Nobody needs a bed right now.</p>';
     }
     if(u.room==='depot'){const w=staffAssign('depot','salvage')[u.id];
       h+=`<div class="kv"><span class="mute">Scrap left</span><span class="mono">${u.scrapLeft}</span><span class="mute">Per day</span><span class="mono">${w?(w.arch==='karang'?6:3):0}</span></div>${bar(u.scrapLeft/35*100,'var(--warn)')}`;
@@ -1662,7 +1761,7 @@ function panelUnit(){
     if(u.room==='quarantine'){const q=known().filter(r=>r.quar&&r.qRoom===u.id);h+=`<p class="${(u.qUsed||0)>=1?'warnline':'mute'}">Used ${u.qUsed||0} of 2 times. After 2 people have been through it, the flat is too contaminated and will be sealed for good.</p>`;h+=q.length?q.map(personCard).join(''):'<p class="mute">Nobody inside.</p>'}return h}
     h+=`<p class="mute">Nobody lives here now.</p><div class="stack">`;
     if(!u.looted)h+=`<div class="card stack"><b>🔍 Search the flat</b><div class="row">${workerSelect()}<button data-act="search" data-v="${u.id}" ${known().some(able)?'':'disabled'}>Search</button></div></div>`;
-    h+=`<div class="card stack"><b>🛠️ Repurpose it</b><div class="row"><select id="roomsel" aria-label="Room type">${Object.entries(ROOMS).filter(([k,r])=>!(r.once&&rooms(k))).map(([k,r])=>`<option value="${k}">${r.e} ${r.n} (−${r.cost} scrap)</option>`).join('')}</select><button data-act="convert" data-v="${u.id}">Convert</button></div><div class="stack small mute" style="gap:4px">${Object.entries(ROOMS).filter(([k,r])=>!(r.once&&rooms(k))).map(([k,r])=>`<span><b style="color:var(--ink)">${r.e} ${r.n}:</b> ${r.d}</span>`).join('')}</div></div>`;
+    h+=`<div class="card stack"><b>🛠️ Repurpose it</b><div class="row"><select id="roomsel" aria-label="Room type">${Object.entries(ROOMS).filter(([k,r])=>rooms(k)<maxRooms(k)).map(([k,r])=>`<option value="${k}">${r.e} ${r.n} (−${r.cost} scrap)</option>`).join('')}</select><button data-act="convert" data-v="${u.id}">Convert</button></div><div class="stack small mute" style="gap:4px">${Object.entries(ROOMS).filter(([k,r])=>rooms(k)<maxRooms(k)).map(([k,r])=>`<span><b style="color:var(--ink)">${r.e} ${r.n}:</b> ${r.d}</span>`).join('')}</div></div>`;
     const hhs=S.hh.filter(x=>x.known&&members(x).length);
     hhs.sort((a,b)=>(a.unit?1:0)-(b.unit?1:0));
     h+=`<div class="card stack"><b>🏠 Move a household in</b><div class="row"><select id="hhsel" aria-label="Household">${hhs.map(x=>`<option value="${x.id}">${esc(x.name)} ${x.unit?'(from '+x.unit+')':'(no home)'}</option>`).join('')}</select><button data-act="movein" data-v="${u.id}">Move in</button></div></div></div>`;
@@ -1720,7 +1819,7 @@ function suitLine(r){
 function admitBtn(r){
   if(r.ward){const rate=wardRate(r);const ph=Math.max(1,Math.ceil((95-r.hp)/rate));return `<div class="row" style="gap:6px;margin:2px 0"><span class="small" style="color:#4fd1c5">🩹 In the sick bay: about ${ph} phase${ph>1?'s':''} until healed</span><button data-act="discharge" data-v="${r.id}" style="padding:2px 8px;font-size:12px">Discharge</button></div>`}
   if(r.away||r.quar||r.hp>=80||!sickbayUnit())return '';
-  const full=known().filter(x=>x.ward).length>=BEDS;
+  const full=known().filter(x=>x.ward).length>=beds();
   return `<div class="row" style="gap:6px;margin:2px 0"><button data-act="admit" data-v="${r.id}" ${full?'disabled':''} style="padding:2px 8px;font-size:12px">🩹 Admit to sick bay</button>${full?'<span class="small mute">All beds taken</span>':'<span class="small mute">Out of action until healed</span>'}</div>`;
 }
 function personRow(r){
@@ -1763,7 +1862,7 @@ function panelPeople(){
     h+=sec('Medics',working.filter(r=>r.job==='medic'));
     h+=sec('Gardeners',working.filter(r=>r.job==='garden'));
     h+=sec('Unassigned (resting)',working.filter(r=>r.job==='rest').sort((a,b)=>(has(b,'inventor')-has(a,'inventor'))||guardPow(b)-guardPow(a)));
-    h+=sec('In the sick bay',ks.filter(r=>r.ward&&!r.away),sickbayUnit()?'They can\'t work or go out until healed. Beds: '+ks.filter(r=>r.ward).length+'/'+BEDS+'.':'');h+=sec('Away',ks.filter(r=>r.away));h+=sec('Quarantined',ks.filter(r=>r.quar&&!r.away));h+=sec('Children',ks.filter(r=>r.age<13&&!r.away));
+    h+=sec('In the sick bay',ks.filter(r=>r.ward&&!r.away),sickbayUnit()?'They can\'t work or go out until healed. Beds: '+ks.filter(r=>r.ward).length+'/'+beds()+'.':'');h+=sec('Away',ks.filter(r=>r.away));h+=sec('Quarantined',ks.filter(r=>r.quar&&!r.away));h+=sec('Children',ks.filter(r=>r.age<13&&!r.away));
   }else if(F==='hh'){
     const hs=S.hh.filter(x=>x.known&&members(x).length).sort((a,b)=>a.trust-b.trust);
     h+=`<p class="small mute">Block trust <b style="color:${sanCol(blockTrust())}">${blockTrust()}%</b>. Households trust you more when they're fed and helped, and less when they go hungry, are refused, or see neighbours thrown out. If block trust falls below 25%, the residents may drive you out. Lowest trust is listed first.</p>`;
@@ -1787,7 +1886,7 @@ function panelPeople(){
 function panelOutside(){
   const d=UI.dest;const rt=curRoute(d);ensureTeam(d,rt);
   const team=UI.team.map(RS).filter(r=>r&&able(r)&&r.lastRun!==S.t);
-  let h=`<h2>Outside</h2><div class="destgrid">`+Object.entries(DEST).map(([k,x])=>{const fx=(S.built.fox||{})[k];const out=S.exps.some(e=>e.dest===k);
+  let h=`<h2>Outside</h2><div class="destgrid">`+Object.entries(DEST).filter(([k])=>destOk(k)).map(([k,x])=>{const fx=(S.built.fox||{})[k];const out=S.exps.some(e=>e.dest===k);
     return `<button class="dest2 ${k===d?'on':''}" data-act="dest" data-v="${k}"><span class="e">${x.e}</span><span style="min-width:0"><b>${({park:'Park',police:'Police centre'})[k]||x.n}</b>${k==='market'?(S.market<1?`<span class="small badline">Empty${S.mktScrap==null||S.mktScrap>0?' · salvage: scrap':''}</span>`:`<span class="small ${S.market<20?'warnline':'mute'}">Stock ${Math.round(S.market)}%</span>`):''}${fx?`<span class="small goodline">🪢 ${fx===2?'Zipline':'Flying fox'}</span>`:''}${out?'<span class="small warnline">Team out</span>':''}</span></button>`}).join('')+`</div>`;
   h+=`<p class="small mute" style="margin:8px 0 0">${DEST[d].e} ${DEST[d].d}</p>`;
   h+=`<h3>Route</h3><div class="routes">`+routes(d).map(r=>`<button class="${rt&&rt.k===r.k?'btn-main':''}" data-act="route" data-v="${r.k}" ${r.ok?'':'disabled'}><b>${r.unk?'???':esc(r.n)}</b><small>${r.ok?(r.m!==1?'Risk ×'+r.m+' · ':'Normal risk · ')+'max '+r.max:esc(r.why)}</small></button>`).join('')+`</div>`;
@@ -1822,13 +1921,15 @@ function panelWorkshop(){
   h+=it.length?`<div class="itemchips">${it.map(k=>`<button class="ic ${UI.expSel.includes(k)?'on':''}" data-act="expsel" data-v="${k}">${ITEMS[k]} ×${S.items[k]}</button>`).join('')}</div>`:'<p class="mute small">Empty. Ask households to donate items from their flats.</p>';
   const selKey=UI.expSel.slice().sort().join('+');const triedIt=(S.tried||[]).includes(selKey);
   h+=`<div class="row" style="margin-top:8px"><button data-act="experiment" ${UI.expSel.length>=2&&!triedIt?'':'disabled'}>💡 Try combining ${UI.expSel.length?UI.expSel.map(k=>ITEMS[k]).join(' + '):'selected items'}</button>${triedIt?'<span class="small warnline">You already tried this combination.</span>':''}</div>${(S.tried||[]).length?`<p class="small mute" style="margin:6px 0 0"><b>Already tried:</b> ${S.tried.slice(-12).reverse().map(t=>t.split('+').map(k=>ITEMS[k]).join(' + ')).join(' · ')}</p>`:''}<p class="small mute">Pick the items an idea needs and let the inventor try. Items are not used up. Each idea below says how many different items it needs and which ones you already know. A wrong guess that includes a right item still reveals that item.</p>`;
-  h+=`<h3>Blueprints</h3><p class="small mute" style="margin:0 0 6px">Known blueprints A to Z, then unknown ideas.</p><div class="stack">`+RECIPES.slice().sort((a,b)=>(S.known[b.id]?1:0)-(S.known[a.id]?1:0)||a.n.localeCompare(b.n)).map(rc=>{
+  h+=`<h3>Blueprints</h3><p class="small mute" style="margin:0 0 6px">Known blueprints A to Z, then unknown ideas.</p><div class="stack">`+RECIPES.filter(r=>!r.secret||S.known[r.id]).slice().sort((a,b)=>(S.known[b.id]?1:0)-(S.known[a.id]?1:0)||a.n.localeCompare(b.n)).map(rc=>{
     if(!S.known[rc.id]){const ks=Object.keys(rc.need);const rv=revealed(rc);return `<div class="card stack" style="gap:4px"><b class="mute">??? Unknown idea · needs ${ks.length} different items</b><span class="small">${ks.map(k=>rv.includes(k)?`<span class="${S.items[k]?'goodline':'badline'}">${ITEMS[k]}</span>`:'<span class="mute">???</span>').join(' + ')}</span><span class="small mute">Hint: ${rc.hint}</span></div>`}
     const need=Object.entries(rc.need).map(([k,n])=>`<span class="${(S.items[k]||0)>=n?'goodline':'badline'}">${n}× ${ITEMS[k]}</span>`).join(' + ');
     const fx=S.built.fox||{};let why='';
     if(rc.id==='sheetRope'&&S.built.rope)why='Already built';
-    if(rc.id==='flyingFox'&&Object.keys(DEST).every(k=>fx[k]))why='Every destination already has one';
+    if(rc.id==='flyingFox'&&Object.keys(DEST).filter(destOk).every(k=>fx[k]))why='Every destination already has one';
     if(rc.id==='zipline'&&!Object.values(fx).some(v=>v===1))why=Object.keys(fx).length?'Every flying fox is already a zipline':'Build a flying fox first';
+    if(rc.id==='booster'&&rooms('workshop')<2)why='Needs two workshops (repurpose a second empty flat)';
+    if(rc.id==='booster'&&S.end&&S.end.radio&&S.end.radio.booster)why='Already built';
     const done=!!why;
     return `<div class="card stack" style="gap:4px"><b>${rc.n}</b><span class="small mute">${rc.d}</span><span class="small">${need} · ${rc.work} work</span><div class="row"><button data-act="build" data-v="${rc.id}" ${!S.proj&&hasNeeds(rc)&&!done?'':'disabled'}>Build</button>${done?'<span class="small mute">'+why+'.</span>':S.proj?'<span class="small mute">Workshop busy. One project at a time.</span>':!hasNeeds(rc)?'<span class="small mute">Missing items (in red).</span>':''}</div></div>`}).join('')+`</div>`;
   return h;
@@ -1857,6 +1958,15 @@ function budget(){
   const scrap={store:S.store.scrap,home:0,use:out?lf.scrap:0,prod:dep,notes:[out&&lf.scrap?'about '+lf.scrap+' for barricade repairs':'',dep?'depots +'+dep:''].filter(Boolean)};
   return {food,water,meds,scrap};
 }
+function endingsPanel(){
+  const E=S.end||{};const ck=(ok,t)=>`<li class="${ok?'goodline':''}">${ok?'✓':'○'} ${t}</li>`;let h=`<h3>Endings</h3><div class="stack">`;
+  h+=`<div class="card small"><b>🤝 Kampung Spirit</b><ul class="ends">${ck((E.phil||0)>=60,'Goodwill '+(E.phil||0)+'/60: share food and water, answer notes, take people in, help other blocks')}${ck(blockTrust()>=70,'Block trust '+blockTrust()+'%/70%')}${ck(isOut()&&pday()>=45,'Reach day 45'+(isOut()?' (day '+pday()+')':''))}</ul></div>`;
+  if(E.med&&(E.med.active||E.med.t!=null)){const M=E.med;const days=M.t!=null?S.t-M.t:0;
+    h+=`<div class="card small"><b>🧪 The Cure</b>${M.active&&medTeam().length?'':'<span class="badline"> · the medical team is gone</span>'}<ul class="ends">${ck(days>=60,'Medical team stays 60 days ('+days+')')}${ck(S.store.meds>=100,'Medicine '+S.store.meds+'/100')}${ck(S.units.some(u=>u.contam),'Samples: a quarantine room used 2/2 (contaminated)')}${ck(rooms('sickbay')>=2,'Sick bays '+rooms('sickbay')+'/2')}${M.trial?ck(true,'Trials under way'):''}</ul></div>`}
+  const R_=E.radio||{};if(S.items.radio||R_.got){
+    h+=`<div class="card small"><b>📻 Lifeboat</b>${R_.lost?'<span class="badline"> · you stopped answering</span>':''}<ul class="ends">${ck(!!S.items.radio,'Have the police radio')}${ck((R_.ans||0)>=RADIO_MSGS.length,'Answer every broadcast ('+(R_.ans||0)+'/'+RADIO_MSGS.length+' answered)')}${ck(isOut()&&pday()>=60,'Reach day 60')}${R_.unlocked?ck(!!R_.booster,'Build the radio booster (needs 2 workshops)'):''}${E.evacDay?ck(false,'Convoy in '+Math.max(0,E.evacDay-S.t)+' days: each evacuee needs 3 food + 3 water'):''}</ul></div>`}
+  h+=`<p class="small mute">Some endings stay hidden until something sets them in motion.</p></div>`;return h;
+}
 function panelBlock(){
   let h=`<h2>Blk ${esc(S.blk)}</h2>`;
   {const B=budget();const row=(icon,nm,x)=>{const net=x.prod-x.use;const tot=x.store+x.home;const lasts=net<0?Math.floor(tot/-net):null;
@@ -1884,6 +1994,7 @@ function panelBlock(){
   </div>`;
   const strippable=[];for(let l=S.front+1;l<=S.floors;l++)if(l>=2&&!S.flags['strip'+l])strippable.push(l);
   h+=`<h3>Scrap</h3><p class="small mute">Strip a corridor of shoe racks, plants and bicycles for barricade material.</p><div class="row">${strippable.slice(0,8).map(l=>`<button data-act="strip" data-v="${l}">Floor ${pad(l)}</button>`).join('')||'<span class="mute small">Nothing left to strip.</span>'}</div>`;
+  h+=endingsPanel();
   h+=`<h3>Memorial</h3>`+(S.mem.length?S.mem.map(m=>`<div class="logl"><span class="mono">${m.when}</span>${esc(m.name)}, ${m.age}. <span class="mute">${esc(m.cause)}.</span></div>`).join(''):'<p class="mute small">No one yet.</p>');
   h+=`<h3>Game</h3><button data-act="quit">Abandon this block and start over</button>`;
   return h;
@@ -1891,6 +2002,11 @@ function panelBlock(){
 function panelLog(){return '<h2>Log</h2>'+S.log.map(l=>`<div class="logl log-${l.kind}"><span class="mono">${stamp(l.t)} ${PH[l.ph].slice(0,3)}</span>${esc(l.text)}</div>`).join('')}
 function renderModal(){
   const m=$('#modal');
+  if(S.over&&S.ending){m.hidden=false;const E=ENDINGS[S.ending];const days=isOut()?pday():0;const seen=endingsSeen();
+    m.innerHTML=`<div class="ev ${E.good?'':'bad'}" style="border-top-color:${E.good?'var(--ok)':'var(--blood)'}"><div class="ico">${E.i}</div><p class="small mute" style="margin:6px 0 0;text-transform:uppercase;letter-spacing:.08em">Ending · ${seen.length} of ${Object.keys(ENDINGS).length} endings found</p><h2>${esc(E.t)}</h2><p>${esc(E.x())}</p>
+      <div class="kv small" style="margin-bottom:12px"><span class="mute">Days since the outbreak</span><span>${days}</span>${S.ending==='escape'?`<span class="mute">Evacuated to Changi</span><span>${S.end.evacGo||0}</span><span class="mute">Stayed behind</span><span>${S.end.evacLeft||0}</span>`:`<span class="mute">Residents alive</span><span>${known().length}</span>`}<span class="mute">Remembered</span><span>${S.mem.length}</span><span class="mute">Babies born</span><span>${S.stats.born||0}</span><span class="mute">Goodwill</span><span>${(S.end&&S.end.phil)||0}</span></div>
+      <p class="small mute">Endings found: ${seen.map(k=>ENDINGS[k]?ENDINGS[k].t:k).join(', ')}.</p>
+      <div class="choices">${E.good&&!E.final?'<button data-act="keepplaying">Keep playing this block</button>':''}<button class="btn-main" data-act="quit">New game</button></div></div>`;return}
   if(S.over){m.hidden=false;const days=isOut()?pday():0;m.innerHTML=`<div class="ev bad"><div class="ico">🪦</div><h2>Blk ${esc(S.blk)} has fallen</h2><p>${esc(S.overWhy||'')}\n\nYou held out for ${days} day${days===1?'':'s'} after the outbreak. ${S.mem.length} people are remembered.</p><div class="stack small" style="max-height:200px;overflow:auto;margin-bottom:12px">${S.mem.map(x=>`<div>${esc(x.name)}, ${x.age}: <span class="mute">${esc(x.cause)}</span></div>`).join('')}</div><div class="choices"><button class="btn-main" data-act="quit">New game</button></div></div>`;return}
   if(UI.result){m.hidden=false;m.innerHTML=`<div class="ev"><p>${esc(UI.result)}</p><div class="choices"><button class="btn-main" data-act="ok">OK</button></div></div>`;return}
   while(S.queue.length&&!CUR){const q=S.queue[0];const c=buildCard(q);if(c){CUR=c;break}S.queue.shift()}
@@ -1923,6 +2039,7 @@ const ACT={
   dispatch:d=>dispatch(d.v),
   build:d=>startProj(d.v),
   pf:d=>{UI.pf=d.v;render()},
+  keepplaying:()=>{S.over=false;S.ending=null;save();render()},
   seallift:()=>{if(S.store.scrap<8||S.flags.liftSealed)return;S.store.scrap-=8;S.flags.liftSealed=1;log('Every lift door wired, braced and nailed shut. Nothing more is coming up the shaft.','good');flash('Lift doors sealed.');save();render()},
   prov:d=>{UI.prov=+d.v;render()},
   equipteam:()=>equipTeam(),
@@ -1964,6 +2081,7 @@ document.addEventListener('keydown',e=>{if(e.code==='Space'&&S&&!e.target.closes
 
 function migrate(){
   if(!S)return;
+  S.end=S.end||{phil:0};if(isOut()&&!S.end.docSched&&pday()<28){S.end.docSched=1;addTimer(ri(1,Math.max(1,28-pday())),'doctors',{})}
   if((S.timers||[]).some(t=>t.k==='liftshaft')&&!S.flags.liftSealed)S.flags.liftOpen=1;
   const SRCFIX={'a bite on the run':'a bite from a supply run','a bite on guard duty':'a bite from guard duty','a bite while retaking a floor':'a bite from retaking a floor'};S.res.forEach(r=>{if(r.inf&&SRCFIX[r.inf.src])r.inf.src=SRCFIX[r.inf.src]});
   if(S.built.fox===true){S.built.fox={market:1};S.known.zipline=true}else if(!S.built.fox||typeof S.built.fox!=='object')S.built.fox={};
