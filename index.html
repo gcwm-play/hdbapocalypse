@@ -363,7 +363,7 @@ function mkRes(arch,h,o){
   else if(h.eth==='ml'){short=pick(E[sex==='M'?'m':'f']);name=short+(sex==='M'?' bin ':' binte ')+h.pat}
   else{short=pick(E[sex==='M'?'m':'f']);name=short+' '+h.sur}
   if(arch==='ahma'||arch==='ahgong'){short=E.nick[arch==='ahma'?0:1]+' '+(h.sur||short);}
-  if(arch==='you'){short='You';name=name+' (you)'}
+  if(arch==='you'){name=name+' (you)'}
   const st={};STK.forEach((k,i)=>st[k]=clamp(A.st[i]+ri(-1,1),1,10));
   const traits=(A.tr||[]).slice();
   if(chance(.65)){const t=pick(TRAIT_POOL);if(!traits.includes(t))traits.push(t)}
@@ -1261,7 +1261,7 @@ function choose(i){
 /* ================= input ================= */
 const ACT={
   start:d=>{newGame(d.v);save();render()},
-  continue:()=>{S=loadSave();CUR=null;render()},
+  continue:()=>{S=loadSave();migrate();CUR=null;render()},
   next:()=>advance(),
   sel:d=>{UI.sel=d.v;UI.tab='unit';render()},
   selres:d=>{const r=RS(+d.v);const u=unitOf(r);if(u){UI.sel=u.id;UI.tab='unit';render()}},
@@ -1286,8 +1286,12 @@ document.addEventListener('change',e=>{const el=e.target;const k=el.dataset&&el.
 });
 document.addEventListener('keydown',e=>{if(e.code==='Space'&&S&&!e.target.closest('select,input,button')){e.preventDefault();if(!$('#modal').hidden){const b=$('#modal .choices button:not(:disabled)');if(b&&(UI.result||S.over))b.click();return}advance()}});
 
+function migrate(){
+  if(!S)return;
+  S.res.forEach(r=>{if(r.short==='You'){const n=r.name.replace(' (you)','');const h=H(r.hh);r.short=h&&h.eth==='cn'?n.split(' ').slice(1).join(' '):n.split(' ')[0]}});
+}
 function start(data){
-  if(data&&data.S){S=data.S;Object.assign(UI,data.UI||{});}
+  if(data&&data.S){S=data.S;Object.assign(UI,data.UI||{});migrate()}
   render();
 }
 if(window.claude&&window.claude.hot&&window.claude.hot.snapshot)window.claude.hot.snapshot(()=>({S,UI}));
