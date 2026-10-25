@@ -226,7 +226,20 @@ button.trait{padding:0 5px;border-radius:4px}
 .howto{font-size:13px;color:var(--mute);columns:2 240px;column-gap:24px}
 .howto p{margin:0 0 8px;break-inside:avoid}
 .howto b{color:var(--ink)}
-@media (prefers-reduced-motion:reduce){.zz,.st-danger{animation:none}}
+/* resident sprites: head (::before, with sanity dot above), shirt (::after), legs (background) */
+.spr{position:relative;display:block;height:30px;margin-top:auto;pointer-events:none}
+.sp{position:absolute;bottom:0;left:var(--a);width:8px;height:19px;background:linear-gradient(90deg,#2e3440 0 3px,transparent 3px 5px,#2e3440 5px) bottom/8px 4px no-repeat;animation:wander var(--d) ease-in-out var(--dl) infinite,bob .45s steps(2) infinite}
+.sp::before{content:"";position:absolute;left:0;top:3px;width:8px;height:8px;box-sizing:border-box;border-radius:50%;background:var(--sk);border-top:3px solid var(--hr);box-shadow:0 -6px 0 -2.5px var(--c)}
+.sp::after{content:"";position:absolute;left:0;top:11px;width:8px;height:5px;border-radius:2px 2px 0 0;background:var(--sh)}
+.sp{scale:1.5;transform-origin:bottom center}
+.sp.kid{scale:1.08}
+.sp.mad{animation:wander calc(var(--d)*.4) linear var(--dl) infinite,shake .18s linear infinite}
+.sp.hurt::after{background:linear-gradient(var(--sh) 55%,#c0392b 55%)}
+@keyframes wander{0%,12%{left:var(--a)}45%,62%{left:var(--b)}95%,100%{left:var(--a)}}
+@keyframes bob{50%{translate:0 -1px}}
+@keyframes shake{25%{translate:-1px 0}75%{translate:1px 0}}
+.sky-3 .sp{animation:none;rotate:-90deg;bottom:-1px}
+@media (prefers-reduced-motion:reduce){.zz,.st-danger,.sp{animation:none!important}}
 </style>
 
 <div id="app">
@@ -499,6 +512,7 @@ function newDay(){
   if(S.infest)for(const l in S.infest){if(+l<=S.front){delete S.infest[l];continue}if(!S.infest[l].sealed&&chance(.4))attackNear(+l,'Zombies from the overrun floor '+pad(+l)+' came through the stairwell','floor '+pad(+l))}
   if(S.flags.cat&&S.store.food>0)S.store.food--;
   kopiUpkeep();
+  if(isOut()&&blockTrust()<22&&known().length>3&&S.t-(S.flags.oustT||-9)>3&&chance(.35)){S.flags.oustT=S.t;queue('ousted',{})}
   // market slowly looted by others
   S.market=Math.max(0,S.market-ri(0,2));
   const dt=curDate();
@@ -536,6 +550,7 @@ function consume(){
       if(r.thi>=70){r.hp-=r.thi>=100?30:15}
       if(r.hp<=0)kill(r,r.thi>=70?'Dehydration':'Starvation');
     });
+    if(fF<1||fW<1)h.trust=clamp(h.trust-(fF===0||fW===0?6:3),0,100);else if(h.trust<70)h.trust++;
     if(fF<1)log(h.name+' went '+(fF===0?'without food':'on short rations')+'.','bad');
     if(fW<1)log(h.name+' did not have enough water.','bad');
   });
@@ -749,6 +764,21 @@ function breakKind(r){
   if(!isOut()){delete o.sneak;delete o.harm}
   return wpick(o);
 }
+function blockTrust(){const hs=S.hh.filter(h=>h.known&&members(h).length);return hs.length?Math.round(hs.reduce((a,h)=>a+h.trust,0)/hs.length):0}
+function evict(hid){
+  const h=H(hid);if(!h||!h.known)return;const ms=members(h);if(!ms.length)return;
+  if(ms.some(r=>r.leader)){flash('You can\'t evict your own household.');return}
+  if(UI.confirmEvict!==hid){UI.confirmEvict=hid;flash('Tap Evict again to throw out the '+h.name+'. This can\'t be undone.');setTimeout(()=>{if(UI.confirmEvict===hid)UI.confirmEvict=null},4000);render();return}
+  UI.confirmEvict=null;
+  const vuln=ms.some(r=>r.age<13||r.age>=65);const n=ms.length;
+  ms.forEach(r=>exile(r,'Evicted from the block'));h.unit=null;
+  S.hh.forEach(x=>{if(x.known&&x!==h&&members(x).length)x.trust=clamp(x.trust-(vuln?20:12),0,100)});
+  known().forEach(r=>r.san=clamp(r.san-(vuln?8:4)*(has(r,'bochap')?.5:1),0,100));
+  log('The '+h.name+' ('+n+') were evicted from the block. Block trust is now '+blockTrust()+'%.','big');
+  queue('info',{i:'🚪',t:'The '+h.name+' are gone',x:'The '+h.name+' carry their bags down the stairwell, past the barricade and out. '+(vuln?'Everyone saw the children and old folk go.':'Nobody helps them.')+'\n\n'+n+' fewer mouths to feed. Every other household trusts you less (−'+(vuln?20:12)+'), and the block is shaken.\n\nBlock trust: '+blockTrust()+'%. Below 25%, the residents may drive you out.',bad:1});
+  if(blockTrust()<25&&chance(.5))queue('ousted',{});
+  save();render();
+}
 function kill(r,cause){
   if(!r.alive)return;r.alive=false;r.job='rest';
   if(r.wpn){itemAdd(S.items,r.wpn);r.wpn=null}if(r.arm){itemAdd(S.items,r.arm);r.arm=null}
@@ -818,7 +848,7 @@ function resolveExps(){
     team.forEach(r=>{
       r.away=false;if(!r.alive)return;
       const rr=clamp(risk*(1-(r.st.A-5)*.05)-defOf(r)*.03,0,.95);const x=R();
-      if(x<rr*.3){kill(r,'Lost on a run to the '+DEST[e.dest].n.toLowerCase());lines.push('💀 '+r.short+' did not come back.');return}
+      if(x<rr*.3){const g=[r.wpn,r.arm].filter(Boolean).map(k=>ITEMS[k].toLowerCase());r.wpn=null;r.arm=null;kill(r,'Lost on a run to the '+DEST[e.dest].n.toLowerCase());lines.push('💀 '+r.short+' did not come back.'+(g.length?' Their '+g.join(' and ')+' are gone too.':''));return}
       if(x<rr){const d=ri(15,45);r.hp-=d;if(r.hp<=0){kill(r,'Died of wounds after a supply run');lines.push('💀 '+r.short+' made it back but died of wounds.');return}
         lines.push('🩸 '+r.short+' was hurt (−'+d+' HP).');if(chance(.4-defOf(r)*.07))infect(r,'a bite on the run')}
       survivors.push(r);
@@ -854,7 +884,7 @@ function returnLoner(e){
   const x=R();
   if(x<.4){const f=ri(3,8);S.store.food+=f;r.san=clamp(r.san+20,0,100);queue('info',{i:'🚪',t:r.short+' came back',x:r.name+' is at the barricade, filthy and thin, with '+f+' food in their bag. "Couldn\'t find them." They come back in.'})}
   else if(x<.6){r.san=clamp(r.san+10,0,100);r.hp=Math.max(10,r.hp-20);infect(r,'a bite from outside');if(r.inf)r.inf.hidden=true;queue('info',{i:'🚪',t:r.short+' came back',x:r.name+' is back, limping, sleeve pulled down. "I\'m fine. Just fell." You let them in.'})}
-  else{exile(r,'Left the block and never came back');queue('info',{i:'🚪',t:'Still no sign of '+r.short,x:'Days pass. '+r.name+' never comes back.',bad:1})}
+  else{r.wpn=null;r.arm=null;exile(r,'Left the block and never came back');queue('info',{i:'🚪',t:'Still no sign of '+r.short,x:'Days pass. '+r.name+' never comes back.',bad:1})}
 }
 
 /* ================= inventor ================= */
@@ -1030,14 +1060,36 @@ EV.kids={make:()=>card({i:'🏫',t:'Survivors at the gate',x:'A teacher and thre
   {t:'Take them in',s:'+4 residents. More mouths.',f:()=>{const h=newHousehold('cn');mkRes('teacher',h);for(let i=0;i<3;i++)mkRes('kid',h);nameHH(h);h.name='School survivors';return 'They come in shaking. Find them a flat, or they sleep in the stairwell.'}},
   {t:'Give them food, send them on',s:'−4 food',dis:S.store.food<4,f:()=>{S.store.food-=4;known().forEach(r=>r.san=clamp(r.san-4,0,100));return 'They walk off toward the MRT station.'}},
   {t:'Keep the gate shut',f:()=>{known().forEach(r=>r.san=clamp(r.san-10,0,100));return 'The banging stops after an hour. Nobody sleeps well.'}}]})};
-EV.note={make:a=>{const h=H(a.h);if(!h||h.known||h.fate)return null;const u=U(h.unit);return card({i:'✉️',t:'A note under the door',x:'Someone slid a note through the corridor: "This is '+u.id+'. No more food. Please help. — '+members(h)[0].short+'"',c:[
-  {t:'Bring them 5 food and make contact',s:'−5 food',dis:S.store.food<5,f:()=>{S.store.food-=5;h.food+=5;reveal(u,'They open the gate in tears.');h.trust=80;return 'The '+h.name+' join the block.'}},
-  {t:'Ignore it',f:()=>'The corridor is quiet.'}]})}};
-EV.banging={make:a=>{const u=U(a.u);if(!u||u.st!=='unknown')return null;return card({i:'🚪',t:'Banging in '+u.id,x:'Neighbours on floor '+pad(u.lvl)+' report banging and groaning behind the gate of '+u.id+'. Nobody has answered the door in days.',bad:1,zed:1,c:[{t:'Mark it as dangerous',f:()=>{u.st='danger';const h=H(u.hh);if(h)h.fate='turned';return u.id+' is now marked. Seal it or clear it before it breaks out.'}}]})}};
+function helpNote(h){S.store.food-=5;h.food+=5;h.trust=80;reveal(U(h.unit),'They open the gate in tears.')}
+EV.note={make:a=>{
+  const list=(a.multi||[a]).map(x=>H(x.h)).filter(h=>h&&!h.known&&!h.fate&&h.unit);if(!list.length)return null;
+  if(list.length===1){const h=list[0];const u=U(h.unit);return card({i:'✉️',t:'A note under the door',x:'Someone slid a note through the corridor: "This is '+u.id+'. No more food. Please help. — '+members(h)[0].short+'"',c:[
+    {t:'Bring them 5 food and make contact',s:'−5 food. They join the block.',dis:S.store.food<5,f:()=>{helpNote(h);return 'The '+h.name+' join the block.'}},
+    {t:'Ignore it',f:()=>'The corridor is quiet.'}]})}
+  list.sort((x,y)=>U(y.unit).lvl-U(x.unit).lvl);
+  const total=list.length*5,afford=Math.min(list.length,Math.floor(S.store.food/5));
+  const lines=list.map(h=>'• '+U(h.unit).id+': '+members(h).length+' '+(members(h).length===1?'person':'people')).join('\n');
+  const c=[{t:'Help all '+list.length+' households',s:'−'+total+' food. They all join the block.',dis:S.store.food<total,f:()=>{list.forEach(helpNote);return list.length+' households join the block: '+list.map(h=>h.name).join(', ')+'.'}}];
+  if(afford>0&&afford<list.length)c.push({t:'Help the '+afford+' we can afford',s:'−'+afford*5+' food. Smallest households first, so more of them survive.',f:()=>{const pickd=list.slice().sort((x,y)=>members(x).length-members(y).length).slice(0,afford);pickd.forEach(helpNote);return pickd.map(h=>h.name).join(', ')+' join the block. The others are still waiting.'}});
+  c.push({t:'Ignore them all',f:()=>'The notes pile up by the stairwell.'});
+  return card({i:'✉️',t:list.length+' notes under the door',x:'Notes have been slid through the corridor from flats you haven\'t reached. They have all run out of food:\n\n'+lines,c});
+}};
+EV.banging={make:a=>{
+  const us=(a.multi||[a]).map(x=>U(x.u)).filter(u=>u&&u.st==='unknown');if(!us.length)return null;
+  const mark=()=>us.forEach(u=>{u.st='danger';const h=H(u.hh);if(h)h.fate='turned'});
+  if(us.length===1){const u=us[0];return card({i:'🚪',t:'Banging in '+u.id,x:'Neighbours on floor '+pad(u.lvl)+' report banging and groaning behind the gate of '+u.id+'. Nobody has answered the door in days.',bad:1,zed:1,c:[{t:'Mark it as dangerous',f:()=>{mark();return u.id+' is now marked. Seal it or clear it before it breaks out.'}}]})}
+  return card({i:'🚪',t:'Banging in '+us.length+' flats',x:'Neighbours report banging and groaning behind these gates. Nobody has answered in days:\n\n'+us.map(u=>'• '+u.id).join('\n'),bad:1,zed:1,c:[{t:'Mark them all as dangerous',f:()=>{mark();return us.length+' flats marked. Seal or clear them before they break out.'}}]});
+}};
 EV.infest={make:a=>{const f=S.infest&&S.infest[a.lvl];if(!f)return null;return card({i:'🧟',t:'Floor '+pad(a.lvl)+' is overrun',x:a.x+'\n\nWhile the floor is open, zombies will keep coming through the stairwell at the floors above and below.',bad:1,zed:1,c:[
   {t:'Barricade the floor off',s:'−10 scrap. Stops the spread. You can still try to take it back later.',dis:S.store.scrap<10,f:()=>{sealFloor(a.lvl);return 'Planks, cupboards and wire go up across both stairwell landings. Floor '+pad(a.lvl)+' is shut.'}},
   {t:'Take it back now',s:'Your 3 strongest fit people fight through. Risky.',dis:known().filter(able).length<2,f:()=>retakeFloor(a.lvl)},
   {t:'Decide later',s:'It will keep spreading',f:()=>'Floor '+pad(a.lvl)+' stays open. Tap any flat on it to barricade or retake it.'}]})}};
+EV.ousted={make:()=>{
+  const L=leader();if(!L)return null;const nl=best('K',known().filter(x=>x.alive&&x.age>=16&&x.hh!==L.hh&&!x.away));
+  return card({i:'📢',t:'The residents have had enough',x:'A crowd fills the stairwell outside '+(unitOf(L)?unitOf(L).id:'your landing')+'. Block trust is down to '+blockTrust()+'%. People are hungry and scared, and they blame '+L.short+'.\n\n'+(nl?'They want '+nl.name+' to lead instead.':'They want you gone.'),bad:1,c:[
+    {t:'Step down as leader',s:nl?L.short+' stays as an ordinary resident. '+nl.short+' takes over and you play on as them. Trust recovers a bit.':'Nobody else can lead',dis:!nl,f:()=>{L.leader=false;nl.leader=true;S.hh.forEach(h=>{if(h.known)h.trust=clamp(h.trust+15,0,100)});log(L.short+' stepped down. '+nl.name+' now leads the block.','big');return L.short+' steps aside. '+nl.name+' takes over, and the block breathes again.'}},
+    {t:'Refuse to step down',s:'They will throw your whole household out.',f:()=>{const lh=H(L.hh);if(nl){L.leader=false;nl.leader=true}const gone=members(lh);gone.forEach(r=>exile(r,'Driven out of the block by the residents'));lh.unit=null;S.hh.forEach(h=>{if(h.known)h.trust=clamp(h.trust+10,0,100)});log('The residents drove the '+lh.name+' out of the block.','big');return 'They drag the '+lh.name+' down the stairs and out past the barricade.'+(nl?'\n\n'+nl.name+' leads the block now. You play on as them.':'')}}]});
+}};
 EV.natday={make:()=>card({i:'🇸🇬',t:'National Day',x:'9 August. Someone hangs a flag from the roof. On the radio, a recording of "Home".',c:[{t:'Sing along from the corridors',s:'Morale up, noise up',f:()=>{known().forEach(r=>r.san=clamp(r.san+12,0,100));S.noise+=4;return 'Off key, all of it. Nobody cares.'}},{t:'Keep quiet',f:()=>'The flag flutters in silence.'}]})};
 EV.tdd={make:()=>card({i:'📢',t:'Total Defence Day',x:'15 February, 12.05pm. Somewhere, a timer still works: the Public Warning System sounds its yearly test. Every zombie for miles turns toward the sirens.',zed:1,c:[{t:'Brace',f:()=>{S.flags.horde=1;return 'Tonight will be bad.'}}]})};
 function newHousehold(eth){const h=mkHH(eth);h.known=true;h.kind='family';h.trust=60;S.hh.push(h);return h}
@@ -1054,6 +1106,7 @@ function buildCard(q){
   try{return buildCard0(q)}catch(e){console.error(e);return null}
 }
 function buildCard0(q){
+  if(q.id==='note'||q.id==='banging'){const same=S.queue.filter(x=>x!==q&&x.id===q.id);if(same.length){q.a={multi:[q.a].concat(same.map(x=>x.a.multi||[x.a]))};q.a.multi=q.a.multi.flat();S.queue=S.queue.filter(x=>x===q||x.id!==q.id)}}
   if(q.id.startsWith('r:')){const e=REV.find(x=>x.id===q.id.slice(2));return e?e.make():null}
   return EV[q.id]?EV[q.id].make(q.a):null;
 }
@@ -1185,11 +1238,35 @@ function renderHUD(){
     <span class="chip ${al[1]}">${alertLvl()<4?'Alert: ':''}${al[0]}</span><span class="chip">${w[0]} ${w[1]}${S.weather.type==='haze'?' · PSI '+S.weather.psi:''}</span></div>
     <div class="res-row" aria-label="Resources">
       <span title="Communal food">🍚 ${S.store.food}</span><span title="Communal water">💧 ${S.store.water}</span><span title="Medicine">🩹 ${S.store.meds}</span><span title="Scrap">🔩 ${S.store.scrap}</span>
-      <span title="Residents you know">👥 ${ks.length}</span><span title="Average sanity" style="color:${sanCol(avg)}">🧠 ${avg}%</span>
+      <span title="Residents you know">👥 ${ks.length}</span><span title="Block trust: average trust of all households. Below 25% the residents may drive you out." style="color:${sanCol(blockTrust())}">🤝 ${blockTrust()}%</span><span title="Average sanity" style="color:${sanCol(avg)}">🧠 ${avg}%</span>
       <span title="Power, water, phones" class="mute">${S.grid.power?'⚡':'<s>⚡</s>'} ${S.grid.water?'🚰':'<s>🚰</s>'} ${S.grid.telco?'📶':'<s>📶</s>'}</span>
     </div>
     <div class="hud-next">${UI.flash?`<span class="small warnline">${esc(UI.flash)}</span>`:''}<button class="btn-main" data-act="next" ${S.queue.length||S.over?'disabled':''}>Next: ${PH[(S.ph+1)%4]} ▶</button></div>
     <div class="ticker"><b>${isOut()?'RADIO':'NEWS'}</b> · ${esc(S.news)}</div>`;
+}
+const SKIN=['#f5d0a9','#e8b98a','#d39a6a','#a86b42','#7a4a2a'];
+const SHIRT=['#6c8ebf','#b5677d','#7aa37a','#c08a4b','#8e7cc3','#d08c60','#5c9ea0'];
+const JOBSHIRT={guard:'#d9534f',lookout:'#4a90d9',invent:'#e3a92b',medic:'#eef4f6',garden:'#5a9e3a',salvage:'#8a6a4a'};
+const POSTS=['invent','medic','garden','salvage'];
+function sprite(r){
+  const id=r.id,old=r.age>=65,kid=r.age<13;const d=(7+(id%6))*(old?1.7:1);
+  const cls=['sp'];if(kid)cls.push('kid');if(r.san<25)cls.push('mad');if(r.hp<40)cls.push('hurt');
+  const sk=(r.inf&&!r.inf.hidden)?'#9cc35a':SKIN[(id*7)%5];const hr=old?'#d6d6d6':['#2b1d14','#3b2a20','#151515','#5a3b22'][id%4];
+  const sh=kid?'#f2d14b':JOBSHIRT[r.job]||SHIRT[id%7];
+  return `<i class="${cls.join(' ')}" title="${esc(r.short)}" style="--a:${4+(id*37)%35}%;--b:${45+(id*53)%40}%;--d:${d.toFixed(1)}s;--dl:-${(id*1.7%d).toFixed(1)}s;--sk:${sk};--hr:${hr};--sh:${sh};--c:${sanCol(r.san)}"></i>`;
+}
+// who is physically in their flat right now: guards/lookouts are at their posts, workers are at their rooms by day
+function atHome(r){return !r.away&&!(r.quar&&r.qRoom)&&r.job!=='guard'&&r.job!=='lookout'&&!(S.ph<3&&POSTS.includes(r.job))}
+function roomSprites(u){
+  let ppl=[];
+  if(S.ph<3){
+    if(u.room==='garden'||u.room==='depot'){const w=staffAssign(u.room,u.room==='garden'?'garden':'salvage')[u.id];if(w)ppl=[w]}
+    if(u.room==='workshop')ppl=jobbers('invent');
+    if(u.room==='sickbay')ppl=jobbers('medic').concat(known().filter(r=>act(r)&&r.hp<50&&r.job==='rest'&&!r.quar));
+    if(u.room==='kopi'&&u.open)ppl=known().filter(r=>act(r)&&r.job==='rest'&&r.age>=13&&!r.quar&&unitOf(r)&&Math.abs(unitOf(r).lvl-u.lvl)<=2).sort((a,b)=>((a.id*7+S.t*3+S.ph)%11)-((b.id*7+S.t*3+S.ph)%11)).slice(0,3);
+  }
+  if(u.room==='quarantine')ppl=known().filter(r=>r.quar&&r.qRoom===u.id);
+  return ppl.length?`<span class="spr">${ppl.slice(0,5).map(sprite).join('')}</span>`:'';
 }
 function unitTile(u){
   const sel=UI.sel===u.id?' sel':'';
@@ -1200,14 +1277,14 @@ function unitTile(u){
   if(u.st==='infested'){const sl=S.infest&&S.infest[u.lvl]&&S.infest[u.lvl].sealed;return sl?`<button class="unit st-sealed${sel}" data-act="sel" data-v="${u.id}"><span class="uid">${u.id}</span><span class="unm">Floor sealed</span><span>🚧🧟</span></button>`:`<button class="unit st-lost${sel}" data-act="sel" data-v="${u.id}"><span class="uid">${u.id}</span><span class="unm">Overrun</span><span class="zz">🧟</span></button>`}
   if(u.st==='sealed')return `<button class="unit st-sealed${sel}" data-act="sel" data-v="${u.id}"><span class="uid">${u.id}</span><span class="unm">${u.contam?'Contaminated':'Sealed'}</span><span>🚧</span></button>`;
   if(u.st==='empty'){
-    if(u.room){const rm=ROOMS[u.room];const n=u.room==='quarantine'?known().filter(r=>r.quar&&r.qRoom===u.id).length:0;return `<button class="unit room-${u.room}${sel}" data-act="sel" data-v="${u.id}"><span class="uid">${u.id}</span><span class="unm">${rm.e} ${rm.n}</span>${n?`<span class="small">${n} inside</span>`:''}${u.room==='quarantine'?`<span class="small">Uses ${u.qUsed||0}/2</span>`:''}${u.room==='depot'?(()=>{const w=staffAssign('depot','salvage')[u.id];return `<span class="small">${u.scrapLeft} scrap left${w?' · '+esc(w.short):''}</span>${w?'':'<span class="small" style="color:#fff3b0;font-weight:700">⚠ Needs a worker</span>'}`})():''}${u.room==='kopi'?`<span class="small">${u.open?'Open · floors '+pad(Math.max(2,u.lvl-2))+'–'+pad(Math.min(S.floors,u.lvl+2)):'⚠ Closed: no supplies'}</span>`:''}${u.room==='garden'?(()=>{const g=gardenAssign()[u.id];return g?`<span class="small">🧑‍🌾 ${esc(g.short)} · +5/day</span>`:`<span class="small" style="color:#fff3b0;font-weight:700">⚠ Needs a gardener</span>`})():''}</button>`}
+    if(u.room){const rm=ROOMS[u.room];const n=u.room==='quarantine'?known().filter(r=>r.quar&&r.qRoom===u.id).length:0;return `<button class="unit room-${u.room}${sel}" data-act="sel" data-v="${u.id}"><span class="uid">${u.id}</span><span class="unm">${rm.e} ${rm.n}</span>${n?`<span class="small">${n} inside</span>`:''}${u.room==='quarantine'?`<span class="small">Uses ${u.qUsed||0}/2</span>`:''}${u.room==='depot'?(()=>{const w=staffAssign('depot','salvage')[u.id];return `<span class="small">${u.scrapLeft} scrap left${w?' · '+esc(w.short):''}</span>${w?'':'<span class="small" style="color:#fff3b0;font-weight:700">⚠ Needs a worker</span>'}`})():''}${u.room==='kopi'?`<span class="small">${u.open?'Open · floors '+pad(Math.max(2,u.lvl-2))+'–'+pad(Math.min(S.floors,u.lvl+2)):'⚠ Closed: no supplies'}</span>`:''}${u.room==='garden'?(()=>{const g=gardenAssign()[u.id];return g?`<span class="small">🧑‍🌾 ${esc(g.short)} · +5/day</span>`:`<span class="small" style="color:#fff3b0;font-weight:700">⚠ Needs a gardener</span>`})():''}${roomSprites(u)}</button>`}
     return `<button class="unit st-empty${sel}" data-act="sel" data-v="${u.id}"><span class="uid">${u.id}</span><span class="unm">Empty</span><span class="small">${u.looted?'Searched':'Unsearched'}</span></button>`;
   }
   const h=H(u.hh);const ms=h?members(h):[];
   if(!ms.length)return `<button class="unit st-empty${sel}" data-act="sel" data-v="${u.id}"><span class="uid">${u.id}</span><span class="unm">Empty</span></button>`;
   const light=S.grid.power?'':(S.built.lamp?' lampon':' dark');
   const flags=[];if(ms.some(r=>r.quar))flags.push('🔒');if(ms.some(r=>r.inf&&!r.inf.hidden))flags.push('🦷');if(ms.some(r=>r.hp<50))flags.push('🤕');if(ms.some(r=>r.hun>=50))flags.push('<span title="Someone here is hungry">🍚</span>');if(ms.some(r=>r.thi>=50))flags.push('<span title="Someone here is thirsty">💧</span>');if(ms.some(r=>r.leader))flags.push('⭐');
-  return `<button class="unit st-known${light}${sel}" data-act="sel" data-v="${u.id}"><span class="uid">${u.id}</span><span class="flags">${flags.join('')}</span><span class="unm">${esc(h.name)}</span><span class="faces">${ms.map(r=>`<i style="--c:${sanCol(r.san)};${r.away?'opacity:.3':''}" title="${esc(r.short)}">${faceOf(r)}</i>`).join('')}</span></button>`;
+  return `<button class="unit st-known${light}${sel}" data-act="sel" data-v="${u.id}"><span class="uid">${u.id}</span><span class="flags">${flags.join('')}</span><span class="unm">${esc(h.name)} <span style="opacity:.65;font-weight:400">${ms.length}</span></span><span class="spr">${ms.filter(atHome).map(sprite).join('')}</span></button>`;
 }
 function renderTower(){
   const wrap=$('#tower-wrap');wrap.className='sky-'+S.ph+(S.weather.type==='haze'?' haze':'');
@@ -1316,7 +1393,7 @@ function panelUnit(){
   if(!ms.length){u.st='empty';u.hh=null;return panelUnit()}
   h+=`<p><b>${esc(hh.name)}</b> <span class="mute">· ${ms.length} ${ms.length===1?'person':'people'}</span></p>
   <div class="kv"><span class="mute">Trust</span><span>${bar(hh.trust,'var(--facade2)')}</span><span class="mute">Own food</span><span class="mono">${hh.food} (${ms.length?Math.floor(hh.food/ms.length):0} days)${isOut()&&hh.food<ms.length?' · eating from the store':''}</span><span class="mute">Own water</span><span class="mono">${hh.water}${S.grid.water?' (taps still running)':hh.water<ms.length?' · drinking from the store':''}</span></div>
-  <div class="row" style="margin-top:8px"><button data-act="askfood" data-v="${hh.id}">Ask them to share 5 food</button><button data-act="givefood" data-v="${hh.id}" ${S.store.food?'':'disabled'}>Give 5 food</button>${!S.grid.water?`<button data-act="givewater" data-v="${hh.id}" ${S.store.water?'':'disabled'}>Give 5 water</button>`:''}</div>
+  <div class="row" style="margin-top:8px"><button data-act="askfood" data-v="${hh.id}">Ask them to share 5 food</button><button data-act="givefood" data-v="${hh.id}" ${S.store.food?'':'disabled'}>Give 5 food</button>${!S.grid.water?`<button data-act="givewater" data-v="${hh.id}" ${S.store.water?'':'disabled'}>Give 5 water</button>`:''}${ms.some(r=>r.leader)?'':`<button class="btn-bad" data-act="evict" data-v="${hh.id}">${UI.confirmEvict===hh.id?'Confirm eviction':'Evict household'}</button>`}</div>
   <h3>Household items</h3>`;
   const it=Object.keys(hh.items);
   h+=it.length?`<div class="itemchips">${it.map(k=>`<button class="ic" data-act="donate" data-v="${hh.id}" data-k="${k}" title="Ask them to donate it to the inventor">${ITEMS[k]}${hh.items[k]>1?' ×'+hh.items[k]:''} · ask</button>`).join('')}</div><p class="small mute">Donated items go to the communal store, where the inventor can use them.</p>`:'<p class="mute small">Nothing useful left.</p>';
@@ -1376,7 +1453,7 @@ function panelPeople(){
   const ks=known();const homeless=S.hh.filter(h=>h.known&&!h.unit&&members(h).length);const F=UI.pf||'job';
   let h=`<h2>Residents</h2><p class="small mute">${ks.length} people in ${S.hh.filter(x=>x.known&&members(x).length).length} households. Comforts left today: ${S.talks}.</p>`;
   if(homeless.length)h+=`<div class="card warnline" style="margin:8px 0">${homeless.map(x=>esc(x.name)).join(', ')} ${homeless.length>1?'have':'has'} no flat and are sleeping in the stairwell. Open an empty flat above the line and move them in.</div>`;
-  h+=`<div class="row" style="margin:8px 0">${[['job','By job'],['inventor','Inventors'],['fighters','Fighters'],['flat','By flat']].map(([k,n])=>`<button class="${F===k?'btn-main':''}" data-act="pf" data-v="${k}">${n}</button>`).join('')}</div>`;
+  h+=`<div class="row" style="margin:8px 0">${[['job','By job'],['hh','Households'],['kampung','Kampung'],['inventor','Inventors'],['fighters','Fighters'],['flat','By flat']].map(([k,n])=>`<button class="${F===k?'btn-main':''}" data-act="pf" data-v="${k}">${n}</button>`).join('')}</div>`;
   h+=`<button class="guide-t" data-act="guide">${UI.guide?'▾':'▸'} What makes someone good at each job?</button>`;
   if(UI.guide)h+=`<div class="card guide small">
     <p><b class="job-guard jc">Guard.</b> <b>Strength</b> counts most, then a <b>weapon</b> (each attack point is worth about 3 Strength). Health and sanity matter too: a guard below 25 sanity fights at 60%. <b>Garang</b>, NSmen, NSFs and construction workers get +2. People aged 70+ fight at 40%. The <b>Fighting</b> number on each person combines all of this.</p>
@@ -1401,6 +1478,17 @@ function panelPeople(){
     h+=sec('Gardeners',working.filter(r=>r.job==='garden'));
     h+=sec('Unassigned (resting)',working.filter(r=>r.job==='rest').sort((a,b)=>(has(b,'inventor')-has(a,'inventor'))||guardPow(b)-guardPow(a)));
     h+=sec('Away',ks.filter(r=>r.away));h+=sec('Quarantined',ks.filter(r=>r.quar&&!r.away));h+=sec('Children',ks.filter(r=>r.age<13&&!r.away));
+  }else if(F==='hh'){
+    const hs=S.hh.filter(x=>x.known&&members(x).length).sort((a,b)=>a.trust-b.trust);
+    h+=`<p class="small mute">Block trust <b style="color:${sanCol(blockTrust())}">${blockTrust()}%</b>. Households trust you more when they're fed and helped, and less when they go hungry, are refused, or see neighbours thrown out. If block trust falls below 25%, the residents may drive you out. Lowest trust is listed first.</p>`;
+    h+=hs.map(x=>{const ms=members(x);const lead=ms.some(r=>r.leader);return `<div class="prow2" style="--jc:${sanCol(x.trust)}"><span class="big2">${lead?'⭐':'🏠'}</span><div style="min-width:0">
+      <div class="nm"><a href="#" data-act="sel" data-v="${x.unit||''}" style="color:inherit">${esc(x.name)}</a> <span class="mute small">${x.unit||'stairwell'} · ${ms.length} ${ms.length===1?'person':'people'} · own food ${x.food} (${Math.floor(x.food/ms.length)} days)</span></div>
+      <div class="row" style="gap:6px;flex-wrap:nowrap"><span class="small mute">Trust</span>${bar(x.trust,sanCol(x.trust))}<span class="mono small">${Math.round(x.trust)}</span></div>
+      <div class="small mute">${ms.map(r=>esc(r.short)+(r.age<13?' (child)':r.age>=65?' ('+r.age+')':'')).join(', ')}</div>
+      ${lead?'':`<div class="row" style="margin-top:4px"><button class="btn-bad" data-act="evict" data-v="${x.id}">${UI.confirmEvict===x.id?'Confirm eviction':'Evict'}</button><span class="small mute">Fewer mouths. Every other household loses 12 trust (20 if you evict children or elderly).</span></div>`}
+    </div></div>`}).join('');
+  }else if(F==='kampung'){
+    h+=sec('Highest Kampung spirit first',ks.filter(r=>r.age>=13).sort((a,b)=>b.st.K-a.st.K),'The resident with the highest Kampung spirit does the comforting and talks people out of breakdowns. Good knockers for wary doors. The ⭐ leader is whoever the block follows.');
   }else if(F==='inventor'){
     const inv=ks.filter(r=>has(r,'inventor'));h+=inv.length?sec('Inventors',inv,'Only residents with the Inventor trait make progress. Others on Workshop just help.'):'<p class="mute">No inventors yet. Reach more neighbours: some have the Inventor trait.</p>';
   }else if(F==='fighters'){
@@ -1497,6 +1585,7 @@ const ACT={
   dispatch:d=>dispatch(d.v),
   build:d=>startProj(d.v),
   pf:d=>{UI.pf=d.v;render()},
+  evict:d=>evict(+d.v),
   tip:(d,el)=>showTip(d,el),
   tend:d=>{const el=document.getElementById('worker');const r=el&&RS(+el.value);if(r){r.job='garden';r.garden=d.v;r.post=d.v;log(r.short+' now tends the garden at '+d.v+'.','');save();render()}},
   staff:d=>{const el=document.getElementById('worker');const r=el&&RS(+el.value);if(r){r.job=d.k;r.post=d.v;log(r.short+' now works at '+d.v+'.','');save();render()}},
