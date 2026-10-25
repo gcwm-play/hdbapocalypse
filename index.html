@@ -324,15 +324,15 @@ const TRAITS={
 };
 const TRAIT_POOL=['kiasu','bochap','pantang','kaypoh','paiseh','garang','steady','sian','atas'];
 const ETH={
-  cn:{sur:['Tan','Lim','Lee','Ng','Goh','Ong','Wong','Chua','Teo','Koh','Chan','Yeo','Sim','Low','Ho','Seah','Quek'],
+  cn:{sur:['Tan','Lim','Lee','Ng','Goh','Ong','Wong','Chua','Teo','Koh','Chan','Yeo','Sim','Low','Ho','Seah','Quek','Tay','Toh','Yap','Neo','Foo','Heng','Leong','Loh','Chong','Lau','Tham','Kwek','Pang','Soh','Phua','Ang','Chia','Sng','Liew','Tang','Yong','Kang','Lai','Seow','Chew','Wee','Khoo','Poh'],
       m:['Wei Ming','Jun Jie','Kok Leong','Boon Huat','Zhi Hao','Kelvin','Darren','Marcus','Ah Kow','Chee Keong','Ryan','Eugene','Jia Hao','Yong Sheng','Teck Seng','Ah Huat','Wee Kiat','Daniel','Jonathan','Benjamin','Hock Seng','Kian Hwee','Shawn','Jeremy','Gerald','Alvin','Terence'],
       f:['Mei Ling','Hui Min','Siew Lan','Xin Yi','Shu Fen','Bee Hoon','Geok Choo','Jasmine','Michelle','Pei Shan','Rachel','Ah Moi','Li Ting','Hui Ling','Yan Ting','Wan Ting','Siew Mei','Ah Lian','Grace','Cheryl','Vanessa','Shirley','Pei Ling','Joanne','Ruth','Clara','Mui Hoon'],nick:['Ah Ma','Ah Gong']},
   ml:{m:['Ahmad','Faizal','Hafiz','Rizwan','Iskandar','Zulkifli','Hakim','Ismail','Rahman','Danial','Syafiq','Hamzah','Irfan','Khairul','Amir','Firdaus','Yusof','Hidayat','Shahrul','Azman','Ridwan','Imran'],
       f:['Nurul','Siti','Aisyah','Farah','Zarina','Nadia','Rosnah','Halimah','Aliyah','Nur Aisyah','Fatimah','Hidayah','Sarah','Amirah','Salmah','Liyana','Syazwani','Rohani','Mariam','Atiqah','Hanis'],nick:['Nenek','Atuk']},
-  in:{sur:['Pillai','Nair','Kumar','Rajan','Menon','Singh','Krishnan','Das'],
+  in:{sur:['Pillai','Nair','Kumar','Rajan','Menon','Singh','Krishnan','Das','Raju','Subramaniam','Gopal','Naidu','Rao','Iyer','Chandran','Ramasamy','Velu','Sundram'],
       m:['Arun','Suresh','Vikram','Ravi','Ganesh','Pravin','Muthu','Rajesh','Karthik','Dinesh','Anand','Prakash','Vijay','Senthil','Hari','Naveen','Sanjay','Kumaravel'],
       f:['Priya','Kavitha','Lakshmi','Deepa','Anita','Meena','Shanti','Revathi','Sangeetha','Divya','Kalpana','Malathi','Nirmala','Sunita','Vanitha','Geetha','Indra','Shalini'],nick:['Paati','Thaatha']},
-  eu:{sur:['De Souza','Pereira','Rodrigues','Oliveiro','Shepherdson'],m:['Brian','Adrian','Clive','Gregory','Ivan','Nigel','Glenn','Desmond','Shaun'],f:['Melissa','Bernadette','Charmaine','Denise','Natasha','Yvonne','Andrea','Joanne','Pamela'],nick:['Granny','Grandpa']},
+  eu:{sur:['De Souza','Pereira','Rodrigues','Oliveiro','Shepherdson','Fernandez','Rozario','Lazaroo','Sequeira','Westerhout','Monteiro'],m:['Brian','Adrian','Clive','Gregory','Ivan','Nigel','Glenn','Desmond','Shaun'],f:['Melissa','Bernadette','Charmaine','Denise','Natasha','Yvonne','Andrea','Joanne','Pamela'],nick:['Granny','Grandpa']},
 };
 const HELPERS=['Maria','Dewi','Joy','Lorna','Sri','Rina','Marites','Wati','Ana','Rosalie','Ika','Nining','Jenny','Glenda','Ayu','Tini'];
 const WORKERS=['Rahim','Karthik','Sohel','Murugan','Babul','Selvam','Jahid','Alamgir','Ramesh','Mohan','Faruk','Kamal','Shanthan','Rubel'];
@@ -429,13 +429,20 @@ function itemAdd(o,k,n){o[k]=(o[k]||0)+(n==null?1:n);if(o[k]<=0)delete o[k]}
 
 /* ================= generation ================= */
 function mkHH(eth){
-  const e=ETH[eth];const h={id:S.nid++,eth,sur:e.sur?pick(e.sur):'',pat:pick(ETH.ml.m),unit:null,known:false,food:0,water:0,items:{},trust:ri(45,65),fate:null,kind:chance(.2)?'wary':'family',mourn:-1,hungry:0,noted:false};
+  const e=ETH[eth];const used=new Set(S.hh.map(x=>x.sur));const free=e.sur?e.sur.filter(x=>!used.has(x)):[];const h={id:S.nid++,eth,sur:e.sur?pick(free.length?free:e.sur):'',pat:pick(ETH.ml.m),unit:null,known:false,food:0,water:0,items:{},trust:ri(45,65),fate:null,kind:chance(.2)?'wary':'family',mourn:-1,hungry:0,noted:false};
   return h;
 }
 function nameHH(h){
   const head=members(h).find(r=>r.age>=20&&r.arch!=='helper')||members(h)[0];
   if(!head){h.name='Empty';return}
   if(h.eth==='ml'||!h.sur)h.name=(head.short)+'’s household';else h.name=h.sur+' family';
+  h.name=uniqueHHName(h.name,h,head);
+}
+// no two households share a name: fall back to the head's name, then a number
+function uniqueHHName(name,h,head){
+  const taken=x=>S.hh.some(o=>o!==h&&o.name===x&&members(o).length);if(!taken(name))return name;
+  const alt=head?head.short+'’s household':'';if(alt&&!taken(alt))return alt;
+  for(let n=2;n<99;n++){const c=name+' ('+n+')';if(!taken(c))return c}return name;
 }
 // nobody in the block shares a display name: add a surname initial, then fall back to the full name, then a number
 function uniqueShort(short,name,self){
@@ -2198,6 +2205,7 @@ document.addEventListener('keydown',e=>{if(e.code==='Space'&&S&&!e.target.closes
 
 function migrate(){
   if(!S)return;
+  {const seen=new Set();S.hh.filter(h=>members(h).length).forEach(h=>{if(seen.has(h.name)){const head=members(h).find(r=>r.age>=20&&r.arch!=='helper')||members(h)[0];h.name=uniqueHHName(h.name,h,head)}seen.add(h.name)})}
   {const seen=new Set();S.res.filter(r=>r.alive).forEach(r=>{if(seen.has(r.short))r.short=uniqueShort(r.short,r.name,r);seen.add(r.short)})}
   if(S.zMult==null&&isOut()&&pday()>31){const m=Math.floor((pday()-1)/30);S.zMult=Math.pow(1.085,m)}
   S.end=S.end||{phil:0};if(isOut()&&!S.end.docSched&&pday()<28){S.end.docSched=1;addTimer(ri(1,Math.max(1,28-pday())),'doctors',{})}
