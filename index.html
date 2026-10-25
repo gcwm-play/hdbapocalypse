@@ -180,6 +180,7 @@ h3{font-size:13px;text-transform:uppercase;letter-spacing:.08em;color:var(--mute
 .job-garden,.jh-garden{--jc:#9cc35a}
 .job-rest,.jh-rest{--jc:#a3adb8}
 .job-off,.jh-off{--jc:#4f5b68}
+.jh-ward{--jc:#4fd1c5}
 .job-run{--jc:#b48ef0}
 .job-talk{--jc:#e58fd0}
 .suit,button.trait{cursor:help;background:transparent;font:inherit;font-size:11px;line-height:1.5}
@@ -386,7 +387,7 @@ const RS=id=>S.res.find(r=>r.id===id);
 const has=(r,t)=>r.traits.includes(t);
 const known=()=>S.res.filter(r=>r.alive&&H(r.hh)&&H(r.hh).known);
 const act=r=>r.alive&&!r.away&&!r.busy;
-const able=r=>act(r)&&r.age>=13&&r.hp>20&&!r.quar;
+const able=r=>act(r)&&r.age>=13&&r.hp>20&&!r.quar&&!r.ward;
 const atkOf=r=>(r.wpn&&GEAR[r.wpn]?GEAR[r.wpn].atk||0:0);
 const defOf=r=>(r.arm&&GEAR[r.arm]?GEAR[r.arm].def||0:0);
 const members=h=>S.res.filter(r=>r.alive&&r.hh===h.id);
@@ -618,12 +619,18 @@ function advance(){
 function doJobs(){
   const ks=known();
   // rest
-  ks.forEach(r=>{if(!act(r))return;if(r.job==='rest'&&r.hun<60&&r.thi<60)r.hp=Math.min(100,r.hp+3)});
-  // medic
+  ks.forEach(r=>{if(!act(r)||r.ward)return;if(r.job==='rest'&&r.hun<60&&r.thi<60)r.hp=Math.min(100,r.hp+3)});
+  // medic + sick bay ward: admitted patients heal every phase; medics on duty work the ward when it has patients
   const medics=jobbers('medic');const sb=rooms('sickbay')>0;
+  const sbU=sickbayUnit();let pats=ks.filter(r=>r.ward);
+  if(pats.length&&!sbU){pats.forEach(r=>r.ward=null);log('The sick bay is gone. Its patients were sent home.','bad');pats=[]}
+  if(pats.length){
+    const pool=medics.reduce((a,m)=>a+medAmt(m),0)/pats.length;
+    pats.forEach(r=>{r.hp=Math.min(100,r.hp+wardBase(r)+pool);r.san=clamp(r.san+.5,0,100);if(r.hp>=95){r.ward=null;log(r.short+' has recovered and left the sick bay.','good')}});
+  }
   medics.forEach(m=>{
-    const amt=(3+m.st.I*.7+(m.arch==='nurse'?3:0))*(sb?2:1)*(S.flags.herbs?1.25:1);
-    ks.filter(r=>r.hp<100).sort((a,b)=>a.hp-b.hp).slice(0,2).forEach(r=>r.hp=Math.min(100,r.hp+amt));
+    const amt=medAmt(m);
+    if(!pats.length)ks.filter(r=>r.hp<100).sort((a,b)=>a.hp-b.hp).slice(0,2).forEach(r=>r.hp=Math.min(100,r.hp+amt));
     ks.forEach(r=>{if(r.inf&&r.inf.hidden&&chance(.04*m.st.I/5+(sb?.1:0)+(m.arch==='nurse'?.06:0))){r.inf.hidden=false;log(m.short+' found a bite '+r.short+' was hiding.','bad');queue('infected',{id:r.id})}});
   });
   // inventor
@@ -1428,16 +1435,28 @@ function zz(n,delay){const d=typeof pday==='function'&&S&&S.outbreakAt!=null?pda
   return `<span class="zz" title="Zombie" data-o="${dl}" style="--r:${row};animation-delay:-${dl}s"></span>`}
 
 // who is physically in their flat right now: guards/lookouts are at their posts, workers are at their rooms by day
-function atHome(r){return !r.away&&!(r.quar&&r.qRoom)&&r.job!=='guard'&&r.job!=='lookout'&&!(S.ph<3&&POSTS.includes(r.job))}
+const BEDS=4;
+function sickbayUnit(){return S.units.find(u=>u.room==='sickbay'&&u.st==='empty'&&u.lvl>S.front)||null}
+function medAmt(m){return (3+m.st.I*.7+(m.arch==='nurse'?3:0))*(rooms('sickbay')>0?2:1)*(S.flags.herbs?1.25:1)}
+function wardBase(r){return 3+(r.hun<60&&r.thi<60?1:0)}
+function wardRate(r){const n=Math.max(1,known().filter(x=>x.ward).length);return wardBase(r)+jobbers('medic').reduce((a,m)=>a+medAmt(m),0)/n}
+function admit(id){
+  const r=RS(id);const u=sickbayUnit();if(!r||!r.alive||r.ward||r.away||r.quar)return;
+  if(!u){flash('You need a sick bay first. Convert an empty flat.');return}
+  if(known().filter(x=>x.ward).length>=BEDS){flash('All '+BEDS+' beds are taken.');return}
+  r.ward=u.id;r.job='rest';r.post=null;log(r.short+' was admitted to the sick bay.','');save();render();
+}
+function atHome(r){return !r.away&&!r.ward&&!(r.quar&&r.qRoom)&&r.job!=='guard'&&r.job!=='lookout'&&!(S.ph<3&&POSTS.includes(r.job))}
 function roomSprites(u){
   let ppl=[];
   if(S.ph<3){
     if(u.room==='garden'||u.room==='depot'){const w=staffAssign(u.room,u.room==='garden'?'garden':'salvage')[u.id];if(w)ppl=[w]}
     if(u.room==='workshop')ppl=jobbers('invent');
-    if(u.room==='sickbay')ppl=jobbers('medic').concat(known().filter(r=>act(r)&&r.hp<50&&r.job==='rest'&&!r.quar));
+    if(u.room==='sickbay')ppl=jobbers('medic').concat(known().filter(r=>r.ward&&!r.away));
     if(u.room==='kopi'&&u.open)ppl=known().filter(r=>act(r)&&r.job==='rest'&&r.age>=13&&!r.quar&&unitOf(r)&&Math.abs(unitOf(r).lvl-u.lvl)<=2).sort((a,b)=>((a.id*7+S.t*3+S.ph)%11)-((b.id*7+S.t*3+S.ph)%11)).slice(0,3);
   }
   if(u.room==='quarantine')ppl=known().filter(r=>r.quar&&r.qRoom===u.id);
+  if(u.room==='sickbay'&&S.ph===3)ppl=known().filter(r=>r.ward&&!r.away);
   return ppl.length?`<span class="spr">${ppl.slice(0,5).map(sprite).join('')}</span>`:'';
 }
 function unitTile(u){
@@ -1449,7 +1468,7 @@ function unitTile(u){
   if(u.st==='infested'){const sl=S.infest&&S.infest[u.lvl]&&S.infest[u.lvl].sealed;return sl?`<button class="unit st-sealed${sel}" data-act="sel" data-v="${u.id}"><span class="uid">${u.id}</span><span class="unm">Floor sealed</span><span>🚧🧟</span></button>`:`<button class="unit st-lost${sel}" data-act="sel" data-v="${u.id}"><span class="uid">${u.id}</span><span class="unm">Overrun</span>${zz(u.lvl)}</button>`}
   if(u.st==='sealed')return `<button class="unit st-sealed${sel}" data-act="sel" data-v="${u.id}"><span class="uid">${u.id}</span><span class="unm">${u.contam?'Contaminated':'Sealed'}</span><span>🚧</span></button>`;
   if(u.st==='empty'){
-    if(u.room){const rm=ROOMS[u.room];const n=u.room==='quarantine'?known().filter(r=>r.quar&&r.qRoom===u.id).length:0;return `<button class="unit room-${u.room}${sel}" data-act="sel" data-v="${u.id}"><span class="uid">${u.id}</span><span class="unm">${rm.e} ${rm.n}</span>${n?`<span class="small">${n} inside</span>`:''}${u.room==='quarantine'?`<span class="small">Uses ${u.qUsed||0}/2</span>`:''}${u.room==='depot'?(()=>{const w=staffAssign('depot','salvage')[u.id];return `<span class="small">${u.scrapLeft} scrap left${w?' · '+esc(w.short):''}</span>${w?'':'<span class="small" style="color:#fff3b0;font-weight:700">⚠ Needs a worker</span>'}`})():''}${u.room==='kopi'?`<span class="small">${u.open?'Open · floors '+pad(Math.max(2,u.lvl-2))+'–'+pad(Math.min(S.floors,u.lvl+2)):'⚠ Closed: no supplies'}</span>`:''}${u.room==='garden'?(()=>{const g=gardenAssign()[u.id];return g?`<span class="small">🧑‍🌾 ${esc(g.short)} · +5/day</span>`:`<span class="small" style="color:#fff3b0;font-weight:700">⚠ Needs a gardener</span>`})():''}${roomSprites(u)}</button>`}
+    if(u.room){const rm=ROOMS[u.room];const n=u.room==='quarantine'?known().filter(r=>r.quar&&r.qRoom===u.id).length:0;return `<button class="unit room-${u.room}${sel}" data-act="sel" data-v="${u.id}"><span class="uid">${u.id}</span><span class="unm">${rm.e} ${rm.n}</span>${n?`<span class="small">${n} inside</span>`:''}${u.room==='sickbay'?`<span class="small">Beds ${known().filter(r=>r.ward).length}/${BEDS}${jobbers('medic').length?' · '+jobbers('medic').length+' medic'+(jobbers('medic').length>1?'s':''):' · no medic'}</span>`:''}${u.room==='quarantine'?`<span class="small">Uses ${u.qUsed||0}/2</span>`:''}${u.room==='depot'?(()=>{const w=staffAssign('depot','salvage')[u.id];return `<span class="small">${u.scrapLeft} scrap left${w?' · '+esc(w.short):''}</span>${w?'':'<span class="small" style="color:#fff3b0;font-weight:700">⚠ Needs a worker</span>'}`})():''}${u.room==='kopi'?`<span class="small">${u.open?'Open · floors '+pad(Math.max(2,u.lvl-2))+'–'+pad(Math.min(S.floors,u.lvl+2)):'⚠ Closed: no supplies'}</span>`:''}${u.room==='garden'?(()=>{const g=gardenAssign()[u.id];return g?`<span class="small">🧑‍🌾 ${esc(g.short)} · +5/day</span>`:`<span class="small" style="color:#fff3b0;font-weight:700">⚠ Needs a gardener</span>`})():''}${roomSprites(u)}</button>`}
     return `<button class="unit st-empty${sel}" data-act="sel" data-v="${u.id}"><span class="uid">${u.id}</span><span class="unm">Empty</span><span class="small">${u.looted?'Searched':'Unsearched'}</span></button>`;
   }
   const h=H(u.hh);const ms=h?members(h):[];
@@ -1515,7 +1534,8 @@ function personCard(r){
     <div class="stats">${STK.filter(k=>k!=='U').map(k=>`<span>${STN[k]} <b>${r.st[k]}</b></span>`).join('')}${r.age>=13?`<span title="Overall fighting strength: strength, weapon, health, sanity and traits">Fighting <b>${guardPow(r).toFixed(1)}</b></span>`:''}</div>
     <div class="meters"><span>Sanity</span>${bar(r.san,sanCol(r.san))}<span class="mono">${Math.round(r.san)}</span><span>Health</span>${bar(r.hp,r.hp>50?'var(--ok)':'var(--blood)')}<span class="mono">${Math.round(r.hp)}</span>${isOut()?`<span>Hunger</span>${bar(r.hun,'var(--warn)')}<span class="mono">${Math.round(r.hun)}</span>${S.grid.water?'':`<span>Thirst</span>${bar(r.thi,'#6fb6e8')}<span class="mono">${Math.round(r.thi)}</span>`}`:''}</div>
     ${status.join(' ')}
-    ${isAdult&&!r.away&&!r.quar?`<div class="row"><select data-chg="job" data-id="${r.id}" aria-label="Job">${jobOpts(r)}</select>${gearOpts('wpn')}${gearOpts('arm')}</div>`:''}
+    ${admitBtn(r)}
+    ${isAdult&&!r.away&&!r.quar&&!r.ward?`<div class="row"><select data-chg="job" data-id="${r.id}" aria-label="Job">${jobOpts(r)}</select>${gearOpts('wpn')}${gearOpts('arm')}</div>`:''}
     ${!r.away?`<div class="row"><button data-act="talk" data-v="${r.id}" ${S.talks>0?'':'disabled'}>Comfort them (${S.talks} left today)</button>${r.quar&&r.inf==null?`<button data-act="release" data-v="${r.id}">Let them out</button>`:''}${r.quar&&r.inf?`<button data-act="release" data-v="${r.id}">Let them out anyway</button>`:''}</div>`:''}
   </div></div>`;
 }
@@ -1556,6 +1576,14 @@ function panelUnit(){
       if(!water)h+=`<p class="badline">Not enough water in the store. Gardens produce nothing until there is.</p>`;
       if(!g)h+=`<div class="card stack"><b>🧑‍🌾 Assign a gardener</b><div class="row">${workerSelect(r=>r.job!=='garden',true)}<button data-act="tend" data-v="${u.id}" ${known().some(r=>able(r)&&r.job!=='garden')?'':'disabled'}>Assign</button></div><span class="small mute">Sets their job to Tend garden. Each gardener looks after one garden.</span></div>`;
       h+=`<p class="small mute">${jobbers('garden').length} gardener(s) for ${rooms('garden')} garden(s).</p>`}
+    if(u.room==='sickbay'){
+      const pats=known().filter(r=>r.ward);const meds=jobbers('medic');
+      const cands=known().filter(r=>!r.ward&&!r.away&&!r.quar&&r.hp<95).sort((a,b)=>a.hp-b.hp);
+      h+=`<div class="kv"><span class="mute">Beds</span><span class="mono">${pats.length}/${BEDS}</span><span class="mute">Medics</span><span>${meds.length?meds.map(m=>esc(m.short)).join(', '):'<span class="warnline">None on duty. Patients still heal, slowly.</span>'}</span></div>`;
+      h+=`<p class="small mute">Patients can't work, guard or go out until they're healed. They heal ${wardBase({hun:0,thi:0})} health a phase on their own (less if hungry or thirsty), plus a share of every medic's work. They leave by themselves at 95 health.</p>`;
+      h+=pats.length?pats.map(r=>{const rate=wardRate(r);const ph=Math.max(1,Math.ceil((95-r.hp)/rate));return `<div class="prow2 job-medic"><span class="big2">${faceOf(r)}</span><div style="min-width:0"><div class="nm"><b>${esc(r.short)}</b> <span class="small mute">+${rate.toFixed(1)} a phase · about ${ph} phase${ph>1?'s':''} to go</span></div><div class="row" style="gap:6px;flex-wrap:nowrap"><span class="small mute">Health</span>${bar(r.hp,r.hp>50?'var(--ok)':'var(--blood)')}<span class="mono small">${Math.round(r.hp)}</span></div><div class="row" style="margin-top:4px"><button data-act="wardmeds" data-v="${r.id}" ${S.store.meds?'':'disabled'}>Give 1 meds (+25 health)</button><button data-act="discharge" data-v="${r.id}">Discharge now</button></div></div></div>`}).join(''):'<p class="mute">No patients.</p>';
+      if(pats.length<BEDS)h+=cands.length?`<div class="card stack"><b>🩹 Admit a patient</b><div class="row"><select id="patsel" aria-label="Patient">${cands.map(r=>`<option value="${r.id}">${esc(r.short)} (health ${Math.round(r.hp)}${r.job!=='rest'?', now: '+JOBS[r.job]:''})</option>`).join('')}</select><button data-act="admitsel">Admit</button></div><span class="small mute">Most injured first.</span></div>`:'<p class="small mute">Nobody needs a bed right now.</p>';
+    }
     if(u.room==='depot'){const w=staffAssign('depot','salvage')[u.id];
       h+=`<div class="kv"><span class="mute">Scrap left</span><span class="mono">${u.scrapLeft}</span><span class="mute">Per day</span><span class="mono">${w?(w.arch==='karang'?6:3):0}</span></div>${bar(u.scrapLeft/35*100,'var(--warn)')}`;
       h+=w?`<p class="goodline">${esc(w.short)} is salvaging here.</p>`:`<p class="warnline">Nobody is working here. No scrap comes out until someone does.</p><div class="card stack"><b>♻️ Assign a worker</b><div class="row">${workerSelect(r=>r.job!=='salvage',true)}<button data-act="staff" data-k="salvage" data-v="${u.id}" ${known().some(r=>able(r)&&r.job!=='salvage')?'':'disabled'}>Assign</button></div><span class="small mute">A karang guni man salvages twice as fast.</span></div>`}
@@ -1620,14 +1648,21 @@ function suitLine(r){
   const w=r.traits.filter(t=>TRAIT_WARN[t]).map(t=>`<span class="warnline small">⚠ ${TRAITS[t][0]}: ${TRAIT_WARN[t]}</span>`).join(' ');
   return `<div class="row" style="gap:4px;margin-top:3px"><span class="small mute">Suits:</span>${s.map(([k,n])=>`<button class="suit job-${k}" data-act="tip" data-h="${n}" data-tip="${esc(SUIT_TIP[k])}">${n}</button>`).join('')}${w?' '+w:''}</div>`;
 }
+function admitBtn(r){
+  if(r.ward){const rate=wardRate(r);const ph=Math.max(1,Math.ceil((95-r.hp)/rate));return `<div class="row" style="gap:6px;margin:2px 0"><span class="small" style="color:#4fd1c5">🩹 In the sick bay: about ${ph} phase${ph>1?'s':''} until healed</span><button data-act="discharge" data-v="${r.id}" style="padding:2px 8px;font-size:12px">Discharge</button></div>`}
+  if(r.away||r.quar||r.hp>=80||!sickbayUnit())return '';
+  const full=known().filter(x=>x.ward).length>=BEDS;
+  return `<div class="row" style="gap:6px;margin:2px 0"><button data-act="admit" data-v="${r.id}" ${full?'disabled':''} style="padding:2px 8px;font-size:12px">🩹 Admit to sick bay</button>${full?'<span class="small mute">All beds taken</span>':'<span class="small mute">Out of action until healed</span>'}</div>`;
+}
 function personRow(r){
-  const u=unitOf(r);const adult=r.age>=13;const free=adult&&!r.away&&!r.quar;
+  const u=unitOf(r);const adult=r.age>=13;const free=adult&&!r.away&&!r.quar&&!r.ward;
   const tr=r.traits.map(t=>`<button class="trait ${t==='inventor'?'inv':''}" data-act="tip" data-h="${TRAITS[t][0]}" data-tip="${esc(TRAITS[t][1])}">${TRAITS[t][0]}</button>`).join('');
-  const tags=[u?u.id:'stairwell'];if(r.leader&&r.arch!=='you')tags.push('⭐ leader');if(r.inf&&!r.inf.hidden)tags.push('🦷');if(r.quar)tags.push('🔒 quarantined');if(r.away)tags.push('away');if(!adult)tags.push('child');
+  const tags=[u?u.id:'stairwell'];if(r.leader&&r.arch!=='you')tags.push('⭐ leader');if(r.inf&&!r.inf.hidden)tags.push('🦷');if(r.quar)tags.push('🔒 quarantined');if(r.ward)tags.push('🩹 in sick bay');if(r.away)tags.push('away');if(!adult)tags.push('child');
   return `<div class="prow2 ${free?'job-'+r.job:'job-off'}"><span class="big2">${faceOf(r)}</span><div style="min-width:0">
     <div class="nm"><a href="#" data-act="selres" data-v="${r.id}" style="color:inherit">${esc(r.short)}</a> <span class="mute small">${ARCH[r.arch].i} ${esc(ARCH[r.arch].l)} · ${tags.join(' · ')}</span></div>
     <div>${tr}<span class="stats" style="display:inline-flex;margin-left:4px"><span>Strength <b>${r.st.S}</b></span><span>Agility <b>${r.st.A}</b></span><span>Intellect <b>${r.st.I}</b></span><span>Kampung spirit <b>${r.st.K}</b></span>${adult?`<span title="Overall fighting strength: strength, weapon, health, sanity and traits">Fighting <b>${guardPow(r).toFixed(1)}</b></span>`:''}</span></div>${suitLine(r)}
     <div class="row" style="gap:4px;flex-wrap:nowrap;margin:3px 0"><span class="small mute">Sanity</span>${bar(r.san,sanCol(r.san))}<span class="small mute">Health</span>${bar(r.hp,r.hp>50?'var(--ok)':'var(--blood)')}</div>
+    ${admitBtn(r)}
     ${free?`<div class="row" style="gap:4px"><select data-chg="job" data-id="${r.id}" aria-label="Job for ${esc(r.short)}">${jobOpts(r)}</select>${gearSel(r,'wpn')}${gearSel(r,'arm')}</div>`:''}
   </div></div>`;
 }
@@ -1648,10 +1683,10 @@ function panelPeople(){
   </div>`;
   const freeWpn=Object.keys(S.items).some(k=>GEAR[k]);
   h+=`<div class="row" style="margin-bottom:8px"><button data-act="armguards" ${jobbers('guard').length&&(freeWpn||true)?'':'disabled'}>⚔️ Arm the guards (best gear to strongest)</button>${known().some(r=>able(r)&&has(r,'inventor')&&r.job!=='invent')?'<button data-act="invwork">🔧 Put free inventors to work</button>':''}</div>`;
-  const sec=(title,list,note)=>list.length?`<h3 class="jh jh-${{Guards:'guard','Rooftop lookouts':'lookout',Workshop:'invent',Medics:'medic',Gardeners:'garden','Unassigned (resting)':'rest'}[title]||'off'}">${title} · ${list.length}</h3>${note?`<p class="small mute" style="margin:0 0 4px">${note}</p>`:''}${list.map(personRow).join('')}`:'';
+  const sec=(title,list,note)=>list.length?`<h3 class="jh jh-${{Guards:'guard','Rooftop lookouts':'lookout',Workshop:'invent',Medics:'medic',Gardeners:'garden','Unassigned (resting)':'rest','In the sick bay':'ward'}[title]||'off'}">${title} · ${list.length}</h3>${note?`<p class="small mute" style="margin:0 0 4px">${note}</p>`:''}${list.map(personRow).join('')}`:'';
   const byFloor=(a,b)=>{const ua=unitOf(a),ub=unitOf(b);return (ub?ub.lvl:99)-(ua?ua.lvl:99)||a.hh-b.hh};
   if(F==='job'){
-    const working=ks.filter(r=>r.age>=13&&!r.away&&!r.quar);
+    const working=ks.filter(r=>r.age>=13&&!r.away&&!r.quar&&!r.ward);
     const G=jobbers('guard');
     h+=sec('Guards',working.filter(r=>r.job==='guard').sort((a,b)=>guardPow(b)-guardPow(a)),isOut()?`Line strength ${(G.reduce((a,r)=>a+guardPow(r),0)*(S.front>0?1.25:1)).toFixed(1)} vs ~${Math.round(expPressure())} attackers tonight (more during hordes). Some damage always gets through; guards repair by day, faster with scrap · barricade ${Math.max(0,Math.round(S.bar.hp))}/${S.bar.max}`:'');
     h+=sec('Rooftop lookouts',working.filter(r=>r.job==='lookout'));
@@ -1659,7 +1694,7 @@ function panelPeople(){
     h+=sec('Medics',working.filter(r=>r.job==='medic'));
     h+=sec('Gardeners',working.filter(r=>r.job==='garden'));
     h+=sec('Unassigned (resting)',working.filter(r=>r.job==='rest').sort((a,b)=>(has(b,'inventor')-has(a,'inventor'))||guardPow(b)-guardPow(a)));
-    h+=sec('Away',ks.filter(r=>r.away));h+=sec('Quarantined',ks.filter(r=>r.quar&&!r.away));h+=sec('Children',ks.filter(r=>r.age<13&&!r.away));
+    h+=sec('In the sick bay',ks.filter(r=>r.ward&&!r.away),sickbayUnit()?'They can\'t work or go out until healed. Beds: '+ks.filter(r=>r.ward).length+'/'+BEDS+'.':'');h+=sec('Away',ks.filter(r=>r.away));h+=sec('Quarantined',ks.filter(r=>r.quar&&!r.away));h+=sec('Children',ks.filter(r=>r.age<13&&!r.away));
   }else if(F==='hh'){
     const hs=S.hh.filter(x=>x.known&&members(x).length).sort((a,b)=>a.trust-b.trust);
     h+=`<p class="small mute">Block trust <b style="color:${sanCol(blockTrust())}">${blockTrust()}%</b>. Households trust you more when they're fed and helped, and less when they go hungry, are refused, or see neighbours thrown out. If block trust falls below 25%, the residents may drive you out. Lowest trust is listed first.</p>`;
@@ -1774,6 +1809,10 @@ const ACT={
   dispatch:d=>dispatch(d.v),
   build:d=>startProj(d.v),
   pf:d=>{UI.pf=d.v;render()},
+  admit:d=>admit(+d.v),
+  admitsel:()=>{const el=document.getElementById('patsel');if(el)admit(+el.value)},
+  discharge:d=>{const r=RS(+d.v);if(r){r.ward=null;log(r.short+' was discharged from the sick bay.','');save();render()}},
+  wardmeds:d=>{const r=RS(+d.v);if(r&&S.store.meds>0){S.store.meds--;r.hp=Math.min(100,r.hp+25);if(r.hp>=95){r.ward=null;log(r.short+' has recovered and left the sick bay.','good')}save();render()}},
   route:d=>{UI.route=d.v;UI.teamKey=null;render()},
   evict:d=>evict(+d.v),
   tip:(d,el)=>showTip(d,el),
