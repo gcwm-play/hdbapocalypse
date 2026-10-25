@@ -74,12 +74,13 @@ select{background:var(--panel2);border:1px solid var(--line);border-radius:6px;p
 }
 
 /* ---------- the block ---------- */
-.sky-0{background:linear-gradient(#3a4f6e,#d39a6a 85%)}
-.sky-1{background:linear-gradient(#3b7fc0,#9cc8e8 85%)}
-.sky-2{background:linear-gradient(#2b2347,#c0604a 85%)}
-.sky-3{background:linear-gradient(#05080e,#121c2c 85%)}
+/* sun / moon: radial layers on the scroll container, so they stay put while the block scrolls */
+.sky-0{background:radial-gradient(circle at 22% 62px,#ffd9a0 0 24px,#ffb86a55 25px 42px,transparent 43px),linear-gradient(#3a4f6e,#d39a6a 85%)}
+.sky-1{background:radial-gradient(circle at 58% 44px,#fffbe6 0 22px,#fff1a866 23px 36px,#fff1a822 37px 50px,transparent 51px),linear-gradient(#3b7fc0,#9cc8e8 85%)}
+.sky-2{background:radial-gradient(circle at 78% 66px,#ff9a5c 0 26px,#ff6a3d44 27px 46px,transparent 47px),linear-gradient(#2b2347,#c0604a 85%)}
+.sky-3{background:radial-gradient(circle at 62% 46px,transparent 0 21px,#eef1f61c 22px 34px,transparent 35px),radial-gradient(circle at calc(62% + 8px) 41px,#06090f 0 17px,transparent 18px),radial-gradient(circle at 62% 46px,#eef1f6 0 20px,transparent 21px),radial-gradient(circle at 12% 30px,#fff 0 1.2px,transparent 2px),radial-gradient(circle at 34% 64px,#fff 0 1px,transparent 2px),radial-gradient(circle at 46% 18px,#fff 0 1.2px,transparent 2px),radial-gradient(circle at 80% 28px,#fffc 0 1px,transparent 2px),radial-gradient(circle at 90% 74px,#fffa 0 1px,transparent 2px),radial-gradient(circle at 4% 80px,#fffa 0 1px,transparent 2px),linear-gradient(#05080e,#121c2c 85%)}
 .haze #tower::after{content:"";position:absolute;inset:0;background:rgba(170,140,90,.28);pointer-events:none}
-#tower{position:relative;width:min(100%,640px);margin:0 auto;padding:24px 12px 0}
+#tower{position:relative;width:min(100%,640px);margin:0 auto;padding:100px 12px 0}
 .roof{display:flex;align-items:flex-end;justify-content:space-between;gap:8px;padding:0 30px 0 36px}
 .blkno{font-family:var(--f-display);font-size:34px;line-height:1;color:var(--facade);text-shadow:0 2px 0 #00000055}
 .blkno small{display:block;font-size:11px;font-family:var(--f-body);color:#ffffffbb;letter-spacing:.06em;text-transform:uppercase;text-shadow:none}
