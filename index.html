@@ -888,7 +888,9 @@ function runCands(){return known().filter(r=>able(r)&&r.lastRun!==S.t)}
 function ensureTeam(dest,rt){const key=dest+'|'+(rt?rt.k:'')+'|'+tick();if(UI.teamKey===key)return;UI.teamKey=key;UI.team=rt?runCands().sort((a,b)=>runScore(b,dest)-runScore(a,dest)).slice(0,Math.min(rt.max,4)).map(r=>r.id):[]}
 function lookouts(){return jobbers('lookout')}
 function lookN(){return jobbers('lookout').length*(S.flags.kwatch?2:1)}
-function expRisk(dest,route,team,lure){
+// provisions per person: [food, water, risk multiplier]
+const PROV=[[0,0,1,'None'],[1,1,.85,'Light'],[2,2,.72,'Full']];
+function expRisk(dest,route,team,lure,prov){
   if(!isOut())return 0;
   let r=DEST[dest].risk*(1+Math.sqrt(pday())*.13)*route.m;
   const w=S.weather.type;if(w==='rain'||w==='storm')r*=.8;if(w==='haze')r*=.85;
@@ -896,7 +898,17 @@ function expRisk(dest,route,team,lure){
   r*=Math.max(.55,1-lookN()*(route.k==='sneak'?.12:.06));
   r*=Math.max(.55,1-team.reduce((a,x)=>a+atkOf(x),0)*.04);
   if(lure)r*=.6;
+  if(prov)r*=PROV[prov][2];
   return clamp(r,.02,.9);
+}
+// average of each member's actual risk (agility and armour adjust it), as the run will roll it
+function memberRisk(base,r){return clamp(base*(1-(r.st.A-5)*.05)-defOf(r)*.03,0,.95)}
+function teamRisk(dest,rt,team,lure,prov){if(!isOut()||!team.length)return expRisk(dest,rt,team,lure,prov);const b=expRisk(dest,rt,team,lure,prov);return team.reduce((a,r)=>a+memberRisk(b,r),0)/team.length}
+function equipTeam(){
+  const team=UI.team.map(RS).filter(r=>r&&able(r));let n=0;
+  ['wpn','arm'].forEach(slot=>{const val=k=>slot==='wpn'?GEAR[k].atk||0:GEAR[k].def||0;
+    team.filter(r=>!r[slot]).forEach(r=>{const k=Object.keys(S.items).filter(k=>GEAR[k]&&val(k)>0).sort((a,b)=>val(b)-val(a))[0];if(k){itemAdd(S.items,k,-1);r[slot]=k;n++}})});
+  flash(n?'Handed out '+n+' piece'+(n>1?'s':'')+' of gear from the store.':'Nothing left in the store to hand out.');save();render();
 }
 function riskLabel(r){if(r===0)return['None yet','goodline'];if(r<.08)return['Low','goodline'];if(r<.18)return['Moderate','warnline'];if(r<.3)return['High','badline'];return['Deadly','badline']}
 function dispatch(dest){
@@ -904,19 +916,21 @@ function dispatch(dest){
   const team=UI.team.map(RS).filter(r=>r&&able(r)&&r.lastRun!==S.t);
   if(!rt||!team.length)return;
   if(team.length>rt.max){flash('This route takes at most '+rt.max+' people.');return}
-  const lureBox=document.getElementById('uselure');const lure=!!(lureBox&&lureBox.checked&&S.built.lure>0);if(lure)S.built.lure--;
+  const lureBox=document.getElementById('uselure');const lure=!!(lureBox&&lureBox.checked&&S.built.lure>0);
+  let prov=isOut()?(UI.prov||0):0;if(prov&&(S.store.food<PROV[prov][0]*team.length||S.store.water<PROV[prov][1]*team.length))prov=0;
+  if(lure)S.built.lure--;if(prov){S.store.food-=PROV[prov][0]*team.length;S.store.water-=PROV[prov][1]*team.length}
   team.forEach(r=>{r.away=true;r.lastRun=S.t});
-  S.exps.push({dest,route:rt.k,rm:rt.m,team:team.map(r=>r.id),back:tick()+DEST[dest].dur,lure,from:S.ph});
+  S.exps.push({dest,route:rt.k,rm:rt.m,team:team.map(r=>r.id),back:tick()+DEST[dest].dur,lure,prov,from:S.ph});
   S.stats.runs++;
   log(team.map(r=>r.short).join(', ')+' set out for the '+DEST[dest].n.toLowerCase()+'.','');
-  UI.team=[];UI.teamKey=null;save();render();
+  UI.team=[];UI.teamKey=null;UI.prov=0;save();render();
 }
 function resolveExps(){
   const done=S.exps.filter(e=>e.back<=tick());S.exps=S.exps.filter(e=>e.back>tick());
   done.forEach(e=>{
     if(e.wander||e.camp||e.lend){returnLoner(e);return}
     const team=e.team.map(RS).filter(Boolean);const route={k:e.route,m:e.rm};
-    const risk=expRisk(e.dest,route,team,e.lure);const lines=[];const loot={food:0,water:0,meds:0,scrap:0,items:{}};
+    const risk=expRisk(e.dest,route,team,e.lure,e.prov);const lines=[];const loot={food:0,water:0,meds:0,scrap:0,items:{}};
     const survivors=[];
     team.forEach(r=>{
       r.away=false;if(!r.alive)return;
@@ -1754,7 +1768,15 @@ function panelOutside(){
   h+=`<h3>Route</h3><div class="routes">`+routes(d).map(r=>`<button class="${rt&&rt.k===r.k?'btn-main':''}" data-act="route" data-v="${r.k}" ${r.ok?'':'disabled'}><b>${r.unk?'???':esc(r.n)}</b><small>${r.ok?(r.m!==1?'Risk ×'+r.m+' · ':'Normal risk · ')+'max '+r.max:esc(r.why)}</small></button>`).join('')+`</div>`;
   if(!rt){h+=`<p class="warnline">No way out right now. ${S.front>0?'Sneak down the stairs in the evening or at night, or build a bedsheet rope or flying fox.':''}</p>`}
   else{
-    const rk=expRisk(d,rt,team,false);const lb=riskLabel(rk);const max=Math.min(rt.max,4);
+    const max=Math.min(rt.max,4);const n=team.length;
+    if(isOut()){
+      const pv=UI.prov||0;
+      h+=`<h3>🎒 Provisions</h3><div class="routes">`+PROV.map(([f,w,m,nm],i)=>{const cost=i?f*n+' food, '+w*n+' water':'Free';const can=!i||(S.store.food>=f*n&&S.store.water>=w*n);const rr=teamRisk(d,rt,team,false,i);
+        return `<button class="${pv===i?'btn-main':''}" data-act="prov" data-v="${i}" ${can?'':'disabled'}><b>${nm}</b><small>${cost} · risk ~${Math.round(rr*100)}%</small></button>`}).join('')+`</div>`;
+      const spare=Object.keys(S.items).filter(k=>GEAR[k]).reduce((a,k)=>a+S.items[k],0);const bare=team.filter(r=>!r.wpn||!r.arm).length;
+      h+=`<div class="row" style="margin-top:8px"><button data-act="equipteam" ${spare&&bare?'':'disabled'}>⚔️ Equip the team from the store</button><span class="small mute">${spare} weapon/armour piece${spare===1?'':'s'} in the store. Weapons protect the whole team, armour its wearer. Gear is lost with anyone who dies outside.</span></div>`;
+    }
+    const rk=teamRisk(d,rt,team,false,isOut()?(UI.prov||0):0);const lb=riskLabel(rk);
     h+=`<div class="card stack" style="margin-top:10px;gap:6px"><div class="row"><button class="btn-main" data-act="dispatch" data-v="${d}" ${team.length?'':'disabled'}>Send ${team.length||''} ${team.length===1?'person':'people'}${rt.k==='fox'?' by '+rt.n.toLowerCase():''}</button><span class="${lb[1]}">Risk each: ${lb[0]}${isOut()?' (~'+Math.round(rk*100)+'%)':' (no zombies yet)'}</span></div>
       <span class="small mute">Back ${DEST[d].dur===1?'next phase':'in two phases'}. Lookouts on the roof: ${lookouts().length}${S.flags.kwatch?' (count double)':''}.</span>
       ${S.built.lure?`<label class="teamrow"><input type="checkbox" id="uselure"> Throw a noise lure first (${S.built.lure} left)</label>`:''}</div>`;
@@ -1839,6 +1861,8 @@ const ACT={
   dispatch:d=>dispatch(d.v),
   build:d=>startProj(d.v),
   pf:d=>{UI.pf=d.v;render()},
+  prov:d=>{UI.prov=+d.v;render()},
+  equipteam:()=>equipTeam(),
   askhost:d=>{const el=document.getElementById('host-'+d.v);if(el)askHost(+d.v,+el.value)},
   admit:d=>admit(+d.v),
   admitsel:()=>{const el=document.getElementById('patsel');if(el)admit(+el.value)},
