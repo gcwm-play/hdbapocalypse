@@ -506,7 +506,7 @@ const TIMERS={
   convoyNews:a=>queue('convoyNews',a),
   deserter:a=>queue('deserter2',a),
   armedLooters:a=>queue('armedLooters',a),
-  liftshaft:a=>{if(S.flags.liftSealed)return;const top=Math.max(S.front+1,S.floors-ri(0,2));attackNear(top,'Zombies climbed the dead lift shaft and burst out of the lift doors on floor '+pad(top),'the lift shaft');addTimer(ri(4,7),'liftshaft',{})},
+  liftshaft:a=>{if(S.flags.liftSealed)return;S.flags.liftOpen=1;const top=Math.max(S.front+1,S.floors-ri(0,2));attackNear(top,'Zombies climbed the dead lift shaft and burst out of the lift doors on floor '+pad(top),'the lift shaft');addTimer(ri(4,7),'liftshaft',{})},
 };
 function birth(r,h,risk){
   const baby=mkRes('kid',h,{age:0});baby.san=100;baby.traits=[];S.stats.born=(S.stats.born||0)+1;const sex=baby.sex==='M'?'boy':'girl';
@@ -1134,7 +1134,7 @@ const REV=[
    {t:'Risk it',s:'Keep all of it. Some people may get sick.',f:()=>{const v=known().filter(()=>chance(.3));v.forEach(r=>{r.hp-=ri(15,30);if(r.hp<=0)kill(r,'Died of a gut infection from bad water')});return v.length?v.length+' residents come down with stomach cramps and fever.':'Somehow, nobody gets sick.'}}]})},
  {id:'liftshaft',w:2,once:1,c:()=>isOut()&&!S.grid.power&&S.floors>=8,make:()=>card({i:'🛗',t:'Scratching in the lift shaft',x:'With the lifts dead, residents on the top floors hear scratching and thumping inside the lift shaft. Something is climbing the cables.',zed:1,c:[
    {t:'Wire and brace every lift door shut',s:'−8 scrap',dis:S.store.scrap<8,f:()=>{S.store.scrap-=8;S.flags.liftSealed=1;return 'Every lift door is wired, braced and nailed. The scratching goes on, but nothing gets out.'}},
-   {t:'It\'s probably rats',s:'Save the scrap',f:()=>{addTimer(ri(2,4),'liftshaft',{});return 'People turn their radios up to drown it out.'}}]})},
+   {t:'It\'s probably rats',s:'Save the scrap',f:()=>{S.flags.liftOpen=1;addTimer(ri(2,4),'liftshaft',{});return 'People turn their radios up to drown it out.'}}]})},
  {id:'drop',w:1,c:()=>isOut()&&pday()>5&&lookouts().length>0&&known().filter(able).length>=2,make:()=>{
   const team=known().filter(able).sort((a,b)=>b.st.A-a.st.A).slice(0,3);
   return card({i:'🪂',t:'A supply drop',x:'The lookout on the roof shouts: a helicopter just dropped a pallet on the school field, two streets away. Other survivors will have seen it too. It\'s now or never.',c:[
@@ -1816,6 +1816,7 @@ function panelBlock(){
   <span class="mute">Lures</span><span>${S.built.lure}</span><span class="mute">Lamps</span><span>${S.built.lamp}</span></div>`;
   h+=`<h3>Rations from the communal store</h3><div class="row">${['full','half','none'].map(v=>`<button class="${S.ration===v?'btn-main':''}" data-act="ration" data-v="${v}">${{full:'Full',half:'Half',none:'None'}[v]}</button>`).join('')}</div><p class="small mute">Households eat their own food first. When it runs out, the store tops them up at this level.</p>`;
   h+=`<h3>Defence</h3><div class="stack">
+    ${S.flags.liftOpen&&!S.flags.liftSealed?`<button data-act="seallift" ${S.store.scrap>=8?'':'disabled'}>🛗 Seal the lift doors on every floor (−8 scrap). Zombies are climbing the shaft.</button>`:''}
     <button data-act="reinforce" ${S.store.scrap>=5&&isOut()?'':'disabled'}>🔩 Reinforce the line (−5 scrap, +20)</button>
     <button data-act="lure" ${S.built.lure&&isOut()&&!S.flags.lure?'':'disabled'}>⏰ Throw a noise lure tonight (${S.built.lure})</button>
     ${S.front>0?`<button class="btn-bad" data-act="retake" ${jobbers('guard').length>=3?'':'disabled'}>⚔️ Push down and retake ${S.front===1?'the void deck':'floor '+pad(S.front)} (all guards, needs 3+)</button>`:''}
@@ -1861,6 +1862,7 @@ const ACT={
   dispatch:d=>dispatch(d.v),
   build:d=>startProj(d.v),
   pf:d=>{UI.pf=d.v;render()},
+  seallift:()=>{if(S.store.scrap<8||S.flags.liftSealed)return;S.store.scrap-=8;S.flags.liftSealed=1;log('Every lift door wired, braced and nailed shut. Nothing more is coming up the shaft.','good');flash('Lift doors sealed.');save();render()},
   prov:d=>{UI.prov=+d.v;render()},
   equipteam:()=>equipTeam(),
   askhost:d=>{const el=document.getElementById('host-'+d.v);if(el)askHost(+d.v,+el.value)},
@@ -1901,6 +1903,7 @@ document.addEventListener('keydown',e=>{if(e.code==='Space'&&S&&!e.target.closes
 
 function migrate(){
   if(!S)return;
+  if((S.timers||[]).some(t=>t.k==='liftshaft')&&!S.flags.liftSealed)S.flags.liftOpen=1;
   const SRCFIX={'a bite on the run':'a bite from a supply run','a bite on guard duty':'a bite from guard duty','a bite while retaking a floor':'a bite from retaking a floor'};S.res.forEach(r=>{if(r.inf&&SRCFIX[r.inf.src])r.inf.src=SRCFIX[r.inf.src]});
   if(S.built.fox===true){S.built.fox={market:1};S.known.zipline=true}else if(!S.built.fox||typeof S.built.fox!=='object')S.built.fox={};
   S.timers=S.timers||[];
