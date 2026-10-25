@@ -333,7 +333,7 @@ const ITEMS={broom:'Broom',knife:'Kitchen knife',bamboo:'Bamboo laundry pole',ro
   rifle:'Rifle (SAR 21)',broomSpear:'Broom-handle spear',bambooPole:'Bamboo polearm',wokShield:'Wok shield',potHelmet:'Pot helmet'};
 const GEAR={rifle:{atk:6},knife:{atk:1},hammer:{atk:1},umbrella:{atk:1},golf:{atk:2},changkol:{atk:2},baton:{atk:2},parang:{atk:3},broomSpear:{atk:2},bambooPole:{atk:3},extinguisher:{atk:2},
   helmet:{def:1},potHelmet:{def:1},wokShield:{def:2},riot:{def:3}};
-const HH_ITEMS={broom:5,knife:6,bamboo:4,sheets:5,pot:4,pail:4,wok:3,rope:3,clock:3,umbrella:4,helmet:2,bicycle:2,golf:1,changkol:1,parang:1,hammer:2,tape:2,pipe:1,tarp:1,battery:1,wire:2,extinguisher:1};
+const HH_ITEMS={broom:5,knife:6,bamboo:4,sheets:5,pot:4,pail:4,wok:3,rope:3,clock:3,umbrella:4,helmet:2,bicycle:3,golf:1,changkol:1,parang:1,hammer:2,tape:2,pipe:1,tarp:1,battery:1,wire:2,extinguisher:1};
 const RECIPES=[
   {id:'broomSpear',n:'Broom-handle spear',need:{broom:1,knife:1},work:6,known:1,d:'Kitchen knife lashed to a broom. Weapon, attack 2.',hint:'Something long, something sharp.'},
   {id:'sheetRope',n:'Bedsheet rope',need:{sheets:2,rope:1},work:6,known:1,d:'A way down when the stairs are lost. Works while the line is at floor 4 or lower.',hint:'Knotted cloth, the classic escape.'},
@@ -962,6 +962,7 @@ function resolveExps(){
     });
     const cap=e.route==='fox'?(((S.built.fox||{})[e.dest]===2)?.85:.6):1;
     survivors.forEach(r=>{
+      if(chance(.06))itemAdd(loot.items,'bicycle'); // abandoned bikes are everywhere, if you can wheel one home
       const drv=r.arch==='driver'?1.3:1;
       if(e.dest==='market'){const sf=S.market/100;const f=Math.round((6+ri(0,7))*sf*cap*drv*(isOut()?1:1.4));loot.food+=f;const w=Math.round(ri(2,6)*sf*cap);loot.water+=w;
         if(S.market<1){if(S.mktScrap==null)S.mktScrap=60;if(S.mktScrap>0&&chance(.35)){const g=Math.min(S.mktScrap,ri(3,6));S.mktScrap-=g;loot.scrap+=g}}S.market=Math.max(0,S.market-f*.4-w*.3);if(chance(.05+.25*sf))itemAdd(loot.items,pick(['battery','tape','rope','pail','clock','wire','sheets']))}
