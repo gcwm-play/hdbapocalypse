@@ -191,6 +191,7 @@ button.trait{padding:0 5px;border-radius:4px}
 .jc{color:var(--jc)}
 .guide-t{background:transparent;border:none;color:var(--lamp);padding:2px 0;margin-bottom:6px;text-align:left}
 .guide p{margin:0 0 8px}
+.bpgroup>.card{border-left:3px solid var(--jc)}
 .ends{list-style:none;margin:6px 0 0;padding:0;display:flex;flex-direction:column;gap:3px}
 .budget{width:100%;border-collapse:collapse;font-size:13px}
 .budget th{text-align:left;font-weight:400;color:var(--mute);font-size:11px;padding:2px 6px 4px 0;white-space:nowrap}
@@ -337,18 +338,18 @@ const GEAR={rifle:{atk:6},knife:{atk:1},hammer:{atk:1},umbrella:{atk:1},golf:{at
   helmet:{def:1},potHelmet:{def:1},wokShield:{def:2},riot:{def:3}};
 const HH_ITEMS={broom:5,knife:6,bamboo:4,sheets:5,pot:4,pail:4,wok:3,rope:3,clock:3,umbrella:4,helmet:2,bicycle:3,golf:1,changkol:1,parang:1,hammer:2,tape:2,pipe:1,tarp:1,battery:1,wire:2,extinguisher:1};
 const RECIPES=[
-  {id:'broomSpear',n:'Broom-handle spear',need:{broom:1,knife:1},work:6,known:1,d:'Kitchen knife lashed to a broom. Weapon, attack 2.',hint:'Something long, something sharp.'},
-  {id:'sheetRope',n:'Bedsheet rope',need:{sheets:2,rope:1},work:6,known:1,d:'A way down when the stairs are lost. Works while the line is at floor 4 or lower.',hint:'Knotted cloth, the classic escape.'},
-  {id:'rainCatcher',n:'Rooftop rain catcher',need:{tarp:1,pail:2},work:6,known:1,d:'Collects water on the roof every time it rains.',hint:'Spread something wide over containers.'},
-  {id:'bambooPole',n:'Bamboo polearm',need:{bamboo:1,knife:1,tape:1},work:10,d:'The laundry pole, but sharp. Weapon, attack 3.',hint:'The laundry pole could reach further than a broom...'},
-  {id:'wokShield',n:'Wok shield',need:{wok:1,rope:1},work:5,d:'Armour, defence 2. Fewer bites.',hint:'The kitchen has round, heavy metal things.'},
-  {id:'potHelmet',n:'Pot helmet',need:{pot:1,rope:1},work:3,d:'Armour, defence 1.',hint:'Protect the head with cookware.'},
-  {id:'barricadeKit',n:'Pipe barricade',need:{pipe:2,tape:1},work:8,d:'Rebuilds the current line: +40 max strength and full repair.',hint:'Plumbing could brace the stairwell.'},
-  {id:'noiseLure',n:'Noise lure',need:{clock:1,battery:1},work:5,d:'Thrown far away, it pulls zombies off a night attack or a supply run.',hint:'Something that rings, and something to keep it ringing.'},
-  {id:'lamp',n:'Battery lamp',need:{battery:1,wire:1},work:6,d:'Light after the grid dies. Less sanity loss at night.',hint:'Light without the grid.'},
-  {id:'flyingFox',n:'Flying fox',need:{rope:2,bicycle:1,sheets:1},work:16,d:'A one-way line from the block down to a nearby rooftop. When it\'s done, you choose where it goes. Runs there are half as risky. Max 2 riders. You can build one for each destination.',hint:'A wheel on a line, all the way across to another rooftop...'},
-  {id:'booster',secret:1,n:'Radio signal booster',need:{battery:1,wire:1,umbrella:1},work:14,d:'An umbrella turned into a dish, wired to a car battery and the police radio. Strong enough to reach Changi Naval Base. Needs two workshops working together.',hint:'A dish to catch a faraway voice...'},
-  {id:'zipline',n:'Two-way zipline (upgrade)',need:{battery:1,wire:1,rope:1},work:10,d:'Motorises a flying fox so it runs both ways: a quarter of the normal risk, up to 3 riders. When it\'s done, you choose which flying fox to upgrade.',hint:'Something to pull the line back up...'},
+  {id:'broomSpear',cat:'weapon',n:'Broom-handle spear',need:{broom:1,knife:1},work:6,known:1,d:'Kitchen knife lashed to a broom. Weapon, attack 2.',hint:'Something long, something sharp.'},
+  {id:'sheetRope',cat:'route',n:'Bedsheet rope',need:{sheets:2,rope:1},work:6,known:1,d:'A way down when the stairs are lost. Works while the line is at floor 4 or lower.',hint:'Knotted cloth, the classic escape.'},
+  {id:'rainCatcher',cat:'living',n:'Rooftop rain catcher',need:{tarp:1,pail:2},work:6,known:1,d:'Collects water on the roof every time it rains.',hint:'Spread something wide over containers.'},
+  {id:'bambooPole',cat:'weapon',n:'Bamboo polearm',need:{bamboo:1,knife:1,tape:1},work:10,d:'The laundry pole, but sharp. Weapon, attack 3.',hint:'The laundry pole could reach further than a broom...'},
+  {id:'wokShield',cat:'armour',n:'Wok shield',need:{wok:1,rope:1},work:5,d:'Armour, defence 2. Fewer bites.',hint:'The kitchen has round, heavy metal things.'},
+  {id:'potHelmet',cat:'armour',n:'Pot helmet',need:{pot:1,rope:1},work:3,d:'Armour, defence 1.',hint:'Protect the head with cookware.'},
+  {id:'barricadeKit',cat:'defence',n:'Pipe barricade',need:{pipe:2,tape:1},work:8,d:'Rebuilds the current line: +40 max strength and full repair.',hint:'Plumbing could brace the stairwell.'},
+  {id:'noiseLure',cat:'defence',n:'Noise lure',need:{clock:1,battery:1},work:5,d:'Thrown far away, it pulls zombies off a night attack or a supply run.',hint:'Something that rings, and something to keep it ringing.'},
+  {id:'lamp',cat:'living',n:'Battery lamp',need:{battery:1,wire:1},work:6,d:'Light after the grid dies. Less sanity loss at night.',hint:'Light without the grid.'},
+  {id:'flyingFox',cat:'route',n:'Flying fox',need:{rope:2,bicycle:1,sheets:1},work:16,d:'A one-way line from the block down to a nearby rooftop. When it\'s done, you choose where it goes. Runs there are half as risky. Max 2 riders. You can build one for each destination.',hint:'A wheel on a line, all the way across to another rooftop...'},
+  {id:'booster',cat:'radio',secret:1,n:'Radio signal booster',need:{battery:1,wire:1,umbrella:1},work:14,d:'An umbrella turned into a dish, wired to a car battery and the police radio. Strong enough to reach Changi Naval Base. Needs two workshops working together.',hint:'A dish to catch a faraway voice...'},
+  {id:'zipline',cat:'route',n:'Two-way zipline (upgrade)',need:{battery:1,wire:1,rope:1},work:10,d:'Motorises a flying fox so it runs both ways: a quarter of the normal risk, up to 3 riders. When it\'s done, you choose which flying fox to upgrade.',hint:'Something to pull the line back up...'},
 ];
 const ROOMS={
   workshop:{n:'Workshop',e:'🔧',cost:6,once:1,d:'Inventors work 50% faster. One is enough.'},
@@ -1921,7 +1922,7 @@ function panelWorkshop(){
   h+=it.length?`<div class="itemchips">${it.map(k=>`<button class="ic ${UI.expSel.includes(k)?'on':''}" data-act="expsel" data-v="${k}">${ITEMS[k]} ×${S.items[k]}</button>`).join('')}</div>`:'<p class="mute small">Empty. Ask households to donate items from their flats.</p>';
   const selKey=UI.expSel.slice().sort().join('+');const triedIt=(S.tried||[]).includes(selKey);
   h+=`<div class="row" style="margin-top:8px"><button data-act="experiment" ${UI.expSel.length>=2&&!triedIt?'':'disabled'}>💡 Try combining ${UI.expSel.length?UI.expSel.map(k=>ITEMS[k]).join(' + '):'selected items'}</button>${triedIt?'<span class="small warnline">You already tried this combination.</span>':''}</div>${(S.tried||[]).length?`<p class="small mute" style="margin:6px 0 0"><b>Already tried:</b> ${S.tried.slice(-12).reverse().map(t=>t.split('+').map(k=>ITEMS[k]).join(' + ')).join(' · ')}</p>`:''}<p class="small mute">Pick the items an idea needs and let the inventor try. Items are not used up. Each idea below says how many different items it needs and which ones you already know. A wrong guess that includes a right item still reveals that item.</p>`;
-  h+=`<h3>Blueprints</h3><p class="small mute" style="margin:0 0 6px">Known blueprints A to Z, then unknown ideas.</p><div class="stack">`+RECIPES.filter(r=>!r.secret||S.known[r.id]).slice().sort((a,b)=>(S.known[b.id]?1:0)-(S.known[a.id]?1:0)||a.n.localeCompare(b.n)).map(rc=>{
+  const bpCard=rc=>{
     if(!S.known[rc.id]){const ks=Object.keys(rc.need);const rv=revealed(rc);return `<div class="card stack" style="gap:4px"><b class="mute">??? Unknown idea · needs ${ks.length} different items</b><span class="small">${ks.map(k=>rv.includes(k)?`<span class="${S.items[k]?'goodline':'badline'}">${ITEMS[k]}</span>`:'<span class="mute">???</span>').join(' + ')}</span><span class="small mute">Hint: ${rc.hint}</span></div>`}
     const need=Object.entries(rc.need).map(([k,n])=>`<span class="${(S.items[k]||0)>=n?'goodline':'badline'}">${n}× ${ITEMS[k]}</span>`).join(' + ');
     const fx=S.built.fox||{};let why='';
@@ -1931,7 +1932,13 @@ function panelWorkshop(){
     if(rc.id==='booster'&&rooms('workshop')<2)why='Needs two workshops (repurpose a second empty flat)';
     if(rc.id==='booster'&&S.end&&S.end.radio&&S.end.radio.booster)why='Already built';
     const done=!!why;
-    return `<div class="card stack" style="gap:4px"><b>${rc.n}</b><span class="small mute">${rc.d}</span><span class="small">${need} · ${rc.work} work</span><div class="row"><button data-act="build" data-v="${rc.id}" ${!S.proj&&hasNeeds(rc)&&!done?'':'disabled'}>Build</button>${done?'<span class="small mute">'+why+'.</span>':S.proj?'<span class="small mute">Workshop busy. One project at a time.</span>':!hasNeeds(rc)?'<span class="small mute">Missing items (in red).</span>':''}</div></div>`}).join('')+`</div>`;
+    return `<div class="card stack" style="gap:4px"><b>${rc.n}</b><span class="small mute">${rc.d}</span><span class="small">${need} · ${rc.work} work</span><div class="row"><button data-act="build" data-v="${rc.id}" ${!S.proj&&hasNeeds(rc)&&!done?'':'disabled'}>Build</button>${done?'<span class="small mute">'+why+'.</span>':S.proj?'<span class="small mute">Workshop busy. One project at a time.</span>':!hasNeeds(rc)?'<span class="small mute">Missing items (in red).</span>':''}</div></div>`};
+  const CATS=[['weapon','⚔️ Weapons','#ec6a52'],['armour','🛡️ Armour','#5aa9e6'],['route','🪢 Routes out','#b48ef0'],['defence','🧱 Defence','#f4b740'],['living','💧 Water & light','#4fd1c5'],['radio','📻 Radio','#9cc35a']];
+  const list=RECIPES.filter(r=>!r.secret||S.known[r.id]);
+  h+=`<h3>Blueprints</h3><p class="small mute" style="margin:0 0 6px">Grouped by what they do. Known blueprints first (A to Z), then unknown ideas of that kind.</p>`;
+  CATS.forEach(([c,label,col])=>{const rs=list.filter(r=>r.cat===c).sort((a,b)=>(S.known[b.id]?1:0)-(S.known[a.id]?1:0)||a.n.localeCompare(b.n));if(!rs.length)return;
+    h+=`<h3 class="jh" style="--jc:${col};margin-top:14px">${label} · ${rs.filter(r=>S.known[r.id]).length}/${rs.length} known</h3><div class="stack bpgroup" style="--jc:${col}">`+rs.map(bpCard).join('')+`</div>`});
+
   return h;
 }
 // expected barricade change per day with the current guards (noise and hordes not included); extra = an added guard
