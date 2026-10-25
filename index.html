@@ -384,11 +384,14 @@ function nameHH(h){
 function mkRes(arch,h,o){
   o=o||{};const A=ARCH[arch];const sex=o.sex||A.sex||(chance(.5)?'M':'F');const age=o.age||ri(A.age[0],A.age[1]);const E=ETH[h.eth];
   let short,name;
-  if(arch==='helper'){short=name=pick(HELPERS)}
-  else if(arch==='worker'){short=name=pick(WORKERS)}
-  else if(h.eth==='cn'){short=pick(E[sex==='M'?'m':'f']);name=h.sur+' '+short}
-  else if(h.eth==='ml'){short=pick(E[sex==='M'?'m':'f']);name=short+(sex==='M'?' bin ':' binte ')+h.pat}
-  else{short=pick(E[sex==='M'?'m':'f']);name=short+' '+h.sur}
+  for(let k=0;k<12;k++){
+    if(arch==='helper'){short=name=pick(HELPERS)}
+    else if(arch==='worker'){short=name=pick(WORKERS)}
+    else if(h.eth==='cn'){short=pick(E[sex==='M'?'m':'f']);name=h.sur+' '+short}
+    else if(h.eth==='ml'){short=pick(E[sex==='M'?'m':'f']);name=short+(sex==='M'?' bin ':' binte ')+h.pat}
+    else{short=pick(E[sex==='M'?'m':'f']);name=short+' '+h.sur}
+    if(short!==h.pat&&!S.res.some(x=>x.hh===h.id&&x.short===short))break;
+  }
   if(arch==='ahma'||arch==='ahgong'){short=E.nick[arch==='ahma'?0:1]+' '+(h.sur||short);}
   if(arch==='you'){name=name+' (you)'}
   const st={};STK.forEach((k,i)=>st[k]=clamp(A.st[i]+ri(-1,1),1,10));
@@ -451,7 +454,9 @@ function rollWeather(){
   const type=wpick(w);
   S.weather={type,psi:type==='haze'?ri(110,260):ri(25,70)};
 }
-function basePressure(){const d=pday();return (2+3.2*Math.sqrt(d))*(0.75+R()*0.5)}
+const DIFF_P={easy:.8,normal:1,hard:1.25};
+function expPressure(){const d=pday();return (3+4.5*Math.sqrt(d)+.12*d)*(DIFF_P[S.diff]||1)}
+function basePressure(){return expPressure()*(0.7+R()*0.6)}
 function newDay(){
   S.talks=2+(known().some(r=>act(r)&&r.arch==='rcauntie')?1:0);S.chatUsed={};
   rollWeather();
@@ -578,9 +583,19 @@ function doThreat(){
   if(S.weather.type==='rain'||S.weather.type==='storm')p*=.85;
   const guards=jobbers('guard');
   const G=guards.reduce((a,r)=>a+guardPow(r),0)*(S.front>0?1.25:1);
-  const dmg=Math.max(0,p-G)*2.2;
-  const rep=guards.reduce((a,r)=>a+1+r.st.S*.2+(r.arch==='worker'?1.5:0)+(r.arch==='cleaner'?1:0),0);
-  S.bar.hp=clamp(S.bar.hp+rep-dmg,-1,S.bar.max);
+  // guards blunt the attack but never stop it completely: some damage always gets through
+  const dmg=Math.max(p*.15,p-G)*2.2;
+  S.bar.hp=clamp(S.bar.hp-dmg,-1,S.bar.max);
+  // repairs happen in daylight only, and use scrap (1 scrap per 4 points)
+  if(S.ph<2&&S.bar.hp>0){
+    let rep=guards.reduce((a,r)=>a+1+r.st.S*.15+(r.arch==='worker'?1.5:0)+(r.arch==='cleaner'?1:0),0);
+    rep=Math.min(rep,S.bar.max-S.bar.hp);
+    // full repairs need scrap; without it guards can only patch at 40%
+    const withScrap=Math.min(rep,S.store.scrap*4);const patch=(rep-withScrap)*.4;
+    if(withScrap>0)S.store.scrap-=Math.ceil(withScrap/4);
+    S.bar.hp+=withScrap+patch;
+    if(guards.length&&S.store.scrap<=0&&S.bar.hp<S.bar.max&&S.flags.noScrapWarn!==S.t){S.flags.noScrapWarn=S.t;log('Out of scrap: guards guards can only patch the barricade slowly. Strip corridors, search empty flats or raid the school.','bad')}
+  }
   if(p>1.5)guards.forEach(g=>{
     const c=clamp(.015+.12*(p/(G+3))-defOf(g)*.02,.003,.5);
     if(chance(c)){
@@ -1286,7 +1301,7 @@ function panelPeople(){
   if(F==='job'){
     const working=ks.filter(r=>r.age>=13&&!r.away&&!r.quar);
     const G=jobbers('guard');
-    h+=sec('Guards',working.filter(r=>r.job==='guard').sort((a,b)=>guardPow(b)-guardPow(a)),isOut()?`Line strength ${G.reduce((a,r)=>a+guardPow(r),0).toFixed(1)} · barricade ${Math.max(0,Math.round(S.bar.hp))}/${S.bar.max}`:'');
+    h+=sec('Guards',working.filter(r=>r.job==='guard').sort((a,b)=>guardPow(b)-guardPow(a)),isOut()?`Line strength ${(G.reduce((a,r)=>a+guardPow(r),0)*(S.front>0?1.25:1)).toFixed(1)} vs ~${Math.round(expPressure())} attackers tonight (more during hordes). Some damage always gets through; guards repair by day, faster with scrap · barricade ${Math.max(0,Math.round(S.bar.hp))}/${S.bar.max}`:'');
     h+=sec('Rooftop lookouts',working.filter(r=>r.job==='lookout'));
     h+=sec('Workshop',working.filter(r=>r.job==='invent'),S.proj?'Building: '+RECIPES.find(x=>x.id===S.proj.id).n:'No project. Start one in the Workshop tab.');
     h+=sec('Medics',working.filter(r=>r.job==='medic'));
