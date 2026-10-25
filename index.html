@@ -320,9 +320,10 @@ const TRAITS={
   steady:['Steady','Reliable. Every sanity loss is 20% smaller.'],
   sian:['Sian','Low motivation. About 1 phase in 20 they skip their job, and their workshop work is sometimes slow.'],
   atas:['Atas','Looks down on others. Their household rarely agrees to donate items, and they resent newcomers like the dorm workers.'],
+  greenfinger:['Green Fingers','Grew chilli and pandan in the corridor for years. Tending a garden, they grow 8 food a day instead of 5.'],
   inventor:['Inventor','Can build things in the workshop from donated items. Only inventors on the Workshop job make progress, and higher Intellect makes them faster.'],
 };
-const TRAIT_POOL=['kiasu','bochap','pantang','kaypoh','paiseh','garang','steady','sian','atas'];
+const TRAIT_POOL=['kiasu','bochap','pantang','kaypoh','paiseh','garang','steady','sian','atas','greenfinger'];
 const ETH={
   cn:{sur:['Tan','Lim','Lee','Ng','Goh','Ong','Wong','Chua','Teo','Koh','Chan','Yeo','Sim','Low','Ho','Seah','Quek','Tay','Toh','Yap','Neo','Foo','Heng','Leong','Loh','Chong','Lau','Tham','Kwek','Pang','Soh','Phua','Ang','Chia','Sng','Liew','Tang','Yong','Kang','Lai','Seow','Chew','Wee','Khoo','Poh'],
       m:['Wei Ming','Jun Jie','Kok Leong','Boon Huat','Zhi Hao','Kelvin','Darren','Marcus','Ah Kow','Chee Keong','Ryan','Eugene','Jia Hao','Yong Sheng','Teck Seng','Ah Huat','Wee Kiat','Daniel','Jonathan','Benjamin','Hock Seng','Kian Hwee','Shawn','Jeremy','Gerald','Alvin','Terence'],
@@ -479,6 +480,7 @@ function mkRes(arch,h,o){
   const st={};STK.forEach((k,i)=>st[k]=clamp(A.st[i]+ri(-1,1),1,10));
   const traits=(A.tr||[]).slice();
   if(chance(.65)){const t=pick(TRAIT_POOL);if(!traits.includes(t))traits.push(t)}
+  if(age>=60&&!traits.includes('greenfinger')&&chance(.25))traits.push('greenfinger'); // the corridor-garden generation
   if(arch!=='kid'&&age>=16&&!traits.includes('inventor')&&chance(.04))traits.push('inventor');
   const r={id:S.nid++,arch,name,short,sex,age,st,traits,hp:100,san:ri(72,96),hun:0,thi:0,inf:null,job:'rest',hh:h.id,alive:true,away:false,busy:false,wpn:null,arm:null,leader:arch==='you',quar:false,lastBreak:-9};
   S.res.push(r);return r;
@@ -780,7 +782,7 @@ function doJobs(){
   if(S.ph===1){const dm=staffAssign('depot','salvage');for(const id in dm){const u=U(id);const w=dm[id];if(!w)continue;const g=Math.min(u.scrapLeft,w.arch==='karang'?6:3);u.scrapLeft-=g;S.store.scrap+=g;
     if(u.scrapLeft<=0){u.room=null;u.st='gutted';u.gone=true;w.post=null;w.job='rest';log(u.id+' has been stripped bare: walls, pipes, even the window grilles. Nothing left. The flat is gone for good.','bad')}}}
   const gardens=rooms('garden');
-  if(gardens&&S.ph===1){const tend=Math.min(gardens,jobbers('garden').length);const water=S.grid.water||S.store.water>=gardens;if(water){if(!S.grid.water)S.store.water-=gardens;const f=tend*5+(gardens-tend)*2;S.store.food+=f}else log('The corridor gardens wilted today: no water to spare.','bad')}
+  if(gardens&&S.ph===1){const tend=Math.min(gardens,jobbers('garden').length);const gmap=staffAssign('garden','garden');const gardenFood=Object.values(gmap).reduce((a,w)=>a+(w?(has(w,'greenfinger')?8:5):2),0);const water=S.grid.water||S.store.water>=gardens;if(water){if(!S.grid.water)S.store.water-=gardens;const f=gardenFood;S.store.food+=f}else log('The corridor gardens wilted today: no water to spare.','bad')}
   // sian skip
   ks.forEach(r=>{if(act(r)&&has(r,'sian')&&r.job!=='rest'&&chance(.05)){log(r.short+' couldn\'t be bothered today. Sian.','');r.busy=true}});
 }
@@ -1075,6 +1077,7 @@ function resolveExps(){
   const done=S.exps.filter(e=>e.back<=tick());S.exps=S.exps.filter(e=>e.back>tick());
   done.forEach(e=>{
     if(e.wander||e.camp||e.lend){returnLoner(e);return}
+    const qStart=S.queue.length; // cards raised during this run (bites, deaths) go after the run report
     const team=e.team.map(RS).filter(Boolean);const route={k:e.route,m:e.rm};
     const risk=expRisk(e.dest,route,team,e.lure,e.prov);const lines=[];const loot={food:0,water:0,meds:0,scrap:0,items:{}};
     const survivors=[];
@@ -1110,6 +1113,7 @@ function resolveExps(){
     for(let i=lines.length-1;i>=0;i--)if(!lines[i])lines.splice(i,1);
     log('Run to the '+DEST[e.dest].n.toLowerCase()+' returned. '+(got.length?'Got '+got.join(', ')+'.':''),survivors.length===team.length?'good':'bad');
     queue('exp',{dest:e.dest,lines,bad:survivors.length<team.length});
+    if(S.queue.length-1>qStart)S.queue.splice(qStart,0,S.queue.pop());
     if(e.dest==='school'&&isOut()&&survivors.length&&!S.flags.schoolSurv&&chance(.3)){S.flags.schoolSurv=1;queue('kids',{})}
     {const pc={park:.025,police:.04}[e.dest];if(pc&&isOut()&&survivors.length&&chance(pc))queue('foundSurv',{dest:e.dest,g:pick(e.dest==='park'?SURV_PARK:SURV_POLICE)})}
   });
@@ -1785,7 +1789,7 @@ function unitTile(u){
   if(u.st==='infested'){const sl=S.infest&&S.infest[u.lvl]&&S.infest[u.lvl].sealed;return sl?`<button class="unit st-sealed${sel}" data-act="sel" data-v="${u.id}"><span class="uid">${u.id}</span><span class="unm">Floor sealed</span><span>🚧🧟</span></button>`:`<button class="unit st-lost${sel}" data-act="sel" data-v="${u.id}"><span class="uid">${u.id}</span><span class="unm">Overrun</span>${zz(u.lvl)}</button>`}
   if(u.st==='sealed')return `<button class="unit st-sealed${sel}" data-act="sel" data-v="${u.id}"><span class="uid">${u.id}</span><span class="unm">${u.contam?'Contaminated':'Sealed'}</span><span>🚧</span></button>`;
   if(u.st==='empty'){
-    if(u.room){const rm=ROOMS[u.room];const n=u.room==='quarantine'?known().filter(r=>r.quar&&r.qRoom===u.id).length:0;return `<button class="unit room-${u.room}${sel}" data-act="sel" data-v="${u.id}"><span class="uid">${u.id}</span><span class="unm">${rm.e} ${rm.n}</span>${n?`<span class="small">${n} inside</span>`:''}${u.room==='sickbay'?`<span class="small">Beds ${known().filter(r=>r.ward).length}/${beds()}${jobbers('medic').length?' · '+jobbers('medic').length+' medic'+(jobbers('medic').length>1?'s':''):' · no medic'}</span>`:''}${u.room==='quarantine'?`<span class="small">Uses ${u.qUsed||0}/2</span>`:''}${u.room==='depot'?(()=>{const w=staffAssign('depot','salvage')[u.id];return `<span class="small">${u.scrapLeft} scrap left${w?' · '+esc(w.short):''}</span>${w?'':'<span class="small" style="color:#fff3b0;font-weight:700">⚠ Needs a worker</span>'}`})():''}${u.room==='kopi'?`<span class="small">${u.open?'Open · floors '+pad(Math.max(2,u.lvl-2))+'–'+pad(Math.min(S.floors,u.lvl+2)):'⚠ Closed: no supplies'}</span>`:''}${u.room==='garden'?(()=>{const g=gardenAssign()[u.id];return g?`<span class="small">🧑‍🌾 ${esc(g.short)} · +5/day</span>`:`<span class="small" style="color:#fff3b0;font-weight:700">⚠ Needs a gardener</span>`})():''}${roomSprites(u)}</button>`}
+    if(u.room){const rm=ROOMS[u.room];const n=u.room==='quarantine'?known().filter(r=>r.quar&&r.qRoom===u.id).length:0;return `<button class="unit room-${u.room}${sel}" data-act="sel" data-v="${u.id}"><span class="uid">${u.id}</span><span class="unm">${rm.e} ${rm.n}</span>${n?`<span class="small">${n} inside</span>`:''}${u.room==='sickbay'?`<span class="small">Beds ${known().filter(r=>r.ward).length}/${beds()}${jobbers('medic').length?' · '+jobbers('medic').length+' medic'+(jobbers('medic').length>1?'s':''):' · no medic'}</span>`:''}${u.room==='quarantine'?`<span class="small">Uses ${u.qUsed||0}/2</span>`:''}${u.room==='depot'?(()=>{const w=staffAssign('depot','salvage')[u.id];return `<span class="small">${u.scrapLeft} scrap left${w?' · '+esc(w.short):''}</span>${w?'':'<span class="small" style="color:#fff3b0;font-weight:700">⚠ Needs a worker</span>'}`})():''}${u.room==='kopi'?`<span class="small">${u.open?'Open · floors '+pad(Math.max(2,u.lvl-2))+'–'+pad(Math.min(S.floors,u.lvl+2)):'⚠ Closed: no supplies'}</span>`:''}${u.room==='garden'?(()=>{const g=gardenAssign()[u.id];return g?`<span class="small">🧑‍🌾 ${esc(g.short)} · +${has(g,'greenfinger')?8:5}/day</span>`:`<span class="small" style="color:#fff3b0;font-weight:700">⚠ Needs a gardener</span>`})():''}${roomSprites(u)}</button>`}
     return `<button class="unit st-empty${sel}" data-act="sel" data-v="${u.id}"><span class="uid">${u.id}</span><span class="unm">Empty</span><span class="small">${u.looted?'Searched':'Unsearched'}</span></button>`;
   }
   const h=H(u.hh);const ms=h?members(h):[];
@@ -1833,9 +1837,9 @@ function renderPanel(){
 }
 function workerSelect(filter,forJob){
   let opts=known().filter(able).filter(filter||(()=>true));
-  opts.sort(forJob?(a,b)=>((a.job==='rest'?0:1)-(b.job==='rest'?0:1))||b.st.A-a.st.A:(a,b)=>b.st.A-a.st.A);
+  opts.sort(forJob?(a,b)=>(has(b,'greenfinger')-has(a,'greenfinger'))||((a.job==='rest'?0:1)-(b.job==='rest'?0:1))||b.st.A-a.st.A:(a,b)=>b.st.A-a.st.A);
   if(!opts.length)return '<span class="warnline">Nobody is free right now.</span>';
-  return `<select id="worker" aria-label="Who">${opts.map(r=>`<option value="${r.id}">${esc(r.short)} (${forJob?'now: '+JOBS[r.job]:`Agility ${r.st.A}, Kampung spirit ${r.st.K}${r.wpn?', '+ITEMS[r.wpn]:''}`})</option>`).join('')}</select>`;
+  return `<select id="worker" aria-label="Who">${opts.map(r=>`<option value="${r.id}">${esc(r.short)}${forJob&&has(r,'greenfinger')?' 🌱 Green Fingers':''} (${forJob?'now: '+JOBS[r.job]:`Agility ${r.st.A}, Kampung spirit ${r.st.K}${r.wpn?', '+ITEMS[r.wpn]:''}`})</option>`).join('')}</select>`;
 }
 function bar(v,c){return `<div class="bar"><i style="width:${clamp(v,0,100)}%;background:${c}"></i></div>`}
 function personCard(r){
@@ -1890,7 +1894,7 @@ function panelUnit(){
   }
   if(u.st==='empty'){
     if(u.room){const rm=ROOMS[u.room];h+=`<p><b>${rm.e} ${rm.n}</b><br><span class="mute">${rm.d}</span></p>`;if(u.room==='garden'){const g=gardenAssign()[u.id];const water=S.grid.water||S.store.water>=rooms('garden');
-      h+=g?`<p class="goodline">Tended by ${esc(g.short)}: +5 food a day.</p>`:`<p class="warnline">Nobody is tending this garden: only +2 food a day.</p>`;
+      h+=g?`<p class="goodline">Tended by ${esc(g.short)}: +${has(g,'greenfinger')?'8 food a day (Green Fingers)':'5 food a day'}.</p>`:`<p class="warnline">Nobody is tending this garden: only +2 food a day.</p>`;
       if(!water)h+=`<p class="badline">Not enough water in the store. Gardens produce nothing until there is.</p>`;
       if(!g)h+=`<div class="card stack"><b>🧑‍🌾 Assign a gardener</b><div class="row">${workerSelect(r=>r.job!=='garden',true)}<button data-act="tend" data-v="${u.id}" ${known().some(r=>able(r)&&r.job!=='garden')?'':'disabled'}>Assign</button></div><span class="small mute">Sets their job to Tend garden. Each gardener looks after one garden.</span></div>`;
       h+=`<p class="small mute">${jobbers('garden').length} gardener(s) for ${rooms('garden')} garden(s).</p>`}
@@ -1924,6 +1928,7 @@ function panelUnit(){
   <div class="row" style="margin-top:8px"><button data-act="askfood" data-v="${hh.id}">Ask them to share 5 food</button><button data-act="givefood" data-v="${hh.id}" ${S.store.food?'':'disabled'}>Give 5 food</button>${!S.grid.water?`<button data-act="givewater" data-v="${hh.id}" ${S.store.water?'':'disabled'}>Give 5 water</button>`:''}${ms.some(r=>r.leader)?'':`<button class="btn-bad" data-act="evict" data-v="${hh.id}">${UI.confirmEvict===hh.id?'Confirm eviction':'Evict household'}</button>`}</div>${(()=>{const c=hostCands(hh).filter(x=>x.unit!==hh.unit);return c.length?`<div class="card stack" style="margin-top:8px;gap:6px"><b>🏠 Move in with another household</b><span class="small mute">Frees ${u.id} for other uses. The flat they join gets more crowded: more than 4 people costs a little sanity each phase.</span><div class="row"><select id="host-${hh.id}" aria-label="Household to join">${c.map(x=>`<option value="${x.id}">${esc(x.name)} at ${x.unit}: ${members(x).length} people, ${Math.round(hostScore(x)*100)}% likely</option>`).join('')}</select><button data-act="askhost" data-v="${hh.id}">Ask</button></div></div>`:''})()}
   <h3>Household items</h3>`;
   const it=Object.keys(hh.items);
+  it.sort((a,b)=>ITEMS[a].localeCompare(ITEMS[b]));
   h+=it.length?`<div class="itemchips">${it.map(k=>`<button class="ic" data-act="donate" data-v="${hh.id}" data-k="${k}" title="Ask them to donate it to the inventor">${ITEMS[k]}${hh.items[k]>1?' ×'+hh.items[k]:''} · ask</button>`).join('')}</div><p class="small mute">Donated items go to the communal store, where the inventor can use them.</p>`:'<p class="mute small">Nothing useful left.</p>';
   h+=`<h3>People</h3><div class="stack">${ms.map(personCard).join('')}</div>`;
   return h;
@@ -1949,12 +1954,14 @@ function suits(r){
   if(r.age<70&&gBase>=6.5)o.push(['guard',gBase>=8?'Guard ★★':'Guard']);
   if(r.st.A>=7||r.arch==='driver')o.push(['run',r.arch==='driver'?'Runner (+30% food)':r.st.A>=8?'Runner ★★':'Runner']);
   if(has(r,'inventor'))o.push(['invent','Inventor']);
+  if(has(r,'greenfinger'))o.push(['garden','Gardener ★']);
   if(r.st.I>=7||r.arch==='nurse')o.push(['medic',r.arch==='nurse'?'Medic ★★':'Medic']);
   if(r.st.K>=8)o.push(['talk','Talker']);
   if(!o.length||r.age>=70)o.push(['lookout','Lookout']);
   return o;
 }
 const SUIT_TIP={
+  garden:'Green Fingers: grows 8 food a day in a garden instead of 5. Set their job to Tend garden.',
   guard:'Good base fighting strength from Strength, traits or military/construction background. ★★ = among your best fighters. Give them a weapon and put them on Guard the line.',
   run:'High Agility: each point above 5 cuts their risk on supply runs by 5%. Grab drivers also bring back 30% more food.',
   invent:'Has the Inventor trait. Set their job to Workshop to build weapons and tools.',
@@ -2070,7 +2077,9 @@ function panelWorkshop(){
   if(S.proj){const rc=RECIPES.find(r=>r.id===S.proj.id);h+=`<div class="card"><b>Building: ${rc.n}</b>${bar(S.proj.prog/S.proj.work*100,'var(--lamp)')}<span class="small mute">${Math.floor(S.proj.prog)}/${S.proj.work} work.</span>${jobbers('invent').some(r=>has(r,'inventor'))?`<span class="small goodline"> ${jobbers('invent').filter(r=>has(r,'inventor')).map(r=>esc(r.short)).join(', ')} working on it.</span>`:`<div class="badline" style="margin-top:4px">Nobody is working on it. An inventor's job must be set to Workshop.</div>`}<div class="row" style="margin-top:8px">${inv.some(r=>able(r)&&r.job!=='invent')?`<button class="btn-main" data-act="invwork">Put free inventors to work</button>`:''}<button data-act="cancelproj">Cancel (items returned)</button></div></div>`}
   h+=`<h3>Communal items</h3>`;
   const it=Object.keys(S.items);
-  h+=it.length?`<div class="itemchips">${it.map(k=>`<button class="ic ${UI.expSel.includes(k)?'on':''}" data-act="expsel" data-v="${k}">${ITEMS[k]} ×${S.items[k]}</button>`).join('')}</div>`:'<p class="mute small">Empty. Ask households to donate items from their flats.</p>';
+  {const chip=k=>`<button class="ic ${UI.expSel.includes(k)?'on':''}" data-act="expsel" data-v="${k}">${ITEMS[k]} ×${S.items[k]}</button>`;const az=(a,b)=>ITEMS[a].localeCompare(ITEMS[b]);
+   const mats=it.filter(k=>!GEAR[k]||k==='knife'||k==='umbrella'||k==='extinguisher').sort(az),gear=it.filter(k=>GEAR[k]&&!mats.includes(k)).sort(az);
+   h+=it.length?`<p class="small mute" style="margin:0 0 4px">Materials (A to Z)</p><div class="itemchips">${mats.map(chip).join('')||'<span class="small mute">None</span>'}</div>${gear.length?`<p class="small mute" style="margin:8px 0 4px">Weapons &amp; armour (A to Z): some upgrades use these too</p><div class="itemchips">${gear.map(chip).join('')}</div>`:''}`:'<p class="mute small">Empty. Ask households to donate items from their flats.</p>';}
   const selKey=UI.expSel.slice().sort().join('+');const triedIt=(S.tried||[]).includes(selKey);
   h+=`<div class="row" style="margin-top:8px"><button data-act="experiment" ${UI.expSel.length>=2&&!triedIt?'':'disabled'}>💡 Try combining ${UI.expSel.length?UI.expSel.map(k=>ITEMS[k]).join(' + '):'selected items'}</button>${triedIt?'<span class="small warnline">You already tried this combination.</span>':''}</div>${(S.tried||[]).length?`<p class="small mute" style="margin:6px 0 0"><b>Already tried:</b> ${S.tried.slice(-12).reverse().map(t=>t.split('+').map(k=>ITEMS[k]).join(' + ')).join(' · ')}</p>`:''}<p class="small mute">Pick the items an idea needs and let the inventor try. Items are not used up. Each idea below says how many different items it needs and which ones you already know. A wrong guess that includes a right item still reveals that item.</p>`;
   const bpCard=rc=>{
@@ -2102,13 +2111,14 @@ function lineForecast(extra){
   const want=guards.reduce((a,r)=>a+guardRepair(r),0)*2;const wsc=Math.min(want,S.store.scrap*4);const rep=wsc+(want-wsc)*.4;
   const net=rep-dmg;return {G,P,dmg,rep,scrap:Math.ceil(wsc/4),net,days:net<0?Math.max(0,S.bar.hp)/-net:Infinity,n:guards.length};
 }
+function gardenYield(){return Object.values(staffAssign('garden','garden')).reduce((a,w)=>a+(w?(has(w,'greenfinger')?8:5):2),0)}
 function budget(){
   const hs=S.hh.filter(h=>h.known&&members(h).length);const people=known().length;
   let eat=0;hs.forEach(h=>{const ms=members(h);eat+=Math.ceil(ms.length*(ms.some(r=>r.arch==='hawker'&&act(r))?.85:1)*(S.flags.preserve?.9:1))});
   const kopi=S.units.filter(u=>u.room==='kopi'&&u.st==='empty'&&u.lvl>S.front).length;const g=rooms('garden');const tended=Math.min(g,jobbers('garden').length);
   const dry=!S.grid.water;const out=isOut();
-  const food={store:S.store.food,home:hs.reduce((a,h)=>a+h.food,0),use:(out?eat:0)+kopi*2+(S.flags.cat?1:0),prod:(tended*5+(g-tended)*2)+((S.flags.ally&&S.flags.ally.until>S.t)?4:0),
-    notes:[out?eat+' for '+people+' people':'Nobody eats from stock until the outbreak',kopi?kopi*2+' for kopi corners':'',S.flags.cat?'1 for the cat':'',g?'gardens +'+(tended*5+(g-tended)*2):'',(S.flags.ally&&S.flags.ally.until>S.t)?'Blk '+S.flags.allyBlk+' +4':'',S.flags.preserve?'salted food: 10% less':''].filter(Boolean)};
+  const food={store:S.store.food,home:hs.reduce((a,h)=>a+h.food,0),use:(out?eat:0)+kopi*2+(S.flags.cat?1:0),prod:gardenYield()+((S.flags.ally&&S.flags.ally.until>S.t)?4:0),
+    notes:[out?eat+' for '+people+' people':'Nobody eats from stock until the outbreak',kopi?kopi*2+' for kopi corners':'',S.flags.cat?'1 for the cat':'',g?'gardens +'+gardenYield():'',(S.flags.ally&&S.flags.ally.until>S.t)?'Blk '+S.flags.allyBlk+' +4':'',S.flags.preserve?'salted food: 10% less':''].filter(Boolean)};
   const water={store:S.store.water,home:hs.reduce((a,h)=>a+h.water,0),use:dry?(people+kopi*2+g):0,prod:(S.built.filter?3:0)+(S.built.still?((hasPower()||S.built.solar)?4:1):0),
     notes:[dry?people+' to drink':'Taps still running: drinking is free',dry&&kopi?kopi*2+' for kopi corners':'',dry&&g?g+' for gardens':'',S.built.rain?'rain catchers +'+S.built.rain*9+' on rainy days':''].filter(Boolean)};
   const lf=lineForecast();const depot=staffAssign('depot','salvage');let dep=0;for(const id in depot){const w=depot[id];if(w)dep+=Math.min(U(id).scrapLeft,w.arch==='karang'?6:3)}
