@@ -231,11 +231,13 @@ button.trait{padding:0 5px;border-radius:4px}
 /* resident sprites: pixel-art atlas (assets/sprites/atlas.png). 4 frames per row: idle, step, idle, step.
    Rows 0-19 residents, 20-39 the same residents infected, 40-44 zombies. Sanity dot above (::before), job ring below (::after). */
 .spr{position:relative;display:block;height:42px;margin-top:auto;pointer-events:none}
+.spr{container-type:inline-size}
+@container (max-width:90px){.sp{scale:1.05}}
 .sp,.zz{background-image:var(--atlas);background-repeat:no-repeat;background-size:72px auto;image-rendering:pixelated}
-.sp{position:absolute;bottom:2px;left:var(--a);width:18px;height:26px;background-position:0 calc(var(--r) * -26px);animation:wander var(--d) ease-in-out var(--dl) infinite,walk var(--w) steps(4) var(--dl) infinite;scale:1.45;transform-origin:bottom center}
+.sp{position:absolute;bottom:2px;left:var(--a);width:18px;height:26px;background-position:0 calc(var(--r) * -26px);animation:wander var(--d) ease-in-out var(--dl) infinite,walk var(--w) steps(4) var(--dlw) infinite;scale:1.45;transform-origin:bottom center}
 .sp::before{content:"";position:absolute;left:7px;top:-4px;width:4px;height:4px;border-radius:50%;background:var(--c);box-shadow:0 0 0 1px #0006}
 .sp::after{content:"";position:absolute;left:1px;bottom:-2px;width:16px;height:4px;border-radius:50%;background:var(--jc,transparent);opacity:.85;z-index:-1}
-.sp.mad{animation:wander calc(var(--d)*.4) linear var(--dl) infinite,walk calc(var(--w)*.5) steps(4) infinite,shake .18s linear infinite}
+.sp.mad{animation:wander var(--d) linear var(--dl) infinite,walk calc(var(--w)*.5) steps(4) var(--dlw) infinite,shake .18s linear infinite}
 .sp.hurt{filter:sepia(.45) saturate(1.8) hue-rotate(-28deg)}
 @keyframes walk{to{background-position-x:-72px}}
 @keyframes wander{0%,12%{left:var(--a)}45%,62%{left:var(--b)}95%,100%{left:var(--a)}}
@@ -1253,17 +1255,22 @@ const SHIRT=['#6c8ebf','#b5677d','#7aa37a','#c08a4b','#8e7cc3','#d08c60','#5c9ea
 const JOBSHIRT={guard:'#d9534f',lookout:'#4a90d9',invent:'#e3a92b',medic:'#eef4f6',garden:'#5a9e3a',salvage:'#8a6a4a'};
 const POSTS=['invent','medic','garden','salvage'];
 const SPR_ROW={you:0,ahma:1,ahgong:2,tinker:3,polystu:4,nsman:5,nsf:6,helper:7,nurse:8,driver:9,hawker:10,cleaner:11,rcauntie:12,student:13,kid:14,pmet:15,karang:16,ahbeng:17,teacher:18,worker:19};
-function sprite(r){
-  const id=r.id,old=r.age>=65;const d=(7+(id%6))*(old?1.7:1);
+// i/arr come from Array.map: each sprite in a flat gets its own slice of floor so they never cross.
+// renderTower skips rebuilding when nothing changed, and re-phases animations from the clock when it does.
+function sprite(r,i,arr){
+  const id=r.id,old=r.age>=65;const n=Array.isArray(arr)&&arr.length?arr.length:1;i=typeof i==='number'?i:0;
   const cls=['sp'];if(r.san<25)cls.push('mad');if(r.hp<40)cls.push('hurt');
+  const d=(7+(id%6))*(old?1.7:1)*(r.san<25?.4:1);
   const row=(SPR_ROW[r.arch]??15)+((r.inf&&!r.inf.hidden)?20:0);
   const jc=JOBSHIRT[r.job]||'transparent';const w=(old?1.1:.6)+(id%3)*.05;
-  return `<i class="${cls.join(' ')}" title="${esc(r.short)}" style="--a:${4+(id*37)%35}%;--b:${45+(id*53)%40}%;--d:${d.toFixed(1)}s;--dl:-${(id*1.7%d).toFixed(1)}s;--w:${w.toFixed(2)}s;--r:${row};--jc:${jc};--c:${sanCol(r.san)}"></i>`;
+  const s0=(i/n*100).toFixed(2),s1=((i+1)/n*100).toFixed(2);
+  return `<i class="${cls.join(' ')}" title="${esc(r.short)}" data-o="${(id*1.7).toFixed(1)}" data-ow="${id}" style="--a:calc(${s0}% + 4px);--b:max(calc(${s0}% + 4px), calc(${s1}% - 24px));--d:${d.toFixed(2)}s;--dl:-${((id*1.7)%d).toFixed(2)}s;--w:${w.toFixed(2)}s;--dlw:-${(id%w).toFixed(2)}s;--r:${row};--jc:${jc};--c:${sanCol(r.san)}"></i>`;
 }
 // zombie sprite: more kinds show up as the outbreak drags on
 const ZED_UNLOCK=[[1,40],[8,41],[15,42],[25,43],[40,44]];
 function zz(n,delay){const d=typeof pday==='function'&&S&&S.outbreakAt!=null?pday():1;const kinds=ZED_UNLOCK.filter(k=>d>=k[0]).map(k=>k[1]);const row=kinds[((n||0)*7+d)%kinds.length]||40;
-  return `<span class="zz" title="Zombie" style="--r:${row}${delay?';animation-delay:'+delay:''}"></span>`}
+  const dl=(((n||0)*.37)%9).toFixed(2);
+  return `<span class="zz" title="Zombie" data-o="${dl}" style="--r:${row};animation-delay:-${dl}s"></span>`}
 
 // who is physically in their flat right now: guards/lookouts are at their posts, workers are at their rooms by day
 function atHome(r){return !r.away&&!(r.quar&&r.qRoom)&&r.job!=='guard'&&r.job!=='lookout'&&!(S.ph<3&&POSTS.includes(r.job))}
@@ -1279,7 +1286,7 @@ function roomSprites(u){
   return ppl.length?`<span class="spr">${ppl.slice(0,5).map(sprite).join('')}</span>`:'';
 }
 function unitTile(u){
-  const sel=UI.sel===u.id?' sel':'';
+  const sel=''; // selection is applied after render, so selecting a flat doesn't rebuild the block
   if(u.st==='lost')return `<button class="unit st-lost${sel}" data-act="sel" data-v="${u.id}"><span class="uid">${u.id}</span>${zz(u.i+u.lvl)}${(u.i+u.lvl)%2?zz(u.i+u.lvl+1,'-1.3s'):''}</button>`;
   if(u.st==='unknown')return `<button class="unit st-unknown${sel}" data-act="sel" data-v="${u.id}"><span class="uid">${u.id}</span><span class="q">?</span></button>`;
   if(u.st==='danger')return `<button class="unit st-danger${sel}" data-act="sel" data-v="${u.id}"><span class="uid">${u.id}</span><span class="unm">Banging</span>${zz(u.lvl+u.i)}</button>`;
@@ -1313,7 +1320,17 @@ function renderTower(){
   const zc=isOut()?Math.min(14,Math.floor(Math.sqrt(pday())*2)):0;
   h+=`<div class="horde">${zc?Array.from({length:zc},(_, i)=>zz(i,'-'+(i*.37).toFixed(2)+'s')).join(''):(alertLvl()>=2?'<span style="color:#ddd">Queues at the supermarket</span>':'')}</div><div class="road"></div>`;
   h+=`<div class="ground">${Object.entries(DEST).map(([k,d])=>{const out=S.exps.filter(e=>e.dest===k);return `<button class="site" data-act="site" data-v="${k}"><b>${d.e}</b>${d.n.replace('Neighbourhood ','')}${k==='market'?`<span class="mono">stock ${Math.round(S.market)}%</span>`:''}${out.length?`<span class="mono">team out (${out[0].team.length})</span>`:''}</button>`}).join('')}</div>`;
-  $('#tower').innerHTML=h;
+  const tw=$('#tower');
+  if(h!==UI.towerHTML){
+    UI.towerHTML=h;tw.innerHTML=h;
+    // new elements would start their walk from the beginning; offset each by the animation clock so they carry on where the old ones were
+    const now=((document.timeline&&document.timeline.currentTime)||performance.now())/1000;
+    tw.querySelectorAll('.sp').forEach(el=>{const d=parseFloat(el.style.getPropertyValue('--d'))||8,w=parseFloat(el.style.getPropertyValue('--w'))||.6;
+      el.style.setProperty('--dl',-((now+ +el.dataset.o)%d).toFixed(2)+'s');el.style.setProperty('--dlw',-((now+ +el.dataset.ow)%w).toFixed(2)+'s')});
+    tw.querySelectorAll('.zz').forEach(el=>{el.style.animationDelay=-((now+ +el.dataset.o)%9).toFixed(2)+'s'});
+  }
+  tw.querySelectorAll('.unit.sel').forEach(el=>el.classList.remove('sel'));
+  if(UI.sel){const el=tw.querySelector('.unit[data-v="'+UI.sel+'"]');if(el)el.classList.add('sel')}
 }
 const TABS=[['unit','Flat'],['people','Residents'],['outside','Outside'],['workshop','Workshop'],['block','Block'],['log','Log']];
 function renderTabs(){$('#tabs').innerHTML=TABS.map(([k,n])=>`<button class="${UI.tab===k?'on':''}" data-act="tab" data-v="${k}">${n}${k==='people'&&S.hh.some(h=>h.known&&!h.unit&&members(h).length)?' ⚠':''}</button>`).join('')}
