@@ -686,7 +686,7 @@ function doThreat(){
       const d=ri(15,35);g.hp-=d;
       if(g.hp<=0){kill(g,'Killed holding the line');return}
       log(g.short+' was hurt on guard duty (−'+d+' HP).','bad');
-      if(chance(.32-defOf(g)*.06))infect(g,'a bite on guard duty');
+      if(chance(.32-defOf(g)*.06))infect(g,'a bite from guard duty');
     }
   });
   if(S.ph===3&&dmg>0)log('Night attack on the '+(S.front===0?'void deck':'floor '+pad(S.front+1)+' stairwell')+'. Barricade took '+Math.round(dmg)+' damage.','bad');
@@ -749,7 +749,7 @@ function sealFloor(lvl){const f=S.infest&&S.infest[lvl];if(!f||f.sealed||S.store
 function retakeFloor(lvl){
   const team=known().filter(able).sort((a,b)=>guardPow(b)-guardPow(a)).slice(0,3);if(team.length<2)return 'Not enough fit people to try.';
   const T=team.reduce((a,r)=>a+guardPow(r),0);const P=10+pday()*.3;const win=chance(T/(T+P));const out=[];
-  team.forEach(r=>{r.busy=true;if(chance(win?.25:.55)){const d=ri(12,35);r.hp-=d;if(r.hp<=0){kill(r,'Killed retaking floor '+pad(lvl));out.push(r.short+' was killed.')}else{out.push(r.short+' was hurt.');if(chance(.35-defOf(r)*.07))infect(r,'a bite retaking floor '+pad(lvl))}}});
+  team.forEach(r=>{r.busy=true;if(chance(win?.25:.55)){const d=ri(12,35);r.hp-=d;if(r.hp<=0){kill(r,'Killed retaking floor '+pad(lvl));out.push(r.short+' was killed.')}else{out.push(r.short+' was hurt.');if(chance(.35-defOf(r)*.07))infect(r,'a bite from retaking floor '+pad(lvl))}}});
   if(win){delete S.infest[lvl];S.units.filter(v=>v.lvl===lvl&&v.st==='infested').forEach(v=>{v.st='empty';v.looted=!!v.room;v.breakout=0});out.unshift(team.map(r=>r.short).join(', ')+' fought their way through floor '+pad(lvl)+'. It\'s clear. Households can move back in.')}
   else out.unshift('The team was driven back from floor '+pad(lvl)+'.');
   log(out[0],win?'big':'bad');return out.join('\n');
@@ -923,7 +923,7 @@ function resolveExps(){
       const rr=clamp(risk*(1-(r.st.A-5)*.05)-defOf(r)*.03,0,.95);const x=R();
       if(x<rr*.3){const g=[r.wpn,r.arm].filter(Boolean).map(k=>ITEMS[k].toLowerCase());r.wpn=null;r.arm=null;kill(r,'Lost on a run to the '+DEST[e.dest].n.toLowerCase());lines.push('💀 '+r.short+' did not come back.'+(g.length?' Their '+g.join(' and ')+' are gone too.':''));return}
       if(x<rr){const d=ri(15,45);r.hp-=d;if(r.hp<=0){kill(r,'Died of wounds after a supply run');lines.push('💀 '+r.short+' made it back but died of wounds.');return}
-        lines.push('🩸 '+r.short+' was hurt (−'+d+' HP).');if(chance(.4-defOf(r)*.07))infect(r,'a bite on the run')}
+        lines.push('🩸 '+r.short+' was hurt (−'+d+' HP).');if(chance(.4-defOf(r)*.07))infect(r,'a bite from a supply run')}
       survivors.push(r);
     });
     const cap=e.route==='fox'?(((S.built.fox||{})[e.dest]===2)?.85:.6):1;
@@ -1035,7 +1035,7 @@ EV.infected={make:a=>{
   c.push({t:'Send them away from the block',s:'Family will not forgive this easily.',f:()=>{exile(r,'Sent away when infected');members(h).forEach(m=>m.san=clamp(m.san-20,0,100));h.trust=clamp(h.trust-25,0,100);return r.short+' walks down the stairs with a bag and a bottle of water. Nobody watches them go.'}});
   c.push({t:'End it now, quietly',s:'Mercy. Hardest choice. Everyone will hear.',f:()=>{kill(r,'Mercy, after infection');h.trust=clamp(h.trust-15,0,100);known().forEach(m=>m.san=clamp(m.san-4,0,100));return 'It is done. The corridor is very quiet tonight.'}});
   c.push({t:'Leave them with the family',s:'And hope.',f:()=>'The family closes their gate. You hear crying.'});
-  return card({i:'🦷',t:r.name+' is infected',x:r.name+' ('+ARCH[r.arch].l+', '+r.age+') of the '+h.name+' has '+r.inf.src+'. '+(r.inf.limb?'It is on the arm.':'It is on the neck and shoulder.')+'\n\nInfected people turn within a day or two. When they turn, whoever is nearby is in danger.',bad:1,zed:1,c});
+  return card({i:'🦷',t:r.name+' is infected',x:r.name+' ('+ARCH[r.arch].l+', '+r.age+') of the '+h.name+' has '+r.inf.src+'. '+'The wound is on the '+(r.inf.limb?'arm.':'neck and shoulder.')+'\n\nInfected people turn within a day or two. When they turn, whoever is nearby is in danger.',bad:1,zed:1,c});
 }};
 EV.breakdown={make:a=>{
   const r=RS(a.id);if(!r||!r.alive||r.away)return null;const h=H(r.hh);const k=a.k;
@@ -1338,7 +1338,7 @@ function clearUnit(uid){
   const u=U(uid);if(!u||!(u.st==='danger'||u.st==='sealed')||u.contam)return;
   const team=known().filter(able).sort((a,b)=>guardPow(b)-guardPow(a)).slice(0,2);if(team.length<2)return;
   const T=team.reduce((a,r)=>a+guardPow(r),0);const P=6+pday()*.15;const win=chance(T/(T+P));const out=[];
-  team.forEach(r=>{r.busy=true;if(chance(win?.2:.5)){const d=ri(10,30);r.hp-=d;if(r.hp<=0){kill(r,'Killed clearing '+u.id);out.push(r.short+' was killed.')}else{out.push(r.short+' was hurt.');if(chance(.35-defOf(r)*.07))infect(r,'a bite clearing '+u.id)}}});
+  team.forEach(r=>{r.busy=true;if(chance(win?.2:.5)){const d=ri(10,30);r.hp-=d;if(r.hp<=0){kill(r,'Killed clearing '+u.id);out.push(r.short+' was killed.')}else{out.push(r.short+' was hurt.');if(chance(.35-defOf(r)*.07))infect(r,'a bite from clearing '+u.id)}}});
   if(win){u.st='empty';u.hh=null;u.looted=false;out.unshift(team.map(r=>r.short).join(' and ')+' cleared '+u.id+'. The flat is empty now.')}else out.unshift('They were driven back from '+u.id+'.');
   log(out.join(' '),win?'good':'bad');queue('info',{i:'⚔️',t:'Clearing '+u.id,x:out.join('\n'),bad:!win});save();render();
 }
@@ -1376,7 +1376,7 @@ function throwLure(){if(!S.built.lure||!isOut())return;S.built.lure--;S.flags.lu
 function retake(){
   if(S.front<1)return;const g=jobbers('guard');if(g.length<3)return;
   const T=g.reduce((a,r)=>a+guardPow(r),0);const P=basePressure()*1.6+8;const win=chance(T/(T+P));const out=[];
-  g.forEach(r=>{r.busy=true;if(chance(win?.2:.45)){const d=ri(12,35);r.hp-=d;if(r.hp<=0){kill(r,'Killed retaking floor '+pad(S.front));out.push(r.short+' was killed.')}else{out.push(r.short+' was hurt.');if(chance(.3-defOf(r)*.06))infect(r,'a bite while retaking a floor')}}});
+  g.forEach(r=>{r.busy=true;if(chance(win?.2:.45)){const d=ri(12,35);r.hp-=d;if(r.hp<=0){kill(r,'Killed retaking floor '+pad(S.front));out.push(r.short+' was killed.')}else{out.push(r.short+' was hurt.');if(chance(.3-defOf(r)*.06))infect(r,'a bite from retaking a floor')}}});
   if(win){const l=S.front;S.front--;S.units.filter(u=>u.lvl===l).forEach(u=>{if(u.gone){u.st='gutted';return}u.st='empty';u.hh=null;u.looted=false});S.bar={hp:35,max:60+S.built.kits*40};out.unshift(l===1?'The void deck is yours again.':'Floor '+pad(l)+' is retaken. Its flats are empty and can be searched.')}
   else{S.bar.hp-=10;out.unshift('The push failed. The guards fell back behind the barricade.');if(S.bar.hp<=0)levelFalls()}
   log(out[0],win?'big':'bad');queue('info',{i:'⚔️',t:win?'Floor retaken':'The push failed',x:out.join('\n'),bad:!win});save();render();
@@ -1867,6 +1867,7 @@ document.addEventListener('keydown',e=>{if(e.code==='Space'&&S&&!e.target.closes
 
 function migrate(){
   if(!S)return;
+  const SRCFIX={'a bite on the run':'a bite from a supply run','a bite on guard duty':'a bite from guard duty','a bite while retaking a floor':'a bite from retaking a floor'};S.res.forEach(r=>{if(r.inf&&SRCFIX[r.inf.src])r.inf.src=SRCFIX[r.inf.src]});
   if(S.built.fox===true){S.built.fox={market:1};S.known.zipline=true}else if(!S.built.fox||typeof S.built.fox!=='object')S.built.fox={};
   S.timers=S.timers||[];
   S.bar.max=Math.round(S.bar.max);
