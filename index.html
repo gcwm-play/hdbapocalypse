@@ -320,17 +320,17 @@ const TRAITS={
 const TRAIT_POOL=['kiasu','bochap','pantang','kaypoh','paiseh','garang','steady','sian','atas'];
 const ETH={
   cn:{sur:['Tan','Lim','Lee','Ng','Goh','Ong','Wong','Chua','Teo','Koh','Chan','Yeo','Sim','Low','Ho','Seah','Quek'],
-      m:['Wei Ming','Jun Jie','Kok Leong','Boon Huat','Zhi Hao','Kelvin','Darren','Marcus','Ah Kow','Chee Keong','Ryan','Eugene'],
-      f:['Mei Ling','Hui Min','Siew Lan','Xin Yi','Shu Fen','Bee Hoon','Geok Choo','Jasmine','Michelle','Pei Shan','Rachel','Ah Moi'],nick:['Ah Ma','Ah Gong']},
-  ml:{m:['Ahmad','Faizal','Hafiz','Rizwan','Iskandar','Zulkifli','Hakim','Ismail','Rahman','Danial'],
-      f:['Nurul','Siti','Aisyah','Farah','Zarina','Nadia','Rosnah','Halimah','Aliyah'],nick:['Nenek','Atuk']},
+      m:['Wei Ming','Jun Jie','Kok Leong','Boon Huat','Zhi Hao','Kelvin','Darren','Marcus','Ah Kow','Chee Keong','Ryan','Eugene','Jia Hao','Yong Sheng','Teck Seng','Ah Huat','Wee Kiat','Daniel','Jonathan','Benjamin','Hock Seng','Kian Hwee','Shawn','Jeremy','Gerald','Alvin','Terence'],
+      f:['Mei Ling','Hui Min','Siew Lan','Xin Yi','Shu Fen','Bee Hoon','Geok Choo','Jasmine','Michelle','Pei Shan','Rachel','Ah Moi','Li Ting','Hui Ling','Yan Ting','Wan Ting','Siew Mei','Ah Lian','Grace','Cheryl','Vanessa','Shirley','Pei Ling','Joanne','Ruth','Clara','Mui Hoon'],nick:['Ah Ma','Ah Gong']},
+  ml:{m:['Ahmad','Faizal','Hafiz','Rizwan','Iskandar','Zulkifli','Hakim','Ismail','Rahman','Danial','Syafiq','Hamzah','Irfan','Khairul','Amir','Firdaus','Yusof','Hidayat','Shahrul','Azman','Ridwan','Imran'],
+      f:['Nurul','Siti','Aisyah','Farah','Zarina','Nadia','Rosnah','Halimah','Aliyah','Nur Aisyah','Fatimah','Hidayah','Sarah','Amirah','Salmah','Liyana','Syazwani','Rohani','Mariam','Atiqah','Hanis'],nick:['Nenek','Atuk']},
   in:{sur:['Pillai','Nair','Kumar','Rajan','Menon','Singh','Krishnan','Das'],
-      m:['Arun','Suresh','Vikram','Ravi','Ganesh','Pravin','Muthu','Rajesh'],
-      f:['Priya','Kavitha','Lakshmi','Deepa','Anita','Meena','Shanti','Revathi'],nick:['Paati','Thaatha']},
-  eu:{sur:['De Souza','Pereira','Rodrigues','Oliveiro','Shepherdson'],m:['Brian','Glenn','Desmond','Shaun'],f:['Melissa','Andrea','Joanne','Pamela'],nick:['Granny','Grandpa']},
+      m:['Arun','Suresh','Vikram','Ravi','Ganesh','Pravin','Muthu','Rajesh','Karthik','Dinesh','Anand','Prakash','Vijay','Senthil','Hari','Naveen','Sanjay','Kumaravel'],
+      f:['Priya','Kavitha','Lakshmi','Deepa','Anita','Meena','Shanti','Revathi','Sangeetha','Divya','Kalpana','Malathi','Nirmala','Sunita','Vanitha','Geetha','Indra','Shalini'],nick:['Paati','Thaatha']},
+  eu:{sur:['De Souza','Pereira','Rodrigues','Oliveiro','Shepherdson'],m:['Brian','Adrian','Clive','Gregory','Ivan','Nigel','Glenn','Desmond','Shaun'],f:['Melissa','Bernadette','Charmaine','Denise','Natasha','Yvonne','Andrea','Joanne','Pamela'],nick:['Granny','Grandpa']},
 };
-const HELPERS=['Maria','Dewi','Joy','Lorna','Sri','Rina','Marites','Wati'];
-const WORKERS=['Rahim','Karthik','Sohel','Murugan','Babul','Selvam','Jahid'];
+const HELPERS=['Maria','Dewi','Joy','Lorna','Sri','Rina','Marites','Wati','Ana','Rosalie','Ika','Nining','Jenny','Glenda','Ayu','Tini'];
+const WORKERS=['Rahim','Karthik','Sohel','Murugan','Babul','Selvam','Jahid','Alamgir','Ramesh','Mohan','Faruk','Kamal','Shanthan','Rubel'];
 const ESTATES=['Tampines','Bedok North','Jurong West','Woodlands','Toa Payoh','Ang Mo Kio','Yishun','Sengkang','Bukit Batok','Pasir Ris','Hougang','Clementi'];
 const ITEMS={broom:'Broom',knife:'Kitchen knife',bamboo:'Bamboo laundry pole',rope:'Nylon rope',sheets:'Bedsheets',tape:'Duct tape',pot:'Cooking pot',pail:'Pail',tarp:'Canvas tarp',pipe:'PVC pipe',bicycle:'Bicycle',extinguisher:'Fire extinguisher',battery:'Car battery',clock:'Alarm clock',wok:'Wok',helmet:'Bicycle helmet',wire:'Electrical wire',hammer:'Hammer',parang:'Parang',changkol:'Changkol',golf:'Golf club',umbrella:'Umbrella',baton:'Police baton',riot:'Riot shield',radio:'Police radio',
   rifle:'Rifle (SAR 21)',steelPole:'Steel-tipped polearm',padArmour:'Padded riot armour',broomSpear:'Broom-handle spear',bambooPole:'Bamboo polearm',wokShield:'Wok shield',potHelmet:'Pot helmet'};
@@ -427,6 +427,15 @@ function nameHH(h){
   if(!head){h.name='Empty';return}
   if(h.eth==='ml'||!h.sur)h.name=(head.short)+'’s household';else h.name=h.sur+' family';
 }
+// nobody in the block shares a display name: add a surname initial, then fall back to the full name, then a number
+function uniqueShort(short,name,self){
+  const taken=x=>S.res.some(r=>r!==self&&r.alive&&r.short===x);if(!taken(short))return short;
+  const full=String(name).replace(' (you)','');const parts=full.split(' ');
+  const sur=parts.length>1?(full.startsWith(short)?parts[parts.length-1]:parts[0]):'';
+  const cands=[sur&&!short.includes(sur)?short+' '+sur[0]+'.':'',full!==short?full:''].filter(Boolean);
+  for(const c of cands)if(!taken(c))return c;
+  for(let n=2;n<99;n++){const c=short+' '+n;if(!taken(c))return c}return short;
+}
 function mkRes(arch,h,o){
   o=o||{};const A=ARCH[arch];const sex=o.sex||A.sex||(chance(.5)?'M':'F');const age=o.age!=null?o.age:ri(A.age[0],A.age[1]);const E=ETH[h.eth];
   let short,name;
@@ -439,6 +448,7 @@ function mkRes(arch,h,o){
     if(short!==h.pat&&!S.res.some(x=>x.hh===h.id&&x.short===short))break;
   }
   if(arch==='ahma'||arch==='ahgong'){short=E.nick[arch==='ahma'?0:1]+' '+(h.sur||short);}
+  short=uniqueShort(short,name,null);
   if(arch==='you'){name=name+' (you)'}
   const st={};STK.forEach((k,i)=>st[k]=clamp(A.st[i]+ri(-1,1),1,10));
   const traits=(A.tr||[]).slice();
@@ -2094,6 +2104,7 @@ document.addEventListener('keydown',e=>{if(e.code==='Space'&&S&&!e.target.closes
 
 function migrate(){
   if(!S)return;
+  {const seen=new Set();S.res.filter(r=>r.alive).forEach(r=>{if(seen.has(r.short))r.short=uniqueShort(r.short,r.name,r);seen.add(r.short)})}
   if(S.zMult==null&&isOut()&&pday()>31){const m=Math.floor((pday()-1)/30);S.zMult=Math.pow(1.085,m)}
   S.end=S.end||{phil:0};if(isOut()&&!S.end.docSched&&pday()<28){S.end.docSched=1;addTimer(ri(1,Math.max(1,28-pday())),'doctors',{})}
   if((S.timers||[]).some(t=>t.k==='liftshaft')&&!S.flags.liftSealed)S.flags.liftOpen=1;
