@@ -198,6 +198,14 @@ button.trait{padding:0 5px;border-radius:4px}
 .logl{font-size:13px;padding:4px 0;border-bottom:1px solid #ffffff10}
 .logl .mono{color:var(--mute);font-size:11px;margin-right:6px}
 .log-bad{color:#ff9c8b}.log-good{color:#9be3b4}.log-news{color:#9fb7d0}.log-big{color:var(--lamp);font-weight:700}
+.destgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:6px}
+.dest2{display:grid;grid-template-columns:28px minmax(0,1fr);gap:6px;align-items:center;text-align:left;padding:8px}
+.dest2 .e{font-size:22px;line-height:1}
+.dest2 b,.dest2 span.small{display:block}
+.dest2.on{border-color:var(--lamp);background:color-mix(in srgb,var(--lamp) 12%,var(--panel2))}
+.routes{display:flex;flex-wrap:wrap;gap:6px}
+.routes button{display:flex;flex-direction:column;align-items:flex-start;text-align:left;min-width:120px}
+.routes button small{font-size:11px;opacity:.85}
 .dest{display:grid;grid-template-columns:36px minmax(0,1fr);gap:8px;align-items:start;cursor:pointer;text-align:left;width:100%}
 .dest.on{border-color:var(--lamp)}
 .dest .e{font-size:26px;line-height:1}
@@ -330,7 +338,8 @@ const RECIPES=[
   {id:'barricadeKit',n:'Pipe barricade',need:{pipe:2,tape:1},work:8,d:'Rebuilds the current line: +40 max strength and full repair.',hint:'Plumbing could brace the stairwell.'},
   {id:'noiseLure',n:'Noise lure',need:{clock:1,battery:1},work:5,d:'Thrown far away, it pulls zombies off a night attack or a supply run.',hint:'Something that rings, and something to keep it ringing.'},
   {id:'lamp',n:'Battery lamp',need:{battery:1,wire:1},work:6,d:'Light after the grid dies. Less sanity loss at night.',hint:'Light without the grid.'},
-  {id:'flyingFox',n:'Flying fox to the supermarket',need:{rope:2,bicycle:1,sheets:1},work:16,d:'A zipline from the lowest safe floor to the supermarket roof. The safest supply route once the void deck is lost. Max 2 riders.',hint:'A wheel on a line, all the way across to the supermarket roof...'},
+  {id:'flyingFox',n:'Flying fox',need:{rope:2,bicycle:1,sheets:1},work:16,d:'A one-way line from the block down to a nearby rooftop. When it\'s done, you choose where it goes. Runs there are half as risky. Max 2 riders. You can build one for each destination.',hint:'A wheel on a line, all the way across to another rooftop...'},
+  {id:'zipline',n:'Two-way zipline (upgrade)',need:{battery:1,wire:1,rope:1},work:10,d:'Motorises a flying fox so it runs both ways: a quarter of the normal risk, up to 3 riders. When it\'s done, you choose which flying fox to upgrade.',hint:'Something to pull the line back up...'},
 ];
 const ROOMS={
   workshop:{n:'Workshop',e:'🔧',cost:6,once:1,d:'Inventors work 50% faster. One is enough.'},
@@ -430,7 +439,7 @@ function newGame(diff){
   const cfg={easy:{floors:8,upf:2,start:['home','inventor','nurse','nsman']},normal:{floors:12,upf:3,start:['home','inventor','nurse','nsman','hawker']},hard:{floors:20,upf:3,start:['home','inventor','nurse','nsman','hawker','rc']}}[diff];
   S={v:1,diff,floors:cfg.floors,upf:cfg.upf,rs:(Math.random()*4294967296)>>>0,t:0,ph:0,outbreakAt:0,date0:0,blk:'',estate:'',
     grid:{power:true,water:true,telco:true},failAt:{},front:0,bar:{hp:80,max:80},noise:0,units:[],hh:[],res:[],nid:1,
-    store:{food:10,water:12,meds:3,scrap:12},items:{tape:1},known:{},proj:null,built:{rain:0,lamp:0,lure:0,fox:false,rope:false,kits:0},
+    store:{food:10,water:12,meds:3,scrap:12},items:{tape:1},known:{},proj:null,built:{rain:0,lamp:0,lure:0,fox:{},rope:false,kits:0},
     market:100,ration:'full',talks:2,chatUsed:{},exps:[],log:[],mem:[],queue:[],weather:null,flags:{},evcd:{},over:false,news:'',stats:{runs:0,born:0}};
   S.outbreakAt=ri(7,14);
   const y=2027,start=new Date(y,ri(0,11),ri(1,28));S.date0=start.getTime();
@@ -840,16 +849,21 @@ function checkOver(){
 }
 
 /* ================= expeditions ================= */
+// every route the player might see for a destination; ok=false ones show as disabled buttons with a reason
 function routes(dest){
-  const out=[];
-  if(S.front===0)out.push({k:'gate',n:'Walk out through the void deck',m:1,max:4});
-  else{
-    if(S.ph>=2)out.push({k:'sneak',n:'Sneak down the stairs in the dark',m:1.5+.15*S.front,max:3});
-    if(S.built.rope&&S.front<=3)out.push({k:'rope',n:'Climb down the bedsheet rope',m:1.25,max:3});
-    if(S.built.fox&&dest==='market')out.push({k:'fox',n:'Ride the flying fox',m:.8,max:2});
-  }
-  return out;
+  const fx=(S.built.fox||{})[dest]||0;const lost=S.front>0;
+  return [
+    {k:'gate',n:'Walk out',m:1,max:4,ok:!lost,show:true,why:'The void deck is overrun'},
+    {k:'sneak',n:'Sneak down the stairs',m:+(1.5+.15*S.front).toFixed(2),max:3,ok:lost&&S.ph>=2,show:lost,why:'Only in the evening or at night'},
+    {k:'rope',n:'Bedsheet rope',m:1.25,max:3,ok:lost&&!!S.built.rope&&S.front<=3,show:lost,unk:!S.built.rope,why:S.built.rope?'The line is too high up for the rope':'Build a bedsheet rope in the Workshop'},
+    {k:'fox',n:fx===2?'Zipline':'Flying fox',m:fx===2?.25:.5,max:fx===2?3:2,ok:!!fx,show:true,unk:!fx,why:'Build a flying fox in the Workshop and rig it to the '+DEST[dest].n.toLowerCase()},
+  ].filter(r=>r.show);
 }
+function curRoute(d){const rs=routes(d).filter(r=>r.ok);return rs.find(r=>r.k===UI.route)||rs.slice().sort((a,b)=>a.m-b.m)[0]||null}
+function runScore(r,dest){if(dest==='park')return 100-r.san;return r.st.A*2+atkOf(r)+defOf(r)*1.5+(r.arch==='driver'?2:0)+r.hp/40-(has(r,'paiseh')?2:0)-(['guard','invent','medic'].includes(r.job)?3:0)}
+function runCands(){return known().filter(r=>able(r)&&r.lastRun!==S.t)}
+// auto-pick the best team whenever the destination, route or phase changes; the player can still untick people
+function ensureTeam(dest,rt){const key=dest+'|'+(rt?rt.k:'')+'|'+tick();if(UI.teamKey===key)return;UI.teamKey=key;UI.team=rt?runCands().sort((a,b)=>runScore(b,dest)-runScore(a,dest)).slice(0,Math.min(rt.max,4)).map(r=>r.id):[]}
 function lookouts(){return jobbers('lookout')}
 function lookN(){return jobbers('lookout').length*(S.flags.kwatch?2:1)}
 function expRisk(dest,route,team,lure){
@@ -864,16 +878,16 @@ function expRisk(dest,route,team,lure){
 }
 function riskLabel(r){if(r===0)return['None yet','goodline'];if(r<.08)return['Low','goodline'];if(r<.18)return['Moderate','warnline'];if(r<.3)return['High','badline'];return['Deadly','badline']}
 function dispatch(dest){
-  const rt=routes(dest).find(x=>x.k===(document.getElementById('route')||{}).value)||routes(dest)[0];
-  const team=UI.team.map(RS).filter(r=>r&&able(r));
+  const rt=curRoute(dest);
+  const team=UI.team.map(RS).filter(r=>r&&able(r)&&r.lastRun!==S.t);
   if(!rt||!team.length)return;
   if(team.length>rt.max){flash('This route takes at most '+rt.max+' people.');return}
   const lureBox=document.getElementById('uselure');const lure=!!(lureBox&&lureBox.checked&&S.built.lure>0);if(lure)S.built.lure--;
-  team.forEach(r=>{r.away=true});
+  team.forEach(r=>{r.away=true;r.lastRun=S.t});
   S.exps.push({dest,route:rt.k,rm:rt.m,team:team.map(r=>r.id),back:tick()+DEST[dest].dur,lure,from:S.ph});
   S.stats.runs++;
   log(team.map(r=>r.short).join(', ')+' set out for the '+DEST[dest].n.toLowerCase()+'.','');
-  UI.team=[];save();render();
+  UI.team=[];UI.teamKey=null;save();render();
 }
 function resolveExps(){
   const done=S.exps.filter(e=>e.back<=tick());S.exps=S.exps.filter(e=>e.back>tick());
@@ -890,7 +904,7 @@ function resolveExps(){
         lines.push('🩸 '+r.short+' was hurt (−'+d+' HP).');if(chance(.4-defOf(r)*.07))infect(r,'a bite on the run')}
       survivors.push(r);
     });
-    const cap=e.route==='fox'?.6:1;
+    const cap=e.route==='fox'?(((S.built.fox||{})[e.dest]===2)?.85:.6):1;
     survivors.forEach(r=>{
       const drv=r.arch==='driver'?1.3:1;
       if(e.dest==='market'){const sf=S.market/100;const f=Math.round((6+ri(0,7))*sf*cap*drv*(isOut()?1:1.4));loot.food+=f;loot.water+=Math.round(ri(2,6)*Math.max(.3,sf)*cap);S.market=Math.max(0,S.market-f*.4);if(chance(.3))itemAdd(loot.items,pick(['battery','tape','rope','pail','clock','wire','sheets']))}
@@ -944,7 +958,8 @@ function finishProj(){
   if(rc.id==='barricadeKit'){S.built.kits++;S.bar.max+=40;S.bar.hp=S.bar.max;x='The line is rebuilt and stronger.'}
   if(rc.id==='noiseLure'){S.built.lure++;x='Use it on a run (Outside tab) or throw it on a bad night (Block tab).'}
   if(rc.id==='lamp'){S.built.lamp++;x='Nights are less dark.'}
-  if(rc.id==='flyingFox'){S.built.fox=true;x='Two riders at a time can now reach the supermarket roof without touching the ground.'}
+  if(rc.id==='flyingFox'){queue('foxwhere',{});x='Next, choose where to rig it.'}
+  if(rc.id==='zipline'){queue('zipwhere',{});x='Next, choose which flying fox to upgrade.'}
   log('Workshop finished: '+rc.n+'.','good');
   queue('info',{i:'🛠️',t:rc.n+' is ready',x:rc.d+'\n\n'+x});
 }
@@ -952,9 +967,10 @@ function revealed(rc){S.hintRev=S.hintRev||{};if(!S.hintRev[rc.id])S.hintRev[rc.
 function revealItem(rc,k){const rv=revealed(rc);if(rv.includes(k))return false;rv.push(k);if(rv.length>=Object.keys(rc.need).length&&!S.known[rc.id]){S.known[rc.id]=true;log('Worked it out: '+rc.n+'.','good')}return true}
 function experiment(){
   const sel=UI.expSel.slice().sort();if(sel.length<2)return;
+  const key=sel.join('+');S.tried=S.tried||[];if(S.tried.includes(key)){flash('You already tried that combination.');return}
   if(S.flags.expT===tick()){flash('The inventor already tried something this phase.');return}
   const inv=known().some(r=>act(r)&&has(r,'inventor'));if(!inv){flash('You need a free resident with the Inventor trait.');return}
-  S.flags.expT=tick();
+  S.flags.expT=tick();S.tried.push(key);
   const rc=RECIPES.find(r=>{const k=Object.keys(r.need).sort();return k.length===sel.length&&k.every((x,i)=>x===sel[i])});
   if(rc&&!S.known[rc.id]){S.known[rc.id]=true;log('Eureka: '+rc.n+'!','good');queue('info',{i:'💡',t:'Eureka: '+rc.n,x:'Turning the '+sel.map(k=>ITEMS[k].toLowerCase()).join(' and the ')+' over and over, the inventor sees it.\n\n'+rc.d+'\n\nThe blueprint is now in the workshop.'})}
   else if(rc)flash('You already know that one: '+rc.n+'.');
@@ -1226,6 +1242,15 @@ EV.ousted={make:()=>{
     {t:'Step down as leader',s:nl?L.short+' stays as an ordinary resident. '+nl.short+' takes over and you play on as them. Trust recovers a bit.':'Nobody else can lead',dis:!nl,f:()=>{L.leader=false;nl.leader=true;S.hh.forEach(h=>{if(h.known)h.trust=clamp(h.trust+15,0,100)});log(L.short+' stepped down. '+nl.name+' now leads the block.','big');return L.short+' steps aside. '+nl.name+' takes over, and the block breathes again.'}},
     {t:'Refuse to step down',s:'They will throw your whole household out.',f:()=>{const lh=H(L.hh);if(nl){L.leader=false;nl.leader=true}const gone=members(lh);gone.forEach(r=>exile(r,'Driven out of the block by the residents'));lh.unit=null;S.hh.forEach(h=>{if(h.known)h.trust=clamp(h.trust+10,0,100)});log('The residents drove the '+lh.name+' out of the block.','big');return 'They drag the '+lh.name+' down the stairs and out past the barricade.'+(nl?'\n\n'+nl.name+' leads the block now. You play on as them.':'')}}]});
 }};
+const DEST_WHY={market:'Food and water',park:'Sanity for the stressed',school:'Tools, medicine, survivors',hawker:'Rice and dry goods',police:'Weapons, armour, radio'};
+EV.foxwhere={make:()=>{
+  const fx=S.built.fox||(S.built.fox={});const opts=Object.keys(DEST).filter(k=>!fx[k]);if(!opts.length)return null;
+  return card({i:'🪢',t:'Where should the flying fox go?',x:'The inventor can string the line from the block to one nearby rooftop. Runs there will be half as risky, 2 riders at a time, and it works even after the void deck falls.',c:opts.map(k=>({t:DEST[k].e+' '+DEST[k].n,s:DEST_WHY[k],f:()=>{fx[k]=1;const first=!S.known.zipline;S.known.zipline=true;log('Flying fox rigged to the '+DEST[k].n.toLowerCase()+'.','good');return 'The line hums tight across to the '+DEST[k].n.toLowerCase()+'. Pick the Flying fox route on the Outside tab.'+(first?'\n\nThe inventor is already sketching a motorised two-way version: see the two-way zipline in the Workshop.':'')}}))});
+}};
+EV.zipwhere={make:()=>{
+  const fx=S.built.fox||{};const opts=Object.keys(fx).filter(k=>fx[k]===1);if(!opts.length)return null;
+  return card({i:'🔋',t:'Which flying fox gets the motor?',x:'A car battery and a wiper motor will pull the trolley back up. That flying fox becomes a two-way zipline: a quarter of the normal risk, 3 riders at a time.',c:opts.map(k=>({t:DEST[k].e+' '+DEST[k].n,s:DEST_WHY[k],f:()=>{fx[k]=2;log('The '+DEST[k].n.toLowerCase()+' line is now a two-way zipline.','good');return 'The motor whines and the trolley crawls back up the line by itself. Runs to the '+DEST[k].n.toLowerCase()+' are now much safer.'}}))});
+}};
 EV.natday={make:()=>card({i:'🇸🇬',t:'National Day',x:'9 August. Someone hangs a flag from the roof. On the radio, a recording of "Home".',c:[{t:'Sing along from the corridors',s:'Morale up, noise up',f:()=>{known().forEach(r=>r.san=clamp(r.san+12,0,100));S.noise+=4;return 'Off key, all of it. Nobody cares.'}},{t:'Keep quiet',f:()=>'The flag flutters in silence.'}]})};
 EV.tdd={make:()=>card({i:'📢',t:'Total Defence Day',x:'15 February, 12.05pm. Somewhere, a timer still works: the Public Warning System sounds its yearly test. Every zombie for miles turns toward the sirens.',zed:1,c:[{t:'Brace',f:()=>{S.flags.horde=1;return 'Tonight will be bad.'}}]})};
 function newHousehold(eth){const h=mkHH(eth);h.known=true;h.kind='family';h.trust=60;S.hh.push(h);return h}
@@ -1436,7 +1461,7 @@ function unitTile(u){
 function renderTower(){
   const wrap=$('#tower-wrap');wrap.className='sky-'+S.ph+(S.weather.type==='haze'?' haze':'');
   const look=lookouts();let h='';
-  h+=`<div class="roof"><div class="blkno">${esc(S.blk)}<small>${esc(S.estate)}</small></div><div class="roof-stuff">${look.map(r=>`<span title="Lookout: ${esc(r.short)}">${faceOf(r)}</span>`).join('')}${S.built.rain?`<span title="Rain catchers">⛱️${S.built.rain>1?'×'+S.built.rain:''}</span>`:''}${S.built.fox?'<span title="Flying fox">🪢</span>':''}<span class="tank">TANK</span><span class="tank">TANK</span></div></div><div class="roof-slab"></div>`;
+  h+=`<div class="roof"><div class="blkno">${esc(S.blk)}<small>${esc(S.estate)}</small></div><div class="roof-stuff">${look.map(r=>`<span title="Lookout: ${esc(r.short)}">${faceOf(r)}</span>`).join('')}${S.built.rain?`<span title="Rain catchers">⛱️${S.built.rain>1?'×'+S.built.rain:''}</span>`:''}${Object.keys(S.built.fox||{}).length?'<span title="Flying fox">🪢</span>':''}<span class="tank">TANK</span><span class="tank">TANK</span></div></div><div class="roof-slab"></div>`;
   const nl=Math.ceil(S.upf/2);
   for(let l=S.floors;l>=2;l--){
     const us=S.units.filter(u=>u.lvl===l);const lost=l<=S.front;const line=S.front>0&&l===S.front+1;
@@ -1656,19 +1681,21 @@ function panelPeople(){
   return h;
 }
 function panelOutside(){
-  const d=UI.dest;const rts=routes(d);const team=UI.team.map(RS).filter(r=>r&&able(r));
-  let h=`<h2>Outside</h2><div class="stack">`;
-  h+=Object.entries(DEST).map(([k,x])=>`<button class="dest card ${k===d?'on':''}" data-act="dest" data-v="${k}"><span class="e">${x.e}</span><span><b>${x.n}</b><br><span class="small mute">${x.d}${k==='market'?' Stock: '+Math.round(S.market)+'%.':''}</span></span></button>`).join('');
-  h+=`</div><h3>Plan a run: ${DEST[d].n}</h3>`;
-  if(!rts.length)h+=`<p class="warnline">The void deck is lost. You can only sneak down the stairs in the evening or at night, or build a bedsheet rope or flying fox in the Workshop.</p>`;
+  const d=UI.dest;const rt=curRoute(d);ensureTeam(d,rt);
+  const team=UI.team.map(RS).filter(r=>r&&able(r)&&r.lastRun!==S.t);
+  let h=`<h2>Outside</h2><div class="destgrid">`+Object.entries(DEST).map(([k,x])=>{const fx=(S.built.fox||{})[k];const out=S.exps.some(e=>e.dest===k);
+    return `<button class="dest2 ${k===d?'on':''}" data-act="dest" data-v="${k}"><span class="e">${x.e}</span><span style="min-width:0"><b>${({park:'Park',police:'Police centre'})[k]||x.n}</b>${k==='market'?`<span class="small mute">Stock ${Math.round(S.market)}%</span>`:''}${fx?`<span class="small goodline">🪢 ${fx===2?'Zipline':'Flying fox'}</span>`:''}${out?'<span class="small warnline">Team out</span>':''}</span></button>`}).join('')+`</div>`;
+  h+=`<p class="small mute" style="margin:8px 0 0">${DEST[d].e} ${DEST[d].d}</p>`;
+  h+=`<h3>Route</h3><div class="routes">`+routes(d).map(r=>`<button class="${rt&&rt.k===r.k?'btn-main':''}" data-act="route" data-v="${r.k}" ${r.ok?'':'disabled'}><b>${r.unk?'???':esc(r.n)}</b><small>${r.ok?(r.m!==1?'Risk ×'+r.m+' · ':'Normal risk · ')+'max '+r.max:esc(r.why)}</small></button>`).join('')+`</div>`;
+  if(!rt){h+=`<p class="warnline">No way out right now. ${S.front>0?'Sneak down the stairs in the evening or at night, or build a bedsheet rope or flying fox.':''}</p>`}
   else{
-    h+=`<label class="small mute" for="route">Route</label><select id="route" style="width:100%;margin-bottom:8px">${rts.map(r=>`<option value="${r.k}">${r.n} (max ${r.max})</option>`).join('')}</select>`;
-    const rt=rts[0];const rk=expRisk(d,rt,team,false);const lb=riskLabel(rk);
-    h+=`<p class="${lb[1]}">Risk per person: ${lb[0]}${isOut()?' (~'+Math.round(rk*100)+'%)':' (no zombies yet)'}. Lookouts on the roof: ${lookouts().length}.</p>`;
-    if(S.built.lure)h+=`<label class="teamrow"><input type="checkbox" id="uselure"> Throw a noise lure first (${S.built.lure} left)</label>`;
-    const cands=known().filter(able).sort((a,b)=>b.st.A-a.st.A);
-    h+=`<div class="card">${cands.length?cands.map(r=>`<label class="teamrow"><input type="checkbox" data-chg="team" data-id="${r.id}" ${UI.team.includes(r.id)?'checked':''}> ${faceOf(r)} ${esc(r.short)} <span class="mute small">Agility ${r.st.A} · Strength ${r.st.S} · Health ${Math.round(r.hp)}${r.wpn?' · '+ITEMS[r.wpn]:''}${r.arm?' · '+ITEMS[r.arm]:''}</span></label>`).join(''):'<span class="mute">Nobody is fit to go.</span>'}</div>`;
-    h+=`<div class="row" style="margin-top:8px"><button class="btn-main" data-act="dispatch" data-v="${d}" ${team.length?'':'disabled'}>Send ${team.length||''} ${team.length===1?'person':'people'}</button><span class="small mute">Back ${DEST[d].dur===1?'next phase':'in two phases'}.</span></div>`;
+    const rk=expRisk(d,rt,team,false);const lb=riskLabel(rk);const max=Math.min(rt.max,4);
+    h+=`<div class="card stack" style="margin-top:10px;gap:6px"><div class="row"><button class="btn-main" data-act="dispatch" data-v="${d}" ${team.length?'':'disabled'}>Send ${team.length||''} ${team.length===1?'person':'people'}${rt.k==='fox'?' by '+rt.n.toLowerCase():''}</button><span class="${lb[1]}">Risk each: ${lb[0]}${isOut()?' (~'+Math.round(rk*100)+'%)':' (no zombies yet)'}</span></div>
+      <span class="small mute">Back ${DEST[d].dur===1?'next phase':'in two phases'}. Lookouts on the roof: ${lookouts().length}${S.flags.kwatch?' (count double)':''}.</span>
+      ${S.built.lure?`<label class="teamrow"><input type="checkbox" id="uselure"> Throw a noise lure first (${S.built.lure} left)</label>`:''}</div>`;
+    h+=`<p class="small mute" style="margin:8px 0 4px">💡 Up to ${max} people can go on this route. ${d==='park'?'The most stressed residents are picked first: they need the fresh air most.':'Your best runners are picked first: agility, gear and health count, and people on duty come last.'} Tap to change. Nobody can go out twice in one day.</p>`;
+    const all=known().filter(able).sort((a,b)=>((a.lastRun===S.t)-(b.lastRun===S.t))||runScore(b,d)-runScore(a,d));
+    h+=`<div class="card">${all.length?all.map(r=>{const used=r.lastRun===S.t;return `<label class="teamrow" style="${used?'opacity:.45':''}"><input type="checkbox" data-chg="team" data-id="${r.id}" ${UI.team.includes(r.id)&&!used?'checked':''} ${used?'disabled':''}> ${faceOf(r)} ${esc(r.short)} <span class="mute small">${used?'Already went out today':`Agility ${r.st.A} · Health ${Math.round(r.hp)} · Sanity ${Math.round(r.san)}${r.wpn?' · '+ITEMS[r.wpn]:''}${r.arm?' · '+ITEMS[r.arm]:''}${r.job!=='rest'?' · '+JOBS[r.job]:''}`}</span></label>`}).join(''):'<span class="mute">Nobody is fit to go.</span>'}</div>`;
   }
   const out=S.exps.filter(e=>DEST[e.dest]);
   if(out.length)h+=`<h3>Out now</h3>`+out.map(e=>`<div class="small">${DEST[e.dest].e} ${e.team.map(id=>esc(RS(id).short)).join(', ')}, back ${e.back-tick()<=1?'next phase':'in '+(e.back-tick())+' phases'}</div>`).join('');
@@ -1681,12 +1708,17 @@ function panelWorkshop(){
   h+=`<h3>Communal items</h3>`;
   const it=Object.keys(S.items);
   h+=it.length?`<div class="itemchips">${it.map(k=>`<button class="ic ${UI.expSel.includes(k)?'on':''}" data-act="expsel" data-v="${k}">${ITEMS[k]} ×${S.items[k]}</button>`).join('')}</div>`:'<p class="mute small">Empty. Ask households to donate items from their flats.</p>';
-  h+=`<div class="row" style="margin-top:8px"><button data-act="experiment" ${UI.expSel.length>=2?'':'disabled'}>💡 Try combining ${UI.expSel.length?UI.expSel.map(k=>ITEMS[k]).join(' + '):'selected items'}</button></div><p class="small mute">Pick the items an idea needs and let the inventor try. Items are not used up. Each idea below says how many different items it needs and which ones you already know. A wrong guess that includes a right item still reveals that item.</p>`;
-  h+=`<h3>Blueprints</h3><div class="stack">`+RECIPES.map(rc=>{
+  const selKey=UI.expSel.slice().sort().join('+');const triedIt=(S.tried||[]).includes(selKey);
+  h+=`<div class="row" style="margin-top:8px"><button data-act="experiment" ${UI.expSel.length>=2&&!triedIt?'':'disabled'}>💡 Try combining ${UI.expSel.length?UI.expSel.map(k=>ITEMS[k]).join(' + '):'selected items'}</button>${triedIt?'<span class="small warnline">You already tried this combination.</span>':''}</div>${(S.tried||[]).length?`<p class="small mute" style="margin:6px 0 0"><b>Already tried:</b> ${S.tried.slice(-12).reverse().map(t=>t.split('+').map(k=>ITEMS[k]).join(' + ')).join(' · ')}</p>`:''}<p class="small mute">Pick the items an idea needs and let the inventor try. Items are not used up. Each idea below says how many different items it needs and which ones you already know. A wrong guess that includes a right item still reveals that item.</p>`;
+  h+=`<h3>Blueprints</h3><p class="small mute" style="margin:0 0 6px">Known blueprints A to Z, then unknown ideas.</p><div class="stack">`+RECIPES.slice().sort((a,b)=>(S.known[b.id]?1:0)-(S.known[a.id]?1:0)||a.n.localeCompare(b.n)).map(rc=>{
     if(!S.known[rc.id]){const ks=Object.keys(rc.need);const rv=revealed(rc);return `<div class="card stack" style="gap:4px"><b class="mute">??? Unknown idea · needs ${ks.length} different items</b><span class="small">${ks.map(k=>rv.includes(k)?`<span class="${S.items[k]?'goodline':'badline'}">${ITEMS[k]}</span>`:'<span class="mute">???</span>').join(' + ')}</span><span class="small mute">Hint: ${rc.hint}</span></div>`}
     const need=Object.entries(rc.need).map(([k,n])=>`<span class="${(S.items[k]||0)>=n?'goodline':'badline'}">${n}× ${ITEMS[k]}</span>`).join(' + ');
-    const done=(rc.id==='flyingFox'&&S.built.fox)||(rc.id==='sheetRope'&&S.built.rope);
-    return `<div class="card stack" style="gap:4px"><b>${rc.n}</b><span class="small mute">${rc.d}</span><span class="small">${need} · ${rc.work} work</span><div class="row"><button data-act="build" data-v="${rc.id}" ${!S.proj&&hasNeeds(rc)&&!done?'':'disabled'}>${done?'Built':'Build'}</button>${done?'':S.proj?'<span class="small mute">Workshop busy. One project at a time.</span>':!hasNeeds(rc)?'<span class="small mute">Missing items (in red).</span>':''}</div></div>`}).join('')+`</div>`;
+    const fx=S.built.fox||{};let why='';
+    if(rc.id==='sheetRope'&&S.built.rope)why='Already built';
+    if(rc.id==='flyingFox'&&Object.keys(DEST).every(k=>fx[k]))why='Every destination already has one';
+    if(rc.id==='zipline'&&!Object.values(fx).some(v=>v===1))why=Object.keys(fx).length?'Every flying fox is already a zipline':'Build a flying fox first';
+    const done=!!why;
+    return `<div class="card stack" style="gap:4px"><b>${rc.n}</b><span class="small mute">${rc.d}</span><span class="small">${need} · ${rc.work} work</span><div class="row"><button data-act="build" data-v="${rc.id}" ${!S.proj&&hasNeeds(rc)&&!done?'':'disabled'}>Build</button>${done?'<span class="small mute">'+why+'.</span>':S.proj?'<span class="small mute">Workshop busy. One project at a time.</span>':!hasNeeds(rc)?'<span class="small mute">Missing items (in red).</span>':''}</div></div>`}).join('')+`</div>`;
   return h;
 }
 function panelBlock(){
@@ -1742,6 +1774,7 @@ const ACT={
   dispatch:d=>dispatch(d.v),
   build:d=>startProj(d.v),
   pf:d=>{UI.pf=d.v;render()},
+  route:d=>{UI.route=d.v;UI.teamKey=null;render()},
   evict:d=>evict(+d.v),
   tip:(d,el)=>showTip(d,el),
   tend:d=>{const el=document.getElementById('worker');const r=el&&RS(+el.value);if(r){r.job='garden';r.garden=d.v;r.post=d.v;log(r.short+' now tends the garden at '+d.v+'.','');save();render()}},
@@ -1768,12 +1801,13 @@ document.addEventListener('change',e=>{const el=e.target;const k=el.dataset&&el.
   if(k==='job')setJob(id,el.value);
   if(k==='wpn')equip(id,'wpn',el.value);
   if(k==='arm')equip(id,'arm',el.value);
-  if(k==='team'){const i=UI.team.indexOf(id);if(el.checked&&i<0)UI.team.push(id);if(!el.checked&&i>=0)UI.team.splice(i,1);const keep=document.getElementById('route')?document.getElementById('route').value:null;render();if(keep&&document.getElementById('route'))document.getElementById('route').value=keep}
+  if(k==='team'){const i=UI.team.indexOf(id);if(el.checked&&i<0)UI.team.push(id);if(!el.checked&&i>=0)UI.team.splice(i,1);render()}
 });
 document.addEventListener('keydown',e=>{if(e.code==='Space'&&S&&!e.target.closest('select,input,button')){e.preventDefault();if(!$('#modal').hidden){const b=$('#modal .choices button:not(:disabled)');if(b&&(UI.result||S.over))b.click();return}advance()}});
 
 function migrate(){
   if(!S)return;
+  if(S.built.fox===true){S.built.fox={market:1};S.known.zipline=true}else if(!S.built.fox||typeof S.built.fox!=='object')S.built.fox={};
   S.timers=S.timers||[];
   S.bar.max=Math.round(S.bar.max);
   const q0=S.units.find(u=>u.room==='quarantine'&&u.st==='empty');if(q0)S.res.forEach(r=>{if(r.alive&&r.quar&&!r.qRoom&&rooms('quarantine')){r.qRoom=q0.id;q0.qUsed=Math.min(2,(q0.qUsed||0)+1)}});
