@@ -1120,7 +1120,8 @@ function returnLoner(e){
 
 /* ================= inventor ================= */
 function hasNeeds(rc){for(const k in rc.need)if((S.items[k]||0)<rc.need[k])return false;return true}
-function recipeOpen(r){if(S.known[r.id])return true;if(r.secret)return false;if(r.unlock)return isOut()&&pday()>=r.unlock;return true}
+function recipeOpen(r){if(r.id==='zipline'&&!Object.keys(S.built.fox||{}).length)return false; // the upgrade only exists once there's a flying fox
+  if(S.known[r.id])return true;if(r.secret)return false;if(r.unlock)return isOut()&&pday()>=r.unlock;return true}
 function startProj(id){
   const rc=RECIPES.find(r=>r.id===id);if(!rc||S.proj||!hasNeeds(rc))return;
   if(id==='booster'&&rooms('workshop')<2){flash('The booster needs two workshops.');return}
