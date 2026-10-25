@@ -1201,7 +1201,10 @@ function ok(t){return[{t:t||'OK',f:()=>null}]}
 // forced events
 EV.intro={make:()=>card({i:'🏢',t:'Blk '+S.blk+' '+S.estate,x:'Something is wrong overseas, and the news is creeping closer. Nobody knows when it will reach Singapore. Maybe a week. Maybe two.\n\nYou know a few neighbours. The rest of the block is a row of closed gates. Message them on the block chat while phones work, gather supplies, and get the household items you need for the inventor to make weapons.\n\nWhen it starts, hold the void deck for as long as you can.',c:ok('Get to work')})};
 EV.info={make:a=>card({i:a.i,t:a.t,x:a.x,bad:a.bad,zed:a.zed,c:ok()})};
-EV.exp={make:a=>card({i:DEST[a.dest].e,t:'Back from the '+DEST[a.dest].n.toLowerCase(),x:a.lines.join('\n')||'Nothing to report.',bad:a.bad,c:ok()})};
+EV.exp={make:a=>{
+  if(a.multi&&a.multi.length>1){const runs=a.multi;
+    return card({i:'🎒',t:runs.length+' teams are back',x:runs.map(x=>DEST[x.dest].e+' '+DEST[x.dest].n.toUpperCase()+'\n'+(x.lines.join('\n')||'Nothing to report.')).join('\n\n'),bad:runs.some(x=>x.bad),c:ok()})}
+  const x=a.multi?a.multi[0]:a;return card({i:DEST[x.dest].e,t:'Back from the '+DEST[x.dest].n.toLowerCase(),x:x.lines.join('\n')||'Nothing to report.',bad:x.bad,c:ok()})}};
 EV.fall={make:a=>card({i:'🧟',t:'The line has fallen',x:a.x+'\n\nResidents without a flat need to be moved into an empty flat higher up. Open an empty flat and use "Move a household in".',bad:1,zed:1,c:ok('Hold the next floor')})};
 EV.siren={make:()=>card({i:'📢',t:'The sirens',x:'At 7.12am the Public Warning System starts wailing the Important Message tone. It is not a test.\n\nThe radio repeats: stay indoors, lock your gates. From the corridor you can see people running at the bus stop. Some of them are not running away.\n\nThe void deck shutters are your first line. Put people on Guard duty or they will not hold.',zed:1,c:[
   {t:'Pull down the void deck shutters and pile furniture behind them',s:'+20 barricade, −3 scrap',f:()=>{S.bar.max+=20;S.bar.hp=S.bar.max;S.store.scrap=Math.max(0,S.store.scrap-3);return 'The shutters slam down. Sofas, bicycles and the letterbox benches go behind them.'}},
@@ -1570,6 +1573,7 @@ function buildCard(q){
   try{return buildCard0(q)}catch(e){console.error(e);return null}
 }
 function buildCard0(q){
+  if(q.id==='exp'){const same=S.queue.filter(x=>x!==q&&x.id==='exp');if(same.length){q.a={multi:[q.a].concat(same.map(x=>x.a.multi||[x.a])).flat()};S.queue=S.queue.filter(x=>x===q||x.id!=='exp')}}
   if(q.id==='note'||q.id==='banging'){const same=S.queue.filter(x=>x!==q&&x.id===q.id);if(same.length){q.a={multi:[q.a].concat(same.map(x=>x.a.multi||[x.a]))};q.a.multi=q.a.multi.flat();S.queue=S.queue.filter(x=>x===q||x.id!==q.id)}}
   if(q.id.startsWith('r:')){const e=REV.find(x=>x.id===q.id.slice(2));return e?e.make():null}
   return EV[q.id]?EV[q.id].make(q.a):null;
@@ -2256,7 +2260,7 @@ document.addEventListener('change',e=>{const el=e.target;const k=el.dataset&&el.
   if(k==='arm')equip(id,'arm',el.value);
   if(k==='team'){const i=UI.team.indexOf(id);if(el.checked&&i<0)UI.team.push(id);if(!el.checked&&i>=0)UI.team.splice(i,1);render()}
 });
-document.addEventListener('keydown',e=>{if(e.code==='Space'&&S&&!e.target.closest('select,input,button')){e.preventDefault();if(!$('#modal').hidden){const b=$('#modal .choices button:not(:disabled)');if(b&&(UI.result||S.over))b.click();return}advance()}});
+document.addEventListener('keydown',e=>{if(e.code==='Space'&&S&&!e.target.closest('select,input,button')){e.preventDefault();if(!$('#modal').hidden){const bs=document.querySelectorAll('#modal .choices button:not(:disabled)');const all=document.querySelectorAll('#modal .choices button');if(bs[0]&&(UI.result||(CUR&&all.length===1)))bs[0].click();return}advance()}});
 
 function migrate(){
   if(!S)return;
