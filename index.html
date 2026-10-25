@@ -301,6 +301,7 @@ const ARCH={
   ahbeng:{l:'Ah Beng',i:'🏍️',age:[19,30],st:[4,4,7,7,6],sex:'M'},
   teacher:{l:'Teacher',i:'📚',age:[28,55],st:[7,7,4,4,5]},
   doctor:{l:'Doctor',i:'🩻',age:[32,60],st:[5,9,4,4,5]},
+  officer:{l:'Police officer',i:'👮',age:[24,45],st:[5,6,6,7,6]},
   worker:{l:'Construction worker',i:'🏗️',age:[24,40],st:[5,5,6,8,8],sex:'M'},
 };
 const STK=['K','I','A','S','U'];
@@ -364,11 +365,11 @@ const ROOMS={
 const JOBS={rest:'Rest',guard:'Guard the line',lookout:'Rooftop lookout',invent:'Workshop',medic:'Medic',garden:'Tend garden',salvage:'Salvage scrap'};
 const DEST={
   market:{n:'Supermarket',e:'🛒',risk:.10,dur:1,d:'Next to the block. Food and bottled water while stock lasts.'},
-  park:{n:'Neighbourhood park',e:'🌳',risk:.07,dur:1,d:'Fresh air and open sky. Big sanity boost. Fishing pond, gardener\'s shed.'},
+  park:{n:'Neighbourhood park',e:'🌳',risk:.07,dur:1,d:'Fresh air and open sky. Big sanity boost. Fishing pond, gardener\'s shed. Now and then, survivors hiding out.'},
   school:{n:'Primary school',e:'🏫',risk:.16,dur:1,d:'Canteen, science lab, sick bay, store rooms. Maybe survivors.'},
   hawker:{n:'Hawker centre',e:'🍜',risk:.13,dur:1,d:'Stall store rooms: rice sacks, tinned food, gas cylinders. Hawkers keep a lot of dry stock.'},
   poly:{n:'Polyclinic',e:'🏥',risk:.2,dur:1,d:'The medical team knows where the polyclinic kept its stock. Medicine, and lots of it.'},
-  police:{n:'Neighbourhood Police Centre',e:'🚓',risk:.22,dur:2,d:'Batons, riot shields, radios, first aid. Takes two phases.'},
+  police:{n:'Neighbourhood Police Centre',e:'🚓',risk:.22,dur:2,d:'Batons, riot shields, radios, first aid. Sometimes someone locked in a cell. Takes two phases.'},
 };
 const WEATHER={sunny:['☀️','Sunny'],hot:['🥵','Sweltering'],cloudy:['☁️','Overcast'],rain:['🌧️','Rain'],storm:['⛈️','Thunderstorm'],squall:['🌬️','Sumatra squall'],haze:['🌫️','Haze']};
 const ALERTS=[['Green','alert-0'],['Yellow','alert-1'],['Orange','alert-2'],['Red','alert-3'],['OUTBREAK','alert-4']];
@@ -1047,6 +1048,7 @@ function resolveExps(){
     log('Run to the '+DEST[e.dest].n.toLowerCase()+' returned. '+(got.length?'Got '+got.join(', ')+'.':''),survivors.length===team.length?'good':'bad');
     queue('exp',{dest:e.dest,lines,bad:survivors.length<team.length});
     if(e.dest==='school'&&isOut()&&survivors.length&&!S.flags.schoolSurv&&chance(.3)){S.flags.schoolSurv=1;queue('kids',{})}
+    {const pc={park:.025,police:.04}[e.dest];if(pc&&isOut()&&survivors.length&&chance(pc))queue('foundSurv',{dest:e.dest,g:pick(e.dest==='park'?SURV_PARK:SURV_POLICE)})}
   });
 }
 
@@ -1435,6 +1437,23 @@ EV.lastOne={make:()=>{const r=known()[0];if(!r)return null;return card({i:'🕯�
 EV.kampungEnd={make:()=>card({i:'🤝',t:'The whole estate knows your name',x:'Torches flash from block to block every night now, passing messages along a line that runs right across '+S.estate+'. Families you fed, people you took in, blocks you lent your fighters to: they have all become one network, and Blk '+S.blk+' is at its heart.\n\nThis morning, an SAF patrol followed the torch signals to your void deck.',c:[
   {t:'"We made it, together."',s:'Ending',f:()=>{S.end.kampungDone=1;finishGame('kampung');return null}},
   {t:'Not yet. There\'s more to do.',s:'Keep playing',f:()=>'The patrol leaves supplies and promises to come back.'}]})};
+const SURV_PARK=[
+  {who:['pmet','kid'],x:'A mother and her son have been living in the tunnel of the playground, eating fish from the pond.'},
+  {who:['ahgong'],x:'An old uncle is sitting on a bench by the pond, perfectly calm. "I was waiting for someone to come," he says.'},
+  {who:['ahbeng','ahbeng'],x:'Two young men have barricaded themselves in the gardener\'s shed with a changkol each. They look tough, and hungry.'},
+  {who:['helper'],x:'A domestic helper is hiding up in a rain tree. Her employers never came back from the market.'},
+  {who:['student','student'],x:'Two secondary school students in muddy PE kit, hiding under the fitness corner. They haven\'t eaten in days.'}];
+const SURV_POLICE=[
+  {who:['officer'],arm:'baton',x:'Someone is banging on the door of a holding cell. Inside: a police officer who locked herself in when the station fell. She still has her baton.'},
+  {who:['officer','pmet'],arm:'baton',x:'A police officer and a civilian have held out in the station\'s locked armoury office for weeks.'},
+  {who:['nsf'],x:'An NSF on attachment to the police centre, hiding in the records room. He salutes out of habit.'},
+  {who:['pmet','pmet','kid'],x:'A family who came to the police centre for help on the first day. They have been hiding in the interview rooms ever since.'}];
+EV.foundSurv={make:a=>{const g=a.g;if(!g)return null;const n=g.who.length;
+  return card({i:DEST[a.dest].e,t:'Survivors at the '+DEST[a.dest].n.replace('Neighbourhood ','').toLowerCase(),x:g.x+'\n\nThe team can bring '+(n===1?'them':'all '+n)+' back to the block.',c:[
+    {t:'Bring them home',s:'+'+n+' resident'+(n>1?'s':'')+'. Find them a flat, or they sleep in the stairwell.',f:()=>{addPhil(3);const h=newHousehold(pick(['cn','cn','ml','in']));const ms=g.who.map(k=>mkRes(k,h));nameHH(h);if(g.arm)ms.filter(r=>r.arch==='officer').forEach(r=>{r.wpn=g.arm});log(ms.map(r=>r.short).join(', ')+' joined the block from the '+DEST[a.dest].n.toLowerCase()+'.','good');return ms.map(r=>r.name+' ('+ARCH[r.arch].l+')').join(', ')+' follow the team home.'}},
+    {t:'Give them food and point them to the next block',s:'−3 food',dis:S.store.food<3,f:()=>{S.store.food-=3;addPhil(1);return 'They thank you and head off toward the next estate.'}},
+    {t:'Leave them',f:()=>{known().forEach(r=>r.san=clamp(r.san-3,0,100));return 'The team walks past. Nobody talks on the way back.'}}]});
+}};
 EV.natday={make:()=>card({i:'🇸🇬',t:'National Day',x:'9 August. Someone hangs a flag from the roof. On the radio, a recording of "Home".',c:[{t:'Sing along from the corridors',s:'Morale up, noise up',f:()=>{known().forEach(r=>r.san=clamp(r.san+12,0,100));S.noise+=4;return 'Off key, all of it. Nobody cares.'}},{t:'Keep quiet',f:()=>'The flag flutters in silence.'}]})};
 EV.tdd={make:()=>card({i:'📢',t:'Total Defence Day',x:'15 February, 12.05pm. Somewhere, a timer still works: the Public Warning System sounds its yearly test. Every zombie for miles turns toward the sirens.',zed:1,c:[{t:'Brace',f:()=>{S.flags.horde=1;return 'Tonight will be bad.'}}]})};
 function newHousehold(eth){const h=mkHH(eth);h.known=true;h.kind='family';h.trust=60;S.hh.push(h);return h}
@@ -1593,7 +1612,7 @@ const SKIN=['#f5d0a9','#e8b98a','#d39a6a','#a86b42','#7a4a2a'];
 const SHIRT=['#6c8ebf','#b5677d','#7aa37a','#c08a4b','#8e7cc3','#d08c60','#5c9ea0'];
 const JOBSHIRT={guard:'#d9534f',lookout:'#4a90d9',invent:'#e3a92b',medic:'#eef4f6',garden:'#5a9e3a',salvage:'#8a6a4a'};
 const POSTS=['invent','medic','garden','salvage'];
-const SPR_ROW={doctor:8,you:0,ahma:1,ahgong:2,tinker:3,polystu:4,nsman:5,nsf:6,helper:7,nurse:8,driver:9,hawker:10,cleaner:11,rcauntie:12,student:13,kid:14,pmet:15,karang:16,ahbeng:17,teacher:18,worker:19};
+const SPR_ROW={officer:5,doctor:8,you:0,ahma:1,ahgong:2,tinker:3,polystu:4,nsman:5,nsf:6,helper:7,nurse:8,driver:9,hawker:10,cleaner:11,rcauntie:12,student:13,kid:14,pmet:15,karang:16,ahbeng:17,teacher:18,worker:19};
 // i/arr come from Array.map: each sprite in a flat gets its own slice of floor so they never cross.
 // renderTower skips rebuilding when nothing changed, and re-phases animations from the clock when it does.
 function sprite(r,i,arr){
