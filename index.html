@@ -758,10 +758,10 @@ function doJobs(){
   // medic + sick bay ward: admitted patients heal every phase; medics on duty work the ward when it has patients
   const medics=jobbers('medic');const sb=rooms('sickbay')>0;
   const sbU=sickbayUnit();let pats=ks.filter(r=>r.ward);
-  if(pats.length&&!sbU){pats.forEach(r=>r.ward=null);log('The sick bay is gone. Its patients were sent home.','bad');pats=[]}
+  if(pats.length&&!sbU){pats.forEach(r=>leaveWard(r,' was sent home from the lost sick bay'));log('The sick bay is gone. Its patients were sent home.','bad');pats=[]}
   if(pats.length){
     const pool=medics.reduce((a,m)=>a+medAmt(m),0)/pats.length;
-    pats.forEach(r=>{r.hp=Math.min(100,r.hp+(wardBase(r)+pool)*healMult(r));r.san=clamp(r.san+.5,0,100);if(r.hp>=95){r.ward=null;log(r.short+' has recovered and left the sick bay.','good')}});
+    pats.forEach(r=>{r.hp=Math.min(100,r.hp+(wardBase(r)+pool)*healMult(r));r.san=clamp(r.san+.5,0,100);if(r.hp>=95)leaveWard(r,' has recovered and left the sick bay')});
   }
   medics.forEach(m=>{
     const amt=medAmt(m);
@@ -1753,11 +1753,18 @@ function healMult(r){return (r.age>=75?.55:r.age>=65?.7:1)*(r.hp<30?.75:1)}
 function healWhy(r){const w=[];if(r.age>=75)w.push('very old');else if(r.age>=65)w.push('elderly');if(r.hp<30)w.push('badly hurt');return w.join(', ')}
 function medsGain(r){return Math.round(25*healMult(r))}
 function wardRate(r){const n=Math.max(1,known().filter(x=>x.ward).length);return (wardBase(r)+jobbers('medic').reduce((a,m)=>a+medAmt(m),0)/n)*healMult(r)}
+// leaving the sick bay: go back to the job they had before, if it still exists
+function leaveWard(r,why){
+  r.ward=null;const j=r.prevJob||'rest';const pp=r.prevPost;r.prevJob=null;r.prevPost=null;
+  const post=pp?U(pp):null;const ok=j==='rest'||(j==='garden'?!!(post&&post.room==='garden'&&post.st==='empty'&&post.lvl>S.front)||rooms('garden')>0:j==='salvage'?!!(post&&post.room==='depot'&&post.st==='empty'&&post.lvl>S.front)||rooms('depot')>0:true);
+  if(ok){r.job=j;if(pp&&post&&post.room&&post.st==='empty'){r.post=pp;if(j==='garden')r.garden=pp}}else r.job='rest';
+  log(r.short+why+(j==='rest'?'.':ok?'. Back on duty: '+JOBS[j]+'.':'. Their old job is gone, so they are resting.'),'good');
+}
 function admit(id){
   const r=RS(id);const u=sickbayUnit();if(!r||!r.alive||r.ward||r.away||r.quar)return;
   if(!u){flash('You need a sick bay first. Convert an empty flat.');return}
   if(known().filter(x=>x.ward).length>=beds()){flash('All '+beds()+' beds are taken.');return}
-  r.ward=u.id;r.job='rest';r.post=null;log(r.short+' was admitted to the sick bay.','');save();render();
+  r.prevJob=r.job;r.prevPost=r.post||r.garden||null;r.ward=u.id;r.job='rest';r.post=null;log(r.short+' was admitted to the sick bay.','');save();render();
 }
 // who is drawn at a workplace this render (by day only): everyone else with a job is drawn at home, so nobody vanishes
 function workPosts(){
@@ -2218,8 +2225,8 @@ const ACT={
   askhost:d=>{const el=document.getElementById('host-'+d.v);if(el)askHost(+d.v,+el.value)},
   admit:d=>admit(+d.v),
   admitsel:()=>{const el=document.getElementById('patsel');if(el)admit(+el.value)},
-  discharge:d=>{const r=RS(+d.v);if(r){r.ward=null;log(r.short+' was discharged from the sick bay.','');save();render()}},
-  wardmeds:d=>{const r=RS(+d.v);if(r&&S.store.meds>0){S.store.meds--;r.hp=Math.min(100,r.hp+medsGain(r));if(r.hp>=95){r.ward=null;log(r.short+' has recovered and left the sick bay.','good')}save();render()}},
+  discharge:d=>{const r=RS(+d.v);if(r){leaveWard(r,' was discharged early');save();render()}},
+  wardmeds:d=>{const r=RS(+d.v);if(r&&S.store.meds>0){S.store.meds--;r.hp=Math.min(100,r.hp+medsGain(r));if(r.hp>=95)leaveWard(r,' has recovered and left the sick bay');save();render()}},
   route:d=>{UI.route=d.v;UI.teamKey=null;render()},
   evict:d=>evict(+d.v),
   tip:(d,el)=>showTip(d,el),
