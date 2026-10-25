@@ -235,6 +235,39 @@ button.trait{padding:0 5px;border-radius:4px}
 .ev .choices{display:flex;flex-direction:column;gap:6px}
 .ev .choices button{text-align:left;padding:9px 12px}
 .ev .choices small{display:block;color:var(--mute);font-size:11px}
+/* ---------- ending scenes ---------- */
+#modal.endm{background:#000;overflow:hidden}
+.endscene{position:absolute;inset:0;width:100%;height:100%;animation:scfade 1.6s both}
+.endcard{position:relative;width:min(520px,100%);max-height:100%;display:flex}
+#modal.endm .ev{background:color-mix(in srgb,var(--panel) 90%,transparent);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);animation:evin .9s 1.6s both}
+#modal.endm.seen .ev{animation:none}
+#modal.endm.endhide .endcard{display:none}
+.endshow{display:none;position:absolute;bottom:max(20px,env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);background:color-mix(in srgb,var(--panel) 85%,transparent)}
+#modal.endm.endhide .endshow{display:block}
+@media (min-width:1000px){#modal.endm{justify-items:end;padding-right:6vw}}
+@keyframes scfade{from{opacity:0;transform:scale(1.04)}}
+@keyframes evin{from{opacity:0;transform:translateY(18px)}}
+.endscene *{transform-box:fill-box}
+.sc-tw{animation:sctw 3s ease-in-out infinite}@keyframes sctw{50%{opacity:.2}}
+.sc-fl{animation:scfl 1.7s ease-in-out infinite}@keyframes scfl{30%{opacity:.75}60%{opacity:1}80%{opacity:.85}}
+.sc-ship{animation:scship 50s linear both}@keyframes scship{from{transform:translateX(-160px)}to{transform:translateX(260px)}}
+.sc-bob{animation:scbob 4s ease-in-out infinite}@keyframes scbob{50%{transform:translateY(5px) rotate(.4deg)}}
+.sc-shim{animation:scshim 2.4s ease-in-out infinite}@keyframes scshim{50%{opacity:.2;transform:translateX(10px)}}
+.sc-flag{transform-origin:left center;animation:scflag 1.2s ease-in-out infinite}@keyframes scflag{50%{transform:skewY(4deg) scaleX(.94)}}
+.sc-bird{animation:scbird 9s linear infinite}@keyframes scbird{to{transform:translate(-500px,-120px)}}
+.sc-drive{animation:scdrive 14s cubic-bezier(.2,.6,.3,1) both}@keyframes scdrive{to{transform:translateX(900px)}}
+.sc-rise{animation:scrise 14s ease-out both}@keyframes scrise{from{transform:translateY(140px)}}
+.sc-wave{transform-origin:center;animation:scwave 3s ease-out infinite}@keyframes scwave{from{transform:scale(.3);opacity:1}to{transform:scale(6);opacity:0}}
+.sc-smoke{transform-origin:center;animation:scsmoke 6s ease-out infinite}@keyframes scsmoke{from{opacity:.55;transform:translateY(0) scale(.5)}to{opacity:0;transform:translateY(-260px) scale(3)}}
+.sc-march{animation:scmarch 30s linear infinite}@keyframes scmarch{from{transform:translateX(-500px)}to{transform:translateX(1700px)}}
+.sc-cloud{animation:sccloud 42s linear infinite}@keyframes sccloud{from{transform:translateX(-300px)}to{transform:translateX(1300px)}}
+.sc-arm{animation:scarm 3s ease-in infinite}@keyframes scarm{0%,5%{transform:rotate(0)}10%{transform:rotate(80deg)}40%,100%{transform:rotate(0)}}
+.sc-spin{transform-origin:center;animation:scspin 1.4s linear infinite}@keyframes scspin{to{transform:rotate(360deg)}}
+.sc-note{animation:scnote 2.8s ease-out infinite;opacity:0}@keyframes scnote{0%{opacity:0}20%{opacity:1}to{opacity:0;transform:translate(-40px,-120px)}}
+.sc-drip{animation:scdrip 1.8s ease-in infinite}@keyframes scdrip{from{opacity:1}to{opacity:0;transform:translateY(60px)}}
+.sc-lure{animation:sclure 40s linear infinite}@keyframes sclure{from{transform:translateX(0)}to{transform:translateX(1200px)}}
+.sc-mob{animation:scmob 2.2s ease-in-out infinite}@keyframes scmob{50%{transform:translateX(6px)}}
+@media (prefers-reduced-motion:reduce){.endscene *,.endscene{animation:none!important}#modal.endm .ev{animation:none}}
 #title{position:fixed;inset:0;z-index:60;background:radial-gradient(ellipse at 50% 120%,#3b2b18,var(--night) 60%);overflow:auto;padding-block:max(32px,env(safe-area-inset-top,0px));padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
 .t-inner{max-width:640px;margin:0 auto;display:flex;flex-direction:column;gap:18px}
 .t-logo{font-family:var(--f-display);font-size:clamp(34px,9vw,64px);line-height:.95;color:var(--facade);text-wrap:balance}
@@ -2182,15 +2215,119 @@ function panelBlock(){
   return h;
 }
 function panelLog(){return '<h2>Log</h2>'+S.log.map(l=>`<div class="logl log-${l.kind}"><span class="mono">${stamp(l.t)} ${PH[l.ph].slice(0,3)}</span>${esc(l.text)}</div>`).join('')}
+// ---------- ending scenes ----------
+function endScene(id){
+  let sd=(+String(S.blk).replace(/\D/g,'')||105)*7+11;const rr=()=>(sd=(sd*9301+49297)%233280)/233280;
+  const W=1600,G=780;
+  const sky=(a,b,c)=>`<defs><linearGradient id="esky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${a}"/><stop offset=".62" stop-color="${b}"/><stop offset="1" stop-color="${c}"/></linearGradient><radialGradient id="eglow"><stop offset="0" stop-color="#fff6c8" stop-opacity=".95"/><stop offset=".35" stop-color="#ffd27a" stop-opacity=".45"/><stop offset="1" stop-color="#ffd27a" stop-opacity="0"/></radialGradient><radialGradient id="egreen"><stop offset="0" stop-color="#eaffef"/><stop offset=".3" stop-color="#7dffb0" stop-opacity=".55"/><stop offset="1" stop-color="#7dffb0" stop-opacity="0"/></radialGradient></defs><rect width="${W}" height="900" fill="url(#esky)"/>`;
+  const stars=n=>{let s='';for(let i=0;i<n;i++)s+=`<circle class="sc-tw" style="animation-delay:${(rr()*4).toFixed(2)}s" cx="${(rr()*W)|0}" cy="${(rr()*420)|0}" r="${(rr()*1.6+.5).toFixed(1)}" fill="#fff"/>`;return s};
+  // an HDB slab: corridors, windows, a water tank on the roof
+  const hdb=(x,w,h,o={})=>{const c=o.c||'#2b3140',y=G-h,fl=o.fl||Math.max(4,Math.round(h/34)),cols=o.cols||Math.max(3,Math.round(w/30));
+    let s=`<g><rect x="${x+w*.62}" y="${y-22}" width="${w*.22}" height="22" fill="${c}"/><rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${c}"/>`;
+    const fh=h/fl,cw=(w-12)/cols;
+    for(let i=0;i<fl;i++){const fy=y+i*fh;s+=`<rect x="${x}" y="${(fy+fh-4).toFixed(1)}" width="${w}" height="3" fill="${o.band||'#ffffff10'}"/>`;
+      for(let j=0;j<cols;j++){const lit=o.lit?o.lit(i,j,fl):0;const col=lit===2?'#fff4c4':lit?'#ffcf73':(o.dark||'#141822');
+        s+=`<rect ${lit===2?'class="sc-fl"':''} x="${(x+8+j*cw).toFixed(1)}" y="${(fy+fh*.28).toFixed(1)}" width="${(cw-7).toFixed(1)}" height="${(fh*.42).toFixed(1)}" fill="${col}"/>`;
+        if(o.green&&o.green(i,j))s+=`<rect x="${(x+6+j*cw).toFixed(1)}" y="${(fy+fh-9).toFixed(1)}" width="${(cw-3).toFixed(1)}" height="6" rx="3" fill="#4fae5c"/>`}}
+    return s+'</g>'};
+  const skyline=(y,c,n,lit,k=1)=>{let s='';let x=-20;for(let i=0;i<n;i++){const w=(60+rr()*90)*k,h=(50+rr()*140)*k;s+=`<rect x="${x|0}" y="${(y-h)|0}" width="${w|0}" height="${(h+200)|0}" fill="${c}"/>`;if(lit)for(let k=0;k<5;k++)if(rr()<lit)s+=`<rect x="${(x+6+rr()*(w-14))|0}" y="${(y-h+8+rr()*(h-16))|0}" width="5" height="4" fill="#ffcf73" opacity=".8"/>`;x+=w+(10+rr()*40)*k}return s};
+  const fig=(x,y,s,c,kind)=>{let b=`<circle cx="0" cy="-36" r="6.5"/><path d="M-6,-29h12l2,17h-3l-1,12h-4l-1-9-1,9h-4l-1-12h-3z"/>`;
+    if(kind==='z')b+=`<path d="M4,-26l15,3v4l-15-2z"/><path d="M-2,-25l15,4v4l-15-3z" opacity=".8"/>`;
+    if(kind==='pole')b+=`<path d="M6,-26l3,0 3,-34h-3z"/><path d="M12,-62l3,-10 2,10z"/>`;
+    if(kind==='sit')b=`<circle cx="0" cy="-24" r="6.5"/><path d="M-6,-17h11l2,12h12v5h-25z"/>`;
+    return `<g transform="translate(${x},${y}) scale(${s})" fill="${c}">${b}</g>`};
+  const ground=(c,h)=>`<rect x="0" y="${G}" width="${W}" height="${900-G}" fill="${c}"/>${h||''}`;
+  const blk=esc(String(S.blk));
+  let s='';
+  if(id==='escape'){
+    s=sky('#24183f','#c25a3c','#f6b062')+`<circle cx="1120" cy="585" r="80" fill="#ffd98a"/><circle cx="1120" cy="585" r="190" fill="url(#eglow)" opacity=".7"/>`
+     +`<g opacity=".9">${skyline(585,'#3b2840',40,.4,.3)}</g><rect x="318" y="520" width="26" height="65" fill="#3b2840"/><rect x="324" y="530" width="4" height="3" fill="#ffcf73"/><rect x="334" y="548" width="4" height="3" fill="#ffcf73"/><text x="300" y="490" fill="#ffd98a" font-family="DM Mono,monospace" font-size="15" opacity=".85">Blk ${blk}</text><path d="M331,496v20" stroke="#ffd98a" stroke-width="1" opacity=".6" stroke-dasharray="3 3"/>`
+     +`<rect x="0" y="585" width="${W}" height="315" fill="#1f2740"/><g opacity=".5">${[0,1,2,3,4,5].map(i=>`<rect class="sc-shim" style="animation-delay:${i*.4}s" x="${1060-i*8}" y="${600+i*16}" width="${120+i*16}" height="3" fill="#ffd98a"/>`).join('')}</g>`
+     +`<g class="sc-ship"><g class="sc-bob"><path d="M520,690 L560,740 H1000 L1050,690 Z" fill="#59606b"/><rect x="600" y="650" width="300" height="40" fill="#6c737d"/><rect x="660" y="612" width="150" height="38" fill="#7b828c"/><rect x="760" y="560" width="10" height="52" fill="#7b828c"/><path d="M770,560h34l-6,9 6,9h-34z" fill="#e0533d" class="sc-flag"/>`
+       +Array.from({length:22},(_,i)=>`<circle cx="${612+i*13}" cy="${645-(i%3)}" r="4" fill="${['#f4b740','#e9e2d0','#8fc9e8','#e0533d'][i%4]}"/>`).join('')+`${[0,1,2,3,4,5].map(i=>`<rect x="${625+i*44}" y="664" width="16" height="10" fill="#ffd27a"/>`).join('')}</g>`
+       +`<path d="M500,738 q-80,10 -200,6" stroke="#ffffff55" stroke-width="3" fill="none"/></g>`
+     +[0,1,2].map(i=>`<path class="sc-bird" style="animation-delay:${i*1.7}s" d="M${880+i*70},${300+i*40} q10,-10 20,0 q10,-10 20,0" stroke="#2a1a2e" stroke-width="3" fill="none"/>`).join('');
+  }
+  else if(id==='kampung'){
+    const bs=[[60,230,420],[380,250,520],[700,240,470],[1020,250,540],[1340,230,430]];
+    s=sky('#08102a','#18234a','#2f3a62')+stars(70)+`<circle cx="240" cy="130" r="38" fill="#f2efd8"/><circle cx="240" cy="130" r="120" fill="url(#eglow)" opacity=".25"/>`
+     +bs.map(([x,w,h])=>hdb(x,w,h,{c:'#283049',lit:()=>rr()<.55?1:0,green:()=>rr()<.3})).join('');
+    for(let i=0;i<bs.length-1;i++){const a=bs[i],b=bs[i+1];for(const k of [.3,.55]){const y1=G-a[2]*k,y2=G-b[2]*k,x1=a[0]+a[1],x2=b[0];s+=`<path d="M${x1},${y1} Q${(x1+x2)/2},${Math.max(y1,y2)+40} ${x2},${y2}" stroke="#c9d3cf88" stroke-width="2" fill="none"/>`;
+      for(let t=.2;t<.9;t+=.2){const mx=(1-t)*(1-t)*x1+2*(1-t)*t*(x1+x2)/2+t*t*x2,my=(1-t)*(1-t)*y1+2*(1-t)*t*(Math.max(y1,y2)+40)+t*t*y2;s+=`<circle class="sc-fl" style="animation-delay:${(rr()*2).toFixed(2)}s" cx="${mx|0}" cy="${(my+8)|0}" r="7" fill="${rr()<.5?'#ff8a3d':'#f4b740'}"/><circle cx="${mx|0}" cy="${(my+8)|0}" r="26" fill="url(#eglow)" opacity=".5"/>`}}}
+    s+=ground('#11151f',`<rect x="0" y="${G+40}" width="${W}" height="60" fill="#1c212d"/>`)
+     +`<g class="sc-drive">${[0,1,2].map(i=>`<g transform="translate(${-260-i*240},${G+20})"><path d="M0,40 h150 v-40 h-40 l-10,-24 h-60 v24 h-40 z" fill="#4d5a35"/><path d="M0,0 h100 v-36 h-100z" fill="#5d6b42"/><circle cx="30" cy="44" r="12" fill="#111"/><circle cx="120" cy="44" r="12" fill="#111"/><path d="M150,14 l260,-30 v70 z" fill="#fff3b0" opacity=".18"/></g>`).join('')}</g>`
+     +[0,1,2,3,4,5,6].map(i=>fig(120+i*210+rr()*60,G+2,1.2,'#0c0f16')).join('');
+  }
+  else if(id==='cure'){
+    s=sky('#1d2340','#73608f','#f2b47c')+`<g class="sc-rise"><circle cx="300" cy="700" r="90" fill="#ffd98a"/><circle cx="300" cy="700" r="240" fill="url(#eglow)" opacity=".6"/></g>`
+     +`<g opacity=".8">${skyline(G,'#3c3656',18,.15)}</g>`
+     +hdb(560,480,560,{c:'#2d3046',fl:14,cols:12,lit:(i,j)=>i===8&&(j===4||j===5)?2:rr()<.25?1:0})
+     +`<circle cx="${560+8+4.5*39}" cy="${G-560+8*40+20}" r="120" fill="url(#egreen)"/>`
+     +`<rect x="790" y="${G-640}" width="6" height="80" fill="#9aa0b0"/><circle cx="793" cy="${G-640}" r="5" fill="#e0533d" class="sc-fl"/>`
+     +[0,1,2].map(i=>`<circle class="sc-wave" style="animation-delay:${i}s" cx="793" cy="${G-640}" r="20" fill="none" stroke="#7dffb0" stroke-width="1.5"/>`).join('')
+     +`<g transform="translate(380,${G-520})"><g class="sc-bob"><circle r="70" fill="url(#egreen)"/><rect x="-12" y="-40" width="24" height="12" rx="2" fill="#c9d3cf"/><path d="M-14,-28h28v52a14,14 0 0 1 -28,0z" fill="#d8f7e3" opacity=".9"/><path d="M-14,0h28v24a14,14 0 0 1 -28,0z" fill="#3ee08a"/></g></g>`
+     +ground('#1a1a26');
+  }
+  else if(id==='gang'){
+    s=sky('#7fa6d6','#d6d9c9','#f2d6a0')+`<circle cx="300" cy="200" r="60" fill="#fff1c4"/><circle cx="300" cy="200" r="170" fill="url(#eglow)" opacity=".5"/>`
+     +`<g opacity=".55">${skyline(G,'#8d8f9c',20,0)}</g>`+hdb(160,260,380,{c:'#6d7180',dark:'#3a3d48'})+hdb(1180,280,420,{c:'#6d7180',dark:'#3a3d48'})
+     +hdb(620,380,540,{c:'#4c5162',dark:'#262a35',lit:()=>rr()<.15?1:0})
+     +`<rect x="805" y="${G-680}" width="6" height="140" fill="#2a2a2a"/><g class="sc-flag" style="transform-origin:811px ${G-675}px"><path d="M811,${G-680}h130l-14,32 14,32h-130z" fill="#e0533d"/><text x="830" y="${G-640}" font-family="Bungee,sans-serif" font-size="26" fill="#fff6e0">${blk}</text></g>`
+     +[0,1,2,3].map(i=>`<circle class="sc-smoke" style="animation-delay:${i*1.5}s" cx="${300+i*330}" cy="${G}" r="30" fill="#9a958c"/>`).join('')
+     +ground('#4a4a52',`<rect x="0" y="${G+40}" width="${W}" height="8" fill="#e9e2d0" opacity=".25"/>`)
+     +`<g class="sc-march">${[0,1,2,3,4,5].map(i=>fig(i*70,G+60,1.5,i%2?'#20242e':'#3a2a22','pole')).join('')}</g>`;
+  }
+  else if(id==='tinker'){
+    s=sky('#5fa9e0','#a9d4f0','#e3f2f8')+[0,1,2].map(i=>`<g class="sc-cloud" style="animation-delay:${-i*14}s"><ellipse cx="${200+i*500}" cy="${120+i*50}" rx="90" ry="26" fill="#fff" opacity=".9"/><ellipse cx="${250+i*500}" cy="${105+i*50}" rx="50" ry="26" fill="#fff" opacity=".9"/></g>`).join('')
+     +`<g opacity=".6">${skyline(G,'#9bb3c8',18,0)}</g>`+hdb(1150,240,400,{c:'#8c94a3',dark:'#59606e',green:()=>rr()<.4})
+     +hdb(520,440,540,{c:'#c9b49a',dark:'#5a4c3e',band:'#00000018',green:()=>rr()<.5})
+     // zipline + sliding crate
+     +`<path d="M960,${G-430} L1150,${G-300}" stroke="#333" stroke-width="2"/><rect x="-10" y="0" width="20" height="16" fill="#a0612f"><animateMotion dur="5s" repeatCount="indefinite" path="M960,${G-430} L1150,${G-300}"/></rect>`
+     // catapult and durian
+     +`<path d="M600,${G-540} l30,-50 30,50 z" fill="none" stroke="#5a3a1e" stroke-width="7"/><path class="sc-arm" d="M630,${G-590} l-60,-30" stroke="#5a3a1e" stroke-width="7" style="transform-origin:630px ${G-590}px"/>`
+     +`<g><path d="M-14,0 l4,-4 -2,-6 6,2 4,-6 4,6 6,-2 -2,6 4,4 -4,4 2,6 -6,-2 -4,6 -4,-6 -6,2 2,-6z" fill="#7da33a"><animateMotion dur="3s" repeatCount="indefinite" path="M570,${G-620} Q250,${G-900} 60,${G+10}"/></path></g>`
+     // spinning fan
+     +`<g transform="translate(900,${G-600})"><rect x="-3" y="0" width="6" height="40" fill="#555"/><g class="sc-spin">${[0,1,2,3].map(k=>`<path transform="rotate(${k*90})" d="M0,0 L8,-34 L-8,-34z" fill="#e9e2d0"/>`).join('')}</g></g>`
+     // karaoke speaker + notes
+     +`<rect x="1470" y="${G-70}" width="56" height="70" rx="6" fill="#2b2b33"/><circle cx="1498" cy="${G-42}" r="18" fill="#555"/><circle cx="1498" cy="${G-42}" r="8" fill="#222"/>`
+     +[0,1,2,3].map(i=>`<text class="sc-note" style="animation-delay:${i*.7}s" x="${1480+i*12}" y="${G-80}" font-size="28" fill="#e0533d">♪</text>`).join('')
+     +ground('#7b8a5a',`<rect x="0" y="${G+40}" width="${W}" height="60" fill="#5c6a40"/>`)
+     +`<g class="sc-lure">${[0,1,2,3].map(i=>fig(40+i*60,G+40,1.3,'#4a6b4a','z')).join('')}</g>`
+     +[0,1,2].map(i=>`<circle class="sc-drip" style="animation-delay:${i*.6}s" cx="${600+i*140}" cy="${G-300+i*80}" r="4" fill="#4fb8ff"/>`).join('');
+  }
+  else if(id==='alone'){
+    const ci=Math.max(1,Math.min(13,(S.front||0)+1));
+    s=sky('#06080f','#1e1830','#5a3036')+stars(90)+`<g opacity=".9">${skyline(G,'#11121b',20,0)}</g>`
+     +hdb(1060,260,470,{c:'#191c27',dark:'#0b0d13'})+hdb(120,220,420,{c:'#191c27',dark:'#0b0d13'})
+     +hdb(520,420,560,{c:'#222634',dark:'#0d0f16',fl:14,cols:11,lit:(i,j,fl)=>i===fl-ci&&j===5?2:0});
+    const cy=G-ci*40+12;
+    s+=`<circle class="sc-fl" cx="${520+8+5.5*37.5}" cy="${cy}" r="70" fill="url(#eglow)"/>`+fig(520+8+5*37.5-20,cy+26,0.9,'#05060a','sit')
+     +ground('#08090e')+`<g class="sc-lure" style="animation-duration:60s">${[0,1].map(i=>fig(200+i*700,G+60,1.1,'#1d2a20','z')).join('')}</g>`;
+  }
+  else {// the block fell
+    s=sky('#0d0407','#3a0d12','#7a2a1a')+`<g opacity=".8">${skyline(G,'#1a0a0c',20,0)}</g>`
+     +[0,1,2].map(i=>`<circle class="sc-smoke" style="animation-delay:${i*2}s;animation-duration:7s" cx="${640+i*160}" cy="${G-300}" r="50" fill="#2a1a1a"/>`).join('')
+     +hdb(560,480,560,{c:'#1e1a20',dark:'#0a0809',fl:14,cols:12,lit:()=>rr()<.07?2:0}).replace(/#fff4c4/g,'#ff7a3a')
+     +ground('#120a0b')+`<g class="sc-mob">${Array.from({length:26},(_,i)=>fig(380+i*32+rr()*20,G+20+rr()*70,1+rr()*.5,'#0a0506','z')).join('')}</g>`;
+  }
+  return `<svg class="endscene" viewBox="0 0 ${W} 900" preserveAspectRatio="xMidYMax slice" aria-hidden="true">${s}</svg>`;
+}
+// builds the scene once per ending; returns true when the card is hidden so only the scene shows
+function endShell(m,key){
+  if(m.dataset.end!==key){m.dataset.end=key;m.classList.add('endm');m.innerHTML=endScene(key)+'<div class="endcard"></div><button class="endshow" data-act="endview">Show the story</button>'}
+  m.classList.toggle('endhide',!!UI.endHide);return !!UI.endHide;
+}
 function renderModal(){
   const m=$('#modal');
+  const endKey=S&&S.over?(S.ending||'fell'):'';
+  if(!endKey){m.classList.remove('endm','seen','endhide');delete m.dataset.end}
   if(S.over&&!S.recorded){S.recorded=true;recordRun();save()}
   if(S.over&&S.ending){m.hidden=false;const E=ENDINGS[S.ending];const days=isOut()?pday():0;const seen=endingsSeen();
-    m.innerHTML=`<div class="ev ${E.good?'':'bad'}" style="border-top-color:${E.good?'var(--ok)':'var(--blood)'}"><div class="ico">${E.i}</div><p class="small mute" style="margin:6px 0 0;text-transform:uppercase;letter-spacing:.08em">Ending · ${seen.length} of ${Object.keys(ENDINGS).length} endings found</p><h2>${esc(E.t)}</h2><p>${esc(E.x())}</p>
+    if(endShell(m,endKey))return;m.querySelector('.endcard').innerHTML=`<div class="ev ${E.good?'':'bad'}" style="border-top-color:${E.good?'var(--ok)':'var(--blood)'}"><div class="ico">${E.i}</div><p class="small mute" style="margin:6px 0 0;text-transform:uppercase;letter-spacing:.08em">Ending · ${seen.length} of ${Object.keys(ENDINGS).length} endings found</p><h2>${esc(E.t)}</h2><p>${esc(E.x())}</p>
       <div class="kv small" style="margin-bottom:12px"><span class="mute">Days since the outbreak</span><span>${days}</span>${S.ending==='escape'?`<span class="mute">Evacuated to Changi</span><span>${S.end.evacGo||0}</span><span class="mute">Stayed behind</span><span>${S.end.evacLeft||0}</span>`:`<span class="mute">Residents alive</span><span>${known().length}</span>`}<span class="mute">Remembered</span><span>${S.mem.length}</span><span class="mute">Babies born</span><span>${S.stats.born||0}</span><span class="mute">Goodwill</span><span>${(S.end&&S.end.phil)||0}</span></div>
       <p class="small mute">Endings found: ${seen.map(k=>ENDINGS[k]?ENDINGS[k].t:k).join(', ')}.</p>
-      <div class="choices">${E.good&&!E.final?'<button data-act="keepplaying">Keep playing this block</button>':''}<button class="btn-main" data-act="quit">New game</button></div></div>`;return}
-  if(S.over){m.hidden=false;const days=isOut()?pday():0;m.innerHTML=`<div class="ev bad"><div class="ico">🪦</div><h2>Blk ${esc(S.blk)} has fallen</h2><p>${esc(S.overWhy||'')}\n\nYou held out for ${days} day${days===1?'':'s'} after the outbreak. ${S.mem.length} people are remembered.</p><div class="stack small" style="max-height:200px;overflow:auto;margin-bottom:12px">${S.mem.map(x=>`<div>${esc(x.name)}, ${x.age}: <span class="mute">${esc(x.cause)}</span></div>`).join('')}</div><div class="choices"><button class="btn-main" data-act="quit">New game</button></div></div>`;return}
+      <div class="choices">${E.good&&!E.final?'<button data-act="keepplaying">Keep playing this block</button>':''}<button data-act="endview">View the scene</button><button class="btn-main" data-act="quit">New game</button></div></div>`;return}
+  if(S.over){m.hidden=false;const days=isOut()?pday():0;if(endShell(m,endKey))return;m.querySelector('.endcard').innerHTML=`<div class="ev bad"><div class="ico">🪦</div><h2>Blk ${esc(S.blk)} has fallen</h2><p>${esc(S.overWhy||'')}\n\nYou held out for ${days} day${days===1?'':'s'} after the outbreak. ${S.mem.length} people are remembered.</p><div class="stack small" style="max-height:200px;overflow:auto;margin-bottom:12px">${S.mem.map(x=>`<div>${esc(x.name)}, ${x.age}: <span class="mute">${esc(x.cause)}</span></div>`).join('')}</div><div class="choices"><button data-act="endview">View the scene</button><button class="btn-main" data-act="quit">New game</button></div></div>`;return}
   if(UI.result){m.hidden=false;m.innerHTML=`<div class="ev"><p>${esc(UI.result)}</p><div class="choices"><button class="btn-main" data-act="ok">OK</button></div></div>`;return}
   while(S.queue.length&&!CUR){const q=S.queue[0];const c=buildCard(q);if(c){CUR=c;break}S.queue.shift()}
   if(!CUR){m.hidden=true;m.innerHTML='';return}
@@ -2222,7 +2359,8 @@ const ACT={
   dispatch:d=>dispatch(d.v),
   build:d=>startProj(d.v),
   pf:d=>{UI.pf=d.v;render()},
-  keepplaying:()=>{S.over=false;S.ending=null;S.recorded=false;save();render()},
+  endview:()=>{UI.endHide=!UI.endHide;$('#modal').classList.add('seen');render()},
+  keepplaying:()=>{UI.endHide=0;S.over=false;S.ending=null;S.recorded=false;save();render()},
   seallift:()=>{if(S.store.scrap<8||S.flags.liftSealed)return;S.store.scrap-=8;S.flags.liftSealed=1;log('Every lift door wired, braced and nailed shut. Nothing more is coming up the shaft.','good');flash('Lift doors sealed.');save();render()},
   prov:d=>{UI.prov=+d.v;render()},
   equipteam:()=>equipTeam(),
@@ -2243,7 +2381,7 @@ const ACT={
   cancelproj:()=>{if(!S.proj)return;const rc=RECIPES.find(r=>r.id===S.proj.id);for(const k in rc.need)itemAdd(S.items,k,rc.need[k]);log('Workshop project cancelled: '+rc.n+'.','');S.proj=null;save();render()},expsel:d=>{const i=UI.expSel.indexOf(d.v);if(i>=0)UI.expSel.splice(i,1);else if(UI.expSel.length<3)UI.expSel.push(d.v);render()},experiment:()=>experiment(),
   ration:d=>{S.ration=d.v;save();render()},reinforce:()=>reinforce(),lure:()=>throwLure(),retake:()=>retake(),strip:d=>strip(+d.v),
   choice:d=>choose(+d.v),ok:()=>{UI.result=null;render()},
-  quit:()=>{if(!S.over&&!UI.confirmQuit){UI.confirmQuit=1;flash('Press again to abandon this block.');setTimeout(()=>UI.confirmQuit=0,3000);return}UI.confirmQuit=0;wipe();S=null;CUR=null;UI.result=null;render()},
+  quit:()=>{if(!S.over&&!UI.confirmQuit){UI.confirmQuit=1;flash('Press again to abandon this block.');setTimeout(()=>UI.confirmQuit=0,3000);return}UI.confirmQuit=0;UI.endHide=0;wipe();S=null;CUR=null;UI.result=null;render()},
 };
 document.addEventListener('click',e=>{const tp=$('#tip');if(!tp.hidden&&!e.target.closest('[data-act=tip]'))tp.hidden=true;const b=e.target.closest('[data-act]');if(!b||b.disabled)return;if(b.tagName==='A')e.preventDefault();const f=ACT[b.dataset.act];if(f)f(b.dataset,b)});
 document.getElementById('panel').addEventListener('scroll',()=>{$('#tip').hidden=true},{passive:true});
