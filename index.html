@@ -1082,7 +1082,7 @@ function unitTile(u){
   const h=H(u.hh);const ms=h?members(h):[];
   if(!ms.length)return `<button class="unit st-empty${sel}" data-act="sel" data-v="${u.id}"><span class="uid">${u.id}</span><span class="unm">Empty</span></button>`;
   const light=S.grid.power?'':(S.built.lamp?' lampon':' dark');
-  const flags=[];if(ms.some(r=>r.quar))flags.push('🔒');if(ms.some(r=>r.inf&&!r.inf.hidden))flags.push('🦷');if(ms.some(r=>r.hp<50))flags.push('🤕');if(isOut()&&h.food<ms.length&&!S.grid.water&&h.water<ms.length)flags.push('🥵');else if(isOut()&&h.food<ms.length)flags.push('🍚');if(ms.some(r=>r.leader))flags.push('⭐');
+  const flags=[];if(ms.some(r=>r.quar))flags.push('🔒');if(ms.some(r=>r.inf&&!r.inf.hidden))flags.push('🦷');if(ms.some(r=>r.hp<50))flags.push('🤕');if(ms.some(r=>r.hun>=50))flags.push('<span title="Someone here is hungry">🍚</span>');if(ms.some(r=>r.thi>=50))flags.push('<span title="Someone here is thirsty">💧</span>');if(ms.some(r=>r.leader))flags.push('⭐');
   return `<button class="unit st-known${light}${sel}" data-act="sel" data-v="${u.id}"><span class="uid">${u.id}</span><span class="flags">${flags.join('')}</span><span class="unm">${esc(h.name)}</span><span class="faces">${ms.map(r=>`<i style="--c:${sanCol(r.san)};${r.away?'opacity:.3':''}" title="${esc(r.short)}">${faceOf(r)}</i>`).join('')}</span></button>`;
 }
 function renderTower(){
@@ -1170,7 +1170,7 @@ function panelUnit(){
   const hh=H(u.hh);const ms=hh?members(hh):[];
   if(!ms.length){u.st='empty';u.hh=null;return panelUnit()}
   h+=`<p><b>${esc(hh.name)}</b> <span class="mute">· ${ms.length} ${ms.length===1?'person':'people'}</span></p>
-  <div class="kv"><span class="mute">Trust</span><span>${bar(hh.trust,'var(--facade2)')}</span><span class="mute">Own food</span><span class="mono">${hh.food} (${ms.length?Math.floor(hh.food/ms.length):0} days)</span><span class="mute">Own water</span><span class="mono">${hh.water}${S.grid.water?' (taps still running)':''}</span></div>
+  <div class="kv"><span class="mute">Trust</span><span>${bar(hh.trust,'var(--facade2)')}</span><span class="mute">Own food</span><span class="mono">${hh.food} (${ms.length?Math.floor(hh.food/ms.length):0} days)${isOut()&&hh.food<ms.length?' · eating from the store':''}</span><span class="mute">Own water</span><span class="mono">${hh.water}${S.grid.water?' (taps still running)':hh.water<ms.length?' · drinking from the store':''}</span></div>
   <div class="row" style="margin-top:8px"><button data-act="askfood" data-v="${hh.id}">Ask them to share 5 food</button><button data-act="givefood" data-v="${hh.id}" ${S.store.food?'':'disabled'}>Give 5 food</button>${!S.grid.water?`<button data-act="givewater" data-v="${hh.id}" ${S.store.water?'':'disabled'}>Give 5 water</button>`:''}</div>
   <h3>Household items</h3>`;
   const it=Object.keys(hh.items);
