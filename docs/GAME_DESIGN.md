@@ -53,8 +53,8 @@ part of the game.
 ### Prep-phase actions (cost money, time and social standing)
 - **Stockpile** at the supermarket. Each trip competes with NPC panic buyers, and "kiasu" residents
   overbuy and hoard in their own unit.
-- **Organise the block** through the **Residents' Committee (RC)**: hold a void deck meeting, start a
-  block WhatsApp group, assign floor captains.
+- **Reach the neighbours** on the block chat while phones still work. Most flats start **dark**
+  (unknown). Every flat you reach before the outbreak is a household you don't have to knock on later.
 - **Prepare the household shelter** (the "bomb shelter" storeroom in newer flats): clear out the
   junk (old fan, CNY decorations, a dusty treadmill) and turn it into a safe room or quarantine room.
 - **Fill buckets and bathtubs**, buy a gas cylinder for cooking, a power bank, a portable radio.
@@ -80,7 +80,7 @@ Units start **owned by their families**. You can't repurpose a unit without the 
 
 | Conversion            | Function                                                               | Unlocks            |
 |-----------------------|------------------------------------------------------------------------|--------------------|
-| Communal Kitchen      | Cooks raw food into meals. Has halal / vegetarian / general stations.  | Start              |
+| Communal Kitchen      | Cooks raw food into meals.                                             | Start              |
 | Storeroom             | Raises the food and supply cap. A target for theft.                     | Start              |
 | Sick Bay              | Treatment. Works best staffed by the nurse, polyclinic staff or a TCM sinseh. | Start        |
 | Quarantine Room       | Uses a household shelter (steel door!). Holds suspected infected.       | Start              |
@@ -92,9 +92,10 @@ Units start **owned by their families**. You can't repurpose a unit without the 
 | Battery Bank          | Stores power from rooftop solar or a generator.                        | Day ~25            |
 
 ### 3.2 Common areas (the block's "shared rooms")
-- **Void deck:** the main entrance and the first defence line. Upgrade path: shutters → letterbox-wall
-  barricade → kill-zone with bicycle/PMD barricades. It also holds **events**: a void deck wedding tentage
-  becomes a field hospital, and a void deck funeral is where you mourn the dead (a big morale event).
+- **Void deck:** the main entrance and the first defence line, held with shutters and barricades.
+  While it holds, it's the block's staging area for supply runs. If guard numbers, barricades or morale slip,
+  it falls, then floor 2, then floor 3. Survivors move upstairs and repurpose the flats left empty
+  (see *Losing ground* below).
 - **Lift lobby & lift:** lifts need power. A lift that breaks (or gets a zombie trapped in it) is a whole
   event chain. You can **lock lifts at a floor** to cut off access.
 - **Staircase:** a choke point. Every floor can be **barricaded**; barricaded floors cost more to
@@ -124,6 +125,13 @@ Units start **owned by their families**. You can't repurpose a unit without the 
 | 😊 Morale         | Meals, festivals, sleep, the park, prayer, kopi             | Deaths, hunger, heat, noise, fights           |
 | 🤝 Trust          | Fair decisions, keeping promises                            | Favouritism, executions, hoarding found       |
 | 🧼 Sanitation     | Rubbish chute, water, cleaners                              | Waste, rain flooding, dead bodies              |
+
+**Weapons come from the inventor.** Households don't have weapons. A resident with the **Inventor** trait
+turns donated household items into tools and weapons. You ask each household to donate (trust and traits
+decide whether they agree): one flat gives a broom, another a kitchen knife, and the inventor spends work
+time combining them into a broom-handle spear. Unknown blueprints are found by experimenting with item
+combinations or from hints. Examples: bamboo laundry pole + knife + tape → polearm; wok + rope → shield;
+bedsheets + rope → escape rope; rope + bicycle + bedsheets → flying fox to the supermarket roof.
 
 **Weapons, Singapore edition:** civilians basically have no guns, so most weapons are improvised:
 mop and broom spears, **changkol** (hoe), **parang** from a Malay neighbour's kitchen, cleavers from the
@@ -167,10 +175,7 @@ An **NSman** resident is better with any firearm you do find.
 ### 5.3 Needs
 Hunger, Thirst, Sleep, Heat Comfort (fans/aircon power!), Hygiene, Sanity, Social. Cultural needs give
 the game texture and are handled respectfully:
-- **Diet:** halal, vegetarian (some Hindus and Buddhists), no beef. The communal kitchen tracks this.
-  Breaking it is a big trust hit for that family. Accommodating it costs efficiency.
-- **Faith & ritual:** Friday prayers, Ramadan fasting (meal timings shift and stamina drops in the day),
-  joss sticks (smoke = fire risk + zombie attraction), funerals done with proper rites.
+- **Superstition:** joss sticks and seventh-month offerings (smoke = fire risk + zombie attraction).
 - **Language:** mixed-language floors coordinate worse. Bilingual residents act as "translators".
 
 ### 5.4 Traits (generated, 1–3 per resident)
@@ -182,6 +187,37 @@ others), `Garang` (brave), `Pai Seh` (won't ask for help, hides wounds or bites!
 `Pai Seh` + bitten = a hidden infection. That is a key source of drama.
 
 ---
+
+## 5.5 Sanity (per person) and breakdowns
+
+Every resident has their own **sanity** that drains a little each phase after the outbreak. Things that make it worse:
+- **Block conditions:** how close their flat is to the line, darkness after the grid dies, heat with no fans, haze.
+- **Household conditions:** a family member died or is in quarantine, or the household has no flat and sleeps in the stairwell.
+- **Needs:** hunger, thirst, injuries.
+- **Traits:** Kiasu (stressed when stores run low), Pantang (nights), Bo Chap and Steady (lose sanity slower).
+
+Recovery comes from resting, park runs, a lamp in the dark, the community cat, being "comforted" by a
+resident with high Kampung Spirit, and good news.
+
+Below 25 sanity a resident can **break down**: try to sneak out of the block, turn on their own household,
+scream (noise brings zombies), hoard food from the communal store, or refuse to work. The player gets a
+card to intervene: talk them down, restrain them, or let it happen.
+
+**Deaths are permanent.** People die from bites and turning, breakdowns, starvation and dehydration, failed runs,
+and floors falling. All of them are recorded on a memorial. If the leader dies, the resident with the highest
+Kampung Spirit takes over.
+
+## 5.6 Losing ground
+
+- The **line** starts at the void deck shutter. Guards hold it and repair it. Zombie pressure grows every day,
+  is worst at night, and spikes with noise and hordes.
+- When the barricade breaks, that level is **overrun**. People there may be killed or bitten, and survivors
+  flee upstairs with no flat. You move them into empty flats higher up and **repurpose** other empty flats
+  (workshop, sick bay, quarantine room, corridor garden).
+- With the lower floors gone, supply runs get harder. You can **sneak down the stairs at night** (more
+  lookouts on the roof help), **climb down a bedsheet rope** (only while the line is low enough), or ride a
+  **flying fox** from the lowest safe floor to the supermarket roof.
+- A floor can be **retaken** with enough armed guards.
 
 ## 6. Infection & hard decisions
 
@@ -196,8 +232,7 @@ others), `Garang` (brave), `Pai Seh` (won't ask for help, hides wounds or bites!
 - **Amputate** (scratch on a limb only, sick bay + skilled medic, chance to save them, permanent stat loss).
 - **Experimental treatment** (late game: antiviral from the polyclinic or hospital, low odds).
 - **Exile** (they leave. The family may leave too. Trust shifts).
-- **Mercy** (huge morale and trust impact. Family may hold it against you, and the outcome depends
-  on how the decision was made: alone, by RC vote, or by the family).
+- **Mercy** (huge morale and trust impact. The family may hold it against you).
 
 These are **social decisions** as much as survival ones. A **Trust** system remembers how you handled
 similar cases before. If you were lenient with the RC chairman's son but harsh with the helper, the
@@ -407,14 +442,23 @@ Every policy has supporters and opponents among the residents, so each one affec
 
 - Light, darkly comedic Singlish flavour (the uncles complaining, the WhatsApp forwards, "steady lah")
   balanced with real emotional beats (funerals, separated families).
-- Every culture and community is a **source of strength**. Prejudice can appear as a **conflict for
+- Every culture and community is a **source of strength**. (Weddings, funerals and halal-kitchen
+  mechanics were dropped from scope.) Prejudice can appear as a **conflict for
   the player to resolve**, never as the game's own view.
 - Avoid real brand names and logos in shipped art (say "the supermarket" or "the 24-hr supermarket"), and
   refer to government agencies generically or fictionalise them where needed.
 
 ---
 
-## 14. Suggested first prototype scope (vertical slice)
+## 14. Prototype (built)
+
+`index.html` at the repo root is a playable single-file prototype covering: the 3 difficulties, a random
+7–14 day countdown, dark flats and contact (chat or knocking), the starting archetype households, donations
+and the inventor, the line and floors falling, relocation and repurposing, per-person sanity and breakdowns,
+infection decisions, five outside destinations with routes, Singapore weather and grid collapse, and about 30
+storylet events.
+
+## 15. Original suggested prototype scope (vertical slice)
 
 1. Easy mode (8 storeys, 2 units/floor). Phase 0 + Phase 1 only.
 2. 3 resources (food, water, morale) + infection.
