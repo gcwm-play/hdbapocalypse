@@ -1172,10 +1172,11 @@ function renderPanel(){
   p.innerHTML=({unit:panelUnit,people:panelPeople,outside:panelOutside,workshop:panelWorkshop,block:panelBlock,log:panelLog})[UI.tab]();
   p.scrollTop=sc;
 }
-function workerSelect(){
-  const opts=known().filter(able).sort((a,b)=>b.st.A-a.st.A);
+function workerSelect(filter,forJob){
+  let opts=known().filter(able).filter(filter||(()=>true));
+  opts.sort(forJob?(a,b)=>((a.job==='rest'?0:1)-(b.job==='rest'?0:1))||b.st.A-a.st.A:(a,b)=>b.st.A-a.st.A);
   if(!opts.length)return '<span class="warnline">Nobody is free right now.</span>';
-  return `<select id="worker" aria-label="Who goes">${opts.map(r=>`<option value="${r.id}">${esc(r.short)} (Agility ${r.st.A}, Kampung spirit ${r.st.K}${r.wpn?', '+ITEMS[r.wpn]:''})</option>`).join('')}</select>`;
+  return `<select id="worker" aria-label="Who">${opts.map(r=>`<option value="${r.id}">${esc(r.short)} (${forJob?'now: '+JOBS[r.job]:`Agility ${r.st.A}, Kampung spirit ${r.st.K}${r.wpn?', '+ITEMS[r.wpn]:''}`})</option>`).join('')}</select>`;
 }
 function bar(v,c){return `<div class="bar"><i style="width:${clamp(v,0,100)}%;background:${c}"></i></div>`}
 function personCard(r){
@@ -1222,7 +1223,7 @@ function panelUnit(){
     if(u.room){const rm=ROOMS[u.room];h+=`<p><b>${rm.e} ${rm.n}</b><br><span class="mute">${rm.d}</span></p>`;if(u.room==='garden'){const g=gardenAssign()[u.id];const water=S.grid.water||S.store.water>=rooms('garden');
       h+=g?`<p class="goodline">Tended by ${esc(g.short)}: +5 food a day.</p>`:`<p class="warnline">Nobody is tending this garden: only +2 food a day.</p>`;
       if(!water)h+=`<p class="badline">Not enough water in the store. Gardens produce nothing until there is.</p>`;
-      if(!g)h+=`<div class="card stack"><b>🧑‍🌾 Assign a gardener</b><div class="row">${workerSelect()}<button data-act="tend" data-v="${u.id}" ${known().some(able)?'':'disabled'}>Assign</button></div><span class="small mute">Sets their job to Tend garden. Each gardener looks after one garden.</span></div>`;
+      if(!g)h+=`<div class="card stack"><b>🧑‍🌾 Assign a gardener</b><div class="row">${workerSelect(r=>r.job!=='garden',true)}<button data-act="tend" data-v="${u.id}" ${known().some(r=>able(r)&&r.job!=='garden')?'':'disabled'}>Assign</button></div><span class="small mute">Sets their job to Tend garden. Each gardener looks after one garden.</span></div>`;
       h+=`<p class="small mute">${jobbers('garden').length} gardener(s) for ${rooms('garden')} garden(s).</p>`}
     if(u.room==='quarantine'){const q=known().filter(r=>r.quar);h+=q.length?q.map(personCard).join(''):'<p class="mute">Nobody inside.</p>'}return h}
     h+=`<p class="mute">Nobody lives here now.</p><div class="stack">`;
@@ -1249,7 +1250,13 @@ function gearSel(r,type){
   const lab=k=>ITEMS[k]+(type==='wpn'?' (atk '+GEAR[k].atk+')':' (def '+GEAR[k].def+')');
   return `<select data-chg="${type}" data-id="${r.id}" aria-label="${type==='wpn'?'Weapon':'Armour'} for ${esc(r.short)}"><option value="">${type==='wpn'?'No weapon':'No armour'}</option>${cur?`<option value="${cur}" selected>${lab(cur)}</option>`:''}${list.map(k=>`<option value="${k}">${lab(k)} ×${S.items[k]}</option>`).join('')}</select>`;
 }
-function gardenAssign(){const gs=S.units.filter(u=>u.room==='garden'&&u.lvl>S.front).sort((a,b)=>a.lvl-b.lvl||a.i-b.i);const gd=jobbers('garden');const m={};gs.forEach((u,i)=>m[u.id]=gd[i]||null);return m}
+function gardenAssign(){
+  const gs=S.units.filter(u=>u.room==='garden'&&u.lvl>S.front).sort((a,b)=>a.lvl-b.lvl||a.i-b.i);const gd=jobbers('garden');const m={};const used=new Set();
+  // people assigned to a specific garden first, then everyone else fills the rest in order
+  gs.forEach(u=>{const g=gd.find(r=>r.garden===u.id&&!used.has(r.id));m[u.id]=g||null;if(g)used.add(g.id)});
+  gs.forEach(u=>{if(m[u.id])return;const g=gd.find(r=>!used.has(r.id));m[u.id]=g||null;if(g)used.add(g.id)});
+  return m;
+}
 function suits(r){
   if(r.age<13)return [];
   const o=[];const gBase=2.5+r.st.S*.5+(has(r,'garang')?2:0)+(['nsman','nsf','worker'].includes(r.arch)?2:0);
@@ -1410,7 +1417,7 @@ const ACT={
   build:d=>startProj(d.v),
   pf:d=>{UI.pf=d.v;render()},
   tip:(d,el)=>showTip(d,el),
-  tend:d=>{const r=RS(+document.getElementById('worker').value);if(r){r.job='garden';save();render()}},
+  tend:d=>{const el=document.getElementById('worker');const r=el&&RS(+el.value);if(r){r.job='garden';r.garden=d.v;log(r.short+' now tends the garden at '+d.v+'.','');save();render()}},
   guide:()=>{UI.guide=!UI.guide;render()},
   armguards:()=>armGuards(),
   invwork:()=>{known().filter(r=>able(r)&&has(r,'inventor')).forEach(r=>r.job='invent');save();render()},
