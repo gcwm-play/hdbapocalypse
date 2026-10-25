@@ -153,7 +153,7 @@ h3{font-size:13px;text-transform:uppercase;letter-spacing:.08em;color:var(--mute
 .trait.inv{border-color:var(--lamp);color:var(--lamp)}
 .pers{display:grid;grid-template-columns:32px minmax(0,1fr);gap:8px;align-items:start}
 .pers .big{font-size:26px;line-height:1}
-.stats{display:flex;gap:6px;font-family:var(--f-mono);font-size:11px;color:var(--mute);flex-wrap:wrap}
+.stats{display:flex;gap:4px 10px;font-family:var(--f-mono);font-size:11px;color:var(--mute);flex-wrap:wrap}
 .stats b{color:var(--ink);font-weight:500}
 .meters{display:grid;grid-template-columns:52px minmax(0,1fr) 30px;gap:2px 6px;align-items:center;font-size:11px;color:var(--mute)}
 .warnline{color:var(--warn);font-size:12px}
@@ -260,7 +260,7 @@ const ARCH={
   worker:{l:'Construction worker',i:'🏗️',age:[24,40],st:[5,5,6,8,8],sex:'M'},
 };
 const STK=['K','I','A','S','U'];
-const STN={K:'Kampung spirit',I:'Intellect',A:'Agility',S:'Strength',U:'Ulu endurance'};
+const STN={K:'Kampung spirit',I:'Intellect',A:'Agility',S:'Strength',U:'Endurance'};
 const TRAITS={
   kiasu:['Kiasu','Afraid of losing out. Stressed when the food store runs low.'],
   bochap:['Bo Chap','Doesn\'t care much. Loses sanity slower.'],
@@ -1147,7 +1147,7 @@ function renderPanel(){
 function workerSelect(){
   const opts=known().filter(able).sort((a,b)=>b.st.A-a.st.A);
   if(!opts.length)return '<span class="warnline">Nobody is free right now.</span>';
-  return `<select id="worker" aria-label="Who goes">${opts.map(r=>`<option value="${r.id}">${esc(r.short)} (Agi ${r.st.A}, Kam ${r.st.K}${r.wpn?', '+ITEMS[r.wpn]:''})</option>`).join('')}</select>`;
+  return `<select id="worker" aria-label="Who goes">${opts.map(r=>`<option value="${r.id}">${esc(r.short)} (Agility ${r.st.A}, Kampung spirit ${r.st.K}${r.wpn?', '+ITEMS[r.wpn]:''})</option>`).join('')}</select>`;
 }
 function bar(v,c){return `<div class="bar"><i style="width:${clamp(v,0,100)}%;background:${c}"></i></div>`}
 function personCard(r){
@@ -1161,7 +1161,7 @@ function personCard(r){
   return `<div class="card pers"><div class="big">${faceOf(r)}</div><div class="stack" style="gap:5px;min-width:0">
     <div><b>${esc(r.name)}</b> <span class="mute small">${r.age} · ${A.i} ${A.l}</span></div>
     <div>${r.traits.map(t=>`<span class="trait ${t==='inventor'?'inv':''}" title="${esc(TRAITS[t][1])}">${TRAITS[t][0]}</span>`).join('')}</div>
-    <div class="stats">${STK.map(k=>`<span title="${STN[k]}">${k} <b>${r.st[k]}</b></span>`).join('')}</div>
+    <div class="stats">${STK.filter(k=>k!=='U').map(k=>`<span>${STN[k]} <b>${r.st[k]}</b></span>`).join('')}${r.age>=13?`<span title="Overall fighting strength: strength, weapon, health, sanity and traits">Fighting <b>${guardPow(r).toFixed(1)}</b></span>`:''}</div>
     <div class="meters"><span>Sanity</span>${bar(r.san,sanCol(r.san))}<span class="mono">${Math.round(r.san)}</span><span>Health</span>${bar(r.hp,r.hp>50?'var(--ok)':'var(--blood)')}<span class="mono">${Math.round(r.hp)}</span>${isOut()?`<span>Hunger</span>${bar(r.hun,'var(--warn)')}<span class="mono">${Math.round(r.hun)}</span>${S.grid.water?'':`<span>Thirst</span>${bar(r.thi,'#6fb6e8')}<span class="mono">${Math.round(r.thi)}</span>`}`:''}</div>
     ${status.join(' ')}
     ${isAdult&&!r.away&&!r.quar?`<div class="row"><select data-chg="job" data-id="${r.id}" aria-label="Job">${jobOpts(r)}</select>${gearOpts('wpn')}${gearOpts('arm')}</div>`:''}
@@ -1239,8 +1239,8 @@ function personRow(r){
   const tags=[u?u.id:'stairwell'];if(r.leader&&r.arch!=='you')tags.push('⭐ leader');if(r.inf&&!r.inf.hidden)tags.push('🦷');if(r.quar)tags.push('🔒 quarantined');if(r.away)tags.push('away');if(!adult)tags.push('child');
   return `<div class="prow2 ${free?'job-'+r.job:'job-off'}"><span class="big2">${faceOf(r)}</span><div style="min-width:0">
     <div class="nm"><a href="#" data-act="selres" data-v="${r.id}" style="color:inherit">${esc(r.short)}</a> <span class="mute small">${ARCH[r.arch].i} ${esc(ARCH[r.arch].l)} · ${tags.join(' · ')}</span></div>
-    <div>${tr}<span class="stats" style="display:inline-flex;margin-left:4px"><span>S <b>${r.st.S}</b></span><span>A <b>${r.st.A}</b></span><span>I <b>${r.st.I}</b></span><span>K <b>${r.st.K}</b></span>${adult?`<span title="Fighting strength">⚔ <b>${guardPow(r).toFixed(1)}</b></span>`:''}</span></div>${suitLine(r)}
-    <div class="row" style="gap:4px;flex-wrap:nowrap;margin:3px 0"><span class="small mute" style="width:14px">🧠</span>${bar(r.san,sanCol(r.san))}<span class="small mute" style="width:14px">❤</span>${bar(r.hp,r.hp>50?'var(--ok)':'var(--blood)')}</div>
+    <div>${tr}<span class="stats" style="display:inline-flex;margin-left:4px"><span>Strength <b>${r.st.S}</b></span><span>Agility <b>${r.st.A}</b></span><span>Intellect <b>${r.st.I}</b></span><span>Kampung spirit <b>${r.st.K}</b></span>${adult?`<span title="Overall fighting strength: strength, weapon, health, sanity and traits">Fighting <b>${guardPow(r).toFixed(1)}</b></span>`:''}</span></div>${suitLine(r)}
+    <div class="row" style="gap:4px;flex-wrap:nowrap;margin:3px 0"><span class="small mute">Sanity</span>${bar(r.san,sanCol(r.san))}<span class="small mute">Health</span>${bar(r.hp,r.hp>50?'var(--ok)':'var(--blood)')}</div>
     ${free?`<div class="row" style="gap:4px"><select data-chg="job" data-id="${r.id}" aria-label="Job for ${esc(r.short)}">${jobOpts(r)}</select>${gearSel(r,'wpn')}${gearSel(r,'arm')}</div>`:''}
   </div></div>`;
 }
@@ -1251,7 +1251,7 @@ function panelPeople(){
   h+=`<div class="row" style="margin:8px 0">${[['job','By job'],['inventor','Inventors'],['fighters','Fighters'],['flat','By flat']].map(([k,n])=>`<button class="${F===k?'btn-main':''}" data-act="pf" data-v="${k}">${n}</button>`).join('')}</div>`;
   h+=`<button class="guide-t" data-act="guide">${UI.guide?'▾':'▸'} What makes someone good at each job?</button>`;
   if(UI.guide)h+=`<div class="card guide small">
-    <p><b class="job-guard jc">Guard.</b> <b>Strength</b> counts most, then a <b>weapon</b> (each attack point is worth about 3 Strength). Health and sanity matter too: a guard below 25 sanity fights at 60%. <b>Garang</b>, NSmen, NSFs and construction workers get +2. People aged 70+ fight at 40%. The ⚔ number shows each person's fighting strength.</p>
+    <p><b class="job-guard jc">Guard.</b> <b>Strength</b> counts most, then a <b>weapon</b> (each attack point is worth about 3 Strength). Health and sanity matter too: a guard below 25 sanity fights at 60%. <b>Garang</b>, NSmen, NSFs and construction workers get +2. People aged 70+ fight at 40%. The <b>Fighting</b> number on each person combines all of this.</p>
     <p><b class="job-run jc">Supply runs.</b> <b>Agility</b> is what keeps people alive. Each point above 5 cuts their risk by 5%, and each point below 5 raises it. Strength doesn't help on runs. <b>Armour</b> lowers the wearer's risk. <b>Weapons</b> lower the risk for the whole team. Grab drivers bring back 30% more. Rain and haze make runs safer. Rooftop lookouts help, especially when sneaking out at night.</p>
     <p><b class="job-invent jc">Workshop.</b> Only people with the <b>Inventor</b> trait make real progress, and higher <b>Intellect</b> makes them faster. Anyone else on Workshop only helps a little.</p>
     <p><b class="job-medic jc">Medic.</b> <b>Intellect</b> sets how fast they heal and how often they spot hidden bites. Nurses get a big bonus. A sick bay doubles healing.</p>
@@ -1294,7 +1294,7 @@ function panelOutside(){
     h+=`<p class="${lb[1]}">Risk per person: ${lb[0]}${isOut()?' (~'+Math.round(rk*100)+'%)':' (no zombies yet)'}. Lookouts on the roof: ${lookouts().length}.</p>`;
     if(S.built.lure)h+=`<label class="teamrow"><input type="checkbox" id="uselure"> Throw a noise lure first (${S.built.lure} left)</label>`;
     const cands=known().filter(able).sort((a,b)=>b.st.A-a.st.A);
-    h+=`<div class="card">${cands.length?cands.map(r=>`<label class="teamrow"><input type="checkbox" data-chg="team" data-id="${r.id}" ${UI.team.includes(r.id)?'checked':''}> ${faceOf(r)} ${esc(r.short)} <span class="mute small">Agi ${r.st.A} · Str ${r.st.S} · HP ${Math.round(r.hp)}${r.wpn?' · '+ITEMS[r.wpn]:''}${r.arm?' · '+ITEMS[r.arm]:''}</span></label>`).join(''):'<span class="mute">Nobody is fit to go.</span>'}</div>`;
+    h+=`<div class="card">${cands.length?cands.map(r=>`<label class="teamrow"><input type="checkbox" data-chg="team" data-id="${r.id}" ${UI.team.includes(r.id)?'checked':''}> ${faceOf(r)} ${esc(r.short)} <span class="mute small">Agility ${r.st.A} · Strength ${r.st.S} · Health ${Math.round(r.hp)}${r.wpn?' · '+ITEMS[r.wpn]:''}${r.arm?' · '+ITEMS[r.arm]:''}</span></label>`).join(''):'<span class="mute">Nobody is fit to go.</span>'}</div>`;
     h+=`<div class="row" style="margin-top:8px"><button class="btn-main" data-act="dispatch" data-v="${d}" ${team.length?'':'disabled'}>Send ${team.length||''} ${team.length===1?'person':'people'}</button><span class="small mute">Back ${DEST[d].dur===1?'next phase':'in two phases'}.</span></div>`;
   }
   const out=S.exps.filter(e=>DEST[e.dest]);
