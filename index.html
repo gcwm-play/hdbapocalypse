@@ -914,7 +914,7 @@ function resolveExps(){
     const cap=e.route==='fox'?(((S.built.fox||{})[e.dest]===2)?.85:.6):1;
     survivors.forEach(r=>{
       const drv=r.arch==='driver'?1.3:1;
-      if(e.dest==='market'){const sf=S.market/100;const f=Math.round((6+ri(0,7))*sf*cap*drv*(isOut()?1:1.4));loot.food+=f;loot.water+=Math.round(ri(2,6)*Math.max(.3,sf)*cap);S.market=Math.max(0,S.market-f*.4);if(chance(.3))itemAdd(loot.items,pick(['battery','tape','rope','pail','clock','wire','sheets']))}
+      if(e.dest==='market'){const sf=S.market/100;const f=Math.round((6+ri(0,7))*sf*cap*drv*(isOut()?1:1.4));loot.food+=f;const w=Math.round(ri(2,6)*sf*cap);loot.water+=w;S.market=Math.max(0,S.market-f*.4-w*.3);if(chance(.05+.25*sf))itemAdd(loot.items,pick(['battery','tape','rope','pail','clock','wire','sheets']))}
       if(e.dest==='hawker'){loot.food+=Math.round(ri(3,8)*Math.max(.25,1-(S.flags.hawkerRuns||0)*.06)*cap);S.flags.hawkerRuns=(S.flags.hawkerRuns||0)+1;if(chance(.3))itemAdd(loot.items,pick(['wok','pot','knife','pail']));loot.scrap+=ri(0,2)}
       if(e.dest==='park'){r.san=clamp(r.san+ri(18,30),0,100);loot.food+=ri(0,3);if(chance(.45))itemAdd(loot.items,pick(['bamboo','rope','tarp','changkol','pail','pipe']))}
       if(e.dest==='school'){for(let i=0;i<ri(1,2);i++)itemAdd(loot.items,pick(['pipe','tape','rope','sheets','extinguisher','wire','pail','tarp','clock']));loot.meds+=ri(0,1);loot.food+=ri(0,4);loot.scrap+=ri(1,4)}
@@ -925,7 +925,8 @@ function resolveExps(){
     for(const k in loot.items)itemAdd(S.items,k,loot.items[k]);
     const got=[];if(loot.food)got.push(loot.food+' food');if(loot.water)got.push(loot.water+' water');if(loot.meds)got.push(loot.meds+' meds');if(loot.scrap)got.push(loot.scrap+' scrap');for(const k in loot.items)got.push(loot.items[k]+'× '+ITEMS[k]);
     if(got.length)lines.push('Brought back: '+got.join(', ')+'.');else if(survivors.length)lines.push('They came back empty-handed.');
-    if(e.dest==='market'&&S.market<20&&survivors.length)lines.push('The shelves are nearly bare now.');
+    if(e.dest==='market'&&survivors.length)lines.push(S.market<1?'The supermarket is stripped bare. Nothing left but price tags and broken trolleys.':S.market<20?'The shelves are nearly bare now ('+Math.round(S.market)+'% left).':'');
+    for(let i=lines.length-1;i>=0;i--)if(!lines[i])lines.splice(i,1);
     log('Run to the '+DEST[e.dest].n.toLowerCase()+' returned. '+(got.length?'Got '+got.join(', ')+'.':''),survivors.length===team.length?'good':'bad');
     queue('exp',{dest:e.dest,lines,bad:survivors.length<team.length});
     if(e.dest==='school'&&isOut()&&survivors.length&&!S.flags.schoolSurv&&chance(.3)){S.flags.schoolSurv=1;queue('kids',{})}
@@ -1496,7 +1497,7 @@ function renderTower(){
     `<span class="vd-label">VOID DECK</span><div class="shutter">${isOut()?`<span class="small" style="color:#33413d">Shutter ${Math.max(0,Math.round(S.bar.hp))}/${S.bar.max}</span><div class="barbar"><i style="width:${clamp(S.bar.hp/S.bar.max*100,0,100)}%"></i></div>`:'<span class="small" style="color:#33413d">Letterboxes · bicycle bay · chess tables</span>'}<span>${g.map(faceOf).join('')}</span></div>`}</div></div>`;
   const zc=isOut()?Math.min(14,Math.floor(Math.sqrt(pday())*2)):0;
   h+=`<div class="horde">${zc?Array.from({length:zc},(_, i)=>zz(i,'-'+(i*.37).toFixed(2)+'s')).join(''):(alertLvl()>=2?'<span style="color:#ddd">Queues at the supermarket</span>':'')}</div><div class="road"></div>`;
-  h+=`<div class="ground">${Object.entries(DEST).map(([k,d])=>{const out=S.exps.filter(e=>e.dest===k);return `<button class="site" data-act="site" data-v="${k}"><b>${d.e}</b>${d.n.replace('Neighbourhood ','')}${k==='market'?`<span class="mono">stock ${Math.round(S.market)}%</span>`:''}${out.length?`<span class="mono">team out (${out[0].team.length})</span>`:''}</button>`}).join('')}</div>`;
+  h+=`<div class="ground">${Object.entries(DEST).map(([k,d])=>{const out=S.exps.filter(e=>e.dest===k);return `<button class="site" data-act="site" data-v="${k}"><b>${d.e}</b>${d.n.replace('Neighbourhood ','')}${k==='market'?`<span class="mono">${S.market<1?'empty':'stock '+Math.round(S.market)+'%'}</span>`:''}${out.length?`<span class="mono">team out (${out[0].team.length})</span>`:''}</button>`}).join('')}</div>`;
   const tw=$('#tower');
   if(h!==UI.towerHTML){
     UI.towerHTML=h;tw.innerHTML=h;
@@ -1722,7 +1723,7 @@ function panelOutside(){
   const d=UI.dest;const rt=curRoute(d);ensureTeam(d,rt);
   const team=UI.team.map(RS).filter(r=>r&&able(r)&&r.lastRun!==S.t);
   let h=`<h2>Outside</h2><div class="destgrid">`+Object.entries(DEST).map(([k,x])=>{const fx=(S.built.fox||{})[k];const out=S.exps.some(e=>e.dest===k);
-    return `<button class="dest2 ${k===d?'on':''}" data-act="dest" data-v="${k}"><span class="e">${x.e}</span><span style="min-width:0"><b>${({park:'Park',police:'Police centre'})[k]||x.n}</b>${k==='market'?`<span class="small mute">Stock ${Math.round(S.market)}%</span>`:''}${fx?`<span class="small goodline">🪢 ${fx===2?'Zipline':'Flying fox'}</span>`:''}${out?'<span class="small warnline">Team out</span>':''}</span></button>`}).join('')+`</div>`;
+    return `<button class="dest2 ${k===d?'on':''}" data-act="dest" data-v="${k}"><span class="e">${x.e}</span><span style="min-width:0"><b>${({park:'Park',police:'Police centre'})[k]||x.n}</b>${k==='market'?(S.market<1?'<span class="small badline">Empty</span>':`<span class="small ${S.market<20?'warnline':'mute'}">Stock ${Math.round(S.market)}%</span>`):''}${fx?`<span class="small goodline">🪢 ${fx===2?'Zipline':'Flying fox'}</span>`:''}${out?'<span class="small warnline">Team out</span>':''}</span></button>`}).join('')+`</div>`;
   h+=`<p class="small mute" style="margin:8px 0 0">${DEST[d].e} ${DEST[d].d}</p>`;
   h+=`<h3>Route</h3><div class="routes">`+routes(d).map(r=>`<button class="${rt&&rt.k===r.k?'btn-main':''}" data-act="route" data-v="${r.k}" ${r.ok?'':'disabled'}><b>${r.unk?'???':esc(r.n)}</b><small>${r.ok?(r.m!==1?'Risk ×'+r.m+' · ':'Normal risk · ')+'max '+r.max:esc(r.why)}</small></button>`).join('')+`</div>`;
   if(!rt){h+=`<p class="warnline">No way out right now. ${S.front>0?'Sneak down the stairs in the evening or at night, or build a bedsheet rope or flying fox.':''}</p>`}
