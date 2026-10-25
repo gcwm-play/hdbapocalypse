@@ -1704,7 +1704,7 @@ function personCard(r){
     <div class="meters"><span>Sanity</span>${bar(r.san,sanCol(r.san))}<span class="mono">${Math.round(r.san)}</span><span>Health</span>${bar(r.hp,r.hp>50?'var(--ok)':'var(--blood)')}<span class="mono">${Math.round(r.hp)}</span>${isOut()?`<span>Hunger</span>${bar(r.hun,'var(--warn)')}<span class="mono">${Math.round(r.hun)}</span>${S.grid.water?'':`<span>Thirst</span>${bar(r.thi,'#6fb6e8')}<span class="mono">${Math.round(r.thi)}</span>`}`:''}</div>
     ${status.join(' ')}
     ${admitBtn(r)}
-    ${isAdult&&!r.away&&!r.quar&&!r.ward?`<div class="row"><select data-chg="job" data-id="${r.id}" aria-label="Job">${jobOpts(r)}</select>${gearOpts('wpn')}${gearOpts('arm')}</div>`:''}
+    ${isAdult&&!r.away&&!r.quar&&!r.ward?`<div class="row"><select data-chg="job" data-id="${r.id}" aria-label="Job">${jobOpts(r)}</select>${gearSel(r,'wpn')}${gearSel(r,'arm')}</div>`:''}
     ${!r.away?`<div class="row"><button data-act="talk" data-v="${r.id}" ${S.talks>0?'':'disabled'}>Comfort them (${S.talks} left today)</button>${r.quar&&r.inf==null?`<button data-act="release" data-v="${r.id}">Let them out</button>`:''}${r.quar&&r.inf?`<button data-act="release" data-v="${r.id}">Let them out anyway</button>`:''}</div>`:''}
   </div></div>`;
 }
@@ -1780,8 +1780,10 @@ function panelUnit(){
   return h;
 }
 function gearSel(r,type){
-  const cur=r[type];const list=Object.keys(S.items).filter(k=>GEAR[k]&&(type==='wpn'?GEAR[k].atk:GEAR[k].def));
-  const lab=k=>ITEMS[k]+(type==='wpn'?' (atk '+GEAR[k].atk+')':' (def '+GEAR[k].def+')');
+  const val=k=>type==='wpn'?GEAR[k].atk||0:GEAR[k].def||0;
+  const cur=r[type];const list=Object.keys(S.items).filter(k=>GEAR[k]&&val(k)).sort((a,b)=>val(b)-val(a)||ITEMS[a].localeCompare(ITEMS[b]));
+  // attack adds 1.6 fighting strength per point; each defence point cuts injury and bite chances
+  const lab=k=>ITEMS[k]+(type==='wpn'?' · attack '+val(k)+' (+'+(val(k)*1.6).toFixed(1)+' fighting)':' · defence '+val(k));
   return `<select data-chg="${type}" data-id="${r.id}" aria-label="${type==='wpn'?'Weapon':'Armour'} for ${esc(r.short)}"><option value="">${type==='wpn'?'No weapon':'No armour'}</option>${cur?`<option value="${cur}" selected>${lab(cur)}</option>`:''}${list.map(k=>`<option value="${k}">${lab(k)} ×${S.items[k]}</option>`).join('')}</select>`;
 }
 function gardenAssign(){return staffAssign('garden','garden')}
