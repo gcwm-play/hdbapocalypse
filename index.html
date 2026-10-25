@@ -338,10 +338,10 @@ const HELPERS=['Maria','Dewi','Joy','Lorna','Sri','Rina','Marites','Wati','Ana',
 const WORKERS=['Rahim','Karthik','Sohel','Murugan','Babul','Selvam','Jahid','Alamgir','Ramesh','Mohan','Faruk','Kamal','Shanthan','Rubel'];
 const ESTATES=['Tampines','Bedok North','Jurong West','Woodlands','Toa Payoh','Ang Mo Kio','Yishun','Sengkang','Bukit Batok','Pasir Ris','Hougang','Clementi'];
 const ITEMS={broom:'Broom',knife:'Kitchen knife',bamboo:'Bamboo laundry pole',rope:'Nylon rope',sheets:'Bedsheets',tape:'Duct tape',pot:'Cooking pot',pail:'Pail',tarp:'Canvas tarp',pipe:'PVC pipe',bicycle:'Bicycle',extinguisher:'Fire extinguisher',battery:'Car battery',clock:'Alarm clock',wok:'Wok',helmet:'Bicycle helmet',wire:'Electrical wire',hammer:'Hammer',parang:'Parang',changkol:'Changkol',golf:'Golf club',umbrella:'Umbrella',baton:'Police baton',riot:'Riot shield',radio:'Police radio',
-  rifle:'Rifle (SAR 21)',steelPole:'Steel-tipped polearm',crossbow:'Umbrella-rib crossbow',halberd:'Changkol halberd',padArmour:'Padded riot armour',broomSpear:'Broom-handle spear',bambooPole:'Bamboo polearm',wokShield:'Wok shield',potHelmet:'Pot helmet'};
-const GEAR={rifle:{atk:6},knife:{atk:1},hammer:{atk:1},umbrella:{atk:1},golf:{atk:2},changkol:{atk:2},baton:{atk:2},parang:{atk:3},broomSpear:{atk:3},bambooPole:{atk:5},steelPole:{atk:7},crossbow:{atk:6},halberd:{atk:6},extinguisher:{atk:2},
+  rifle:'Rifle (SAR 21)',mahjong:'Mahjong set',karaoke:'Karaoke machine',ricecooker:'Rice cooker',fan:'Standing fan',cane:'Rotan cane',slippers:'Rubber slippers',mahjongArmour:'Mahjong-tile armour',fanGlaive:'Standing-fan glaive',caneFlail:'Rotan cane flail',slipperSling:'Flying-slipper sling',steelPole:'Steel-tipped polearm',crossbow:'Umbrella-rib crossbow',halberd:'Changkol halberd',padArmour:'Padded riot armour',broomSpear:'Broom-handle spear',bambooPole:'Bamboo polearm',wokShield:'Wok shield',potHelmet:'Pot helmet'};
+const GEAR={rifle:{atk:6},knife:{atk:1},hammer:{atk:1},umbrella:{atk:1},golf:{atk:2},changkol:{atk:2},baton:{atk:2},parang:{atk:3},broomSpear:{atk:3},bambooPole:{atk:5},steelPole:{atk:7},fanGlaive:{atk:5},caneFlail:{atk:3},slipperSling:{atk:4},mahjongArmour:{def:4},crossbow:{atk:6},halberd:{atk:6},extinguisher:{atk:2},
   helmet:{def:1},potHelmet:{def:2},wokShield:{def:3},padArmour:{def:5},riot:{def:3}};
-const HH_ITEMS={broom:5,knife:6,bamboo:4,sheets:5,pot:4,pail:4,wok:3,rope:3,clock:3,umbrella:4,helmet:2,bicycle:3,golf:1,changkol:1,parang:1,hammer:2,tape:2,pipe:1,tarp:1,battery:1,wire:2,extinguisher:1};
+const HH_ITEMS={broom:5,knife:6,bamboo:4,sheets:5,pot:4,pail:4,wok:3,rope:3,clock:3,umbrella:4,helmet:2,bicycle:2,mahjong:3,ricecooker:3,fan:3,cane:2,slippers:4,karaoke:1,golf:1,changkol:1,parang:1,hammer:2,tape:2,pipe:1,tarp:1,battery:1,wire:2,extinguisher:1};
 const RECIPES=[
   {id:'broomSpear',cat:'weapon',n:'Broom-handle spear',need:{broom:1,knife:1},work:6,known:1,d:'Kitchen knife lashed to a broom. Weapon, attack 3.',hint:'Something long, something sharp.'},
   {id:'sheetRope',cat:'route',n:'Bedsheet rope',need:{sheets:2,rope:1},work:6,known:1,d:'A way down when the stairs are lost. Works while the line is at floor 4 or lower.',hint:'Knotted cloth, the classic escape.'},
@@ -355,6 +355,14 @@ const RECIPES=[
   {id:'crossbow',cat:'weapon',unlock:40,n:'Umbrella-rib crossbow',need:{umbrella:1,rope:1,pipe:1},work:10,d:'Umbrella ribs for the bow, PVC for the stock. Quiet and deadly from behind the barricade. Weapon, attack 6.',hint:'Spring steel hides inside something everyone carries in the rain...'},
   {id:'solarRig',cat:'living',unlock:50,n:'Rooftop solar rig',need:{battery:1,wire:1,tarp:1},work:12,d:'Salvaged solar panels charge a battery bank for fans and lights. No more sanity loss from the dark, and half the loss from heat.',hint:'Catch the sun on the roof and keep it for the night...'},
   {id:'halberd',cat:'weapon',unlock:65,n:'Changkol halberd',need:{changkol:1,bamboo:1,tape:1},work:12,d:'A changkol blade on a bamboo pole: chop and hook from the stairwell. Weapon, attack 6.',hint:'A gardening tool on the end of a long pole...'},
+  {id:'caneFlail',cat:'weapon',n:'Rotan cane flail',need:{cane:1,rope:1},work:4,d:'Every Singaporean childhood\'s worst fear, now with a rope extension. Weapon, attack 3.',hint:'The thing hanging behind every kitchen door in the 1980s...'},
+  {id:'slipperSling',cat:'weapon',unlock:10,n:'Flying-slipper sling',need:{slippers:1,rope:1,bamboo:1},work:6,d:'A bamboo sling that fires rubber slippers with the accuracy of an angry mother. Weapon, attack 4.',hint:'Every child knows the most accurate weapon in an HDB flat...'},
+  {id:'fanGlaive',cat:'weapon',unlock:35,n:'Standing-fan glaive',need:{fan:1,bamboo:1,tape:1},work:10,d:'A standing fan\'s metal blades, bent straight and lashed to a laundry pole. Weapon, attack 5.',hint:'Three sharp blades are already spinning in every living room...'},
+  {id:'mahjongArmour',cat:'armour',unlock:25,n:'Mahjong-tile armour',need:{mahjong:1,tape:1,sheets:1},work:10,d:'144 tiles taped to a bedsheet vest. Clacks when you walk. Armour, defence 4.',hint:'Ah Ma\'s weekend game could stop a bite...'},
+  {id:'durianCatapult',cat:'defence',unlock:45,n:'Durian husk catapult',need:{bamboo:1,rope:1,pail:1},work:12,d:'Lobs pails of rotting durian husks from the hawker centre bins into the crowd below. The dead hate the smell even more than the living do. Night attacks permanently 10% weaker.',hint:'The King of Fruits has a smell that clears any room...'},
+  {id:'karaokeDecoy',cat:'defence',unlock:15,n:'Karaoke decoy',need:{karaoke:1,battery:1},work:6,d:'A karaoke machine on a timer in an empty flat, blasting Hokkien oldies at full volume. Gives 3 noise lures.',hint:'Nothing draws a crowd like an uncle with a microphone...'},
+  {id:'riceStill',cat:'living',unlock:55,n:'Rice-cooker still',need:{ricecooker:1,pail:1,wire:1},work:10,d:'A rice cooker boils dirty water and the steam drips down a wire into a clean pail. +4 water a day with power or a solar rig, +1 without.',hint:'The appliance in every kitchen already knows how to boil water...'},
+  {id:'kopiRig',cat:'living',unlock:75,n:'Kopi-O drip rig',need:{pot:1,sheets:1,battery:1},work:8,d:'A cloth sock, a pot and a battery heater: proper kopi-O, like the kopitiam. Kopi corners comfort twice as much and need no water.',hint:'The kopitiam uncle\'s sock filter, made at home...'},
   {id:'potHelmet',cat:'armour',n:'Pot helmet',need:{pot:1,rope:1},work:3,d:'Armour, defence 2.',hint:'Protect the head with cookware.'},
   {id:'barricadeKit',cat:'defence',n:'Pipe barricade',need:{pipe:2,tape:1},work:8,d:'Rebuilds the current line: +40 max strength and full repair.',hint:'Plumbing could brace the stairwell.'},
   {id:'noiseLure',cat:'defence',n:'Noise lure',need:{clock:1,battery:1},work:5,d:'Thrown far away, it pulls zombies off a night attack or a supply run.',hint:'Something that rings, and something to keep it ringing.'},
@@ -529,11 +537,11 @@ function rollWeather(){
   S.weather={type,psi:type==='haze'?ri(110,260):ri(25,70)};
 }
 const DIFF_P={easy:.8,normal:1,hard:1.25};
-function expPressure(){const d=pday();return (3+4.5*Math.sqrt(d)+.12*d)*(DIFF_P[S.diff]||1)*(S.zMult||1)}
+function expPressure(){const d=pday();return (3+4.5*Math.sqrt(d)+.12*d)*(DIFF_P[S.diff]||1)*(S.zMult||1)*(S.built.durian?.9:1)}
 function basePressure(){return expPressure()*(0.7+R()*0.6)}
 function kopiUpkeep(){
   S.units.filter(u=>u.room==='kopi'&&u.st==='empty'&&u.lvl>S.front).forEach(u=>{
-    const needW=S.grid.water?0:2;
+    const needW=(S.grid.water||S.built.kopirig)?0:2;
     if(S.store.food>=2&&S.store.water>=needW){S.store.food-=2;S.store.water-=needW;u.open=true}
     else{u.open=false;log('The kopi corner at '+u.id+' is closed today: not enough '+(S.store.food<2?'food':'water')+' in the store.','bad')}
   });
@@ -594,7 +602,10 @@ const RADIO_MSGS=[
 function checkEndings(){
   S.end=S.end||{};const E=S.end;
   // new inventions unlock over time
-  RECIPES.forEach(r=>{if(r.unlock&&isOut()&&pday()>=r.unlock&&!(S.flags.idea||{})[r.id]){S.flags.idea=S.flags.idea||{};S.flags.idea[r.id]=1;const rv=revealed(r);log('New idea in the workshop: '+r.hint,'good');queue('info',{i:'💡',t:'A new idea in the workshop',x:'After '+pday()+' days of making do, the inventor has a new idea scribbled on a notice-board flyer:\n\n"'+r.hint+'"\n\nIt needs '+Object.keys(r.need).length+' different items, starting with: '+ITEMS[rv[0]]+'. Find it under '+({weapon:'Weapons',armour:'Armour',route:'Routes out',defence:'Defence',living:'Water & light',radio:'Radio'})[r.cat]+' in the Workshop.'})}});
+  {const fresh=RECIPES.filter(r=>r.unlock&&isOut()&&pday()>=r.unlock&&!(S.flags.idea||{})[r.id]);
+   if(fresh.length){S.flags.idea=S.flags.idea||{};const CN={weapon:'Weapons',armour:'Armour',route:'Routes out',defence:'Defence',living:'Water & light',radio:'Radio'};
+    fresh.forEach(r=>{S.flags.idea[r.id]=1;log('New idea in the workshop: '+r.hint,'good')});
+    queue('info',{i:'💡',t:fresh.length>1?fresh.length+' new ideas in the workshop':'A new idea in the workshop',x:'After '+pday()+' days of making do, the inventor has '+(fresh.length>1?'some new ideas':'a new idea')+' scribbled on notice-board flyers:\n\n'+fresh.map(r=>'• "'+r.hint+'" ('+Object.keys(r.need).length+' items, starting with '+ITEMS[revealed(r)[0]]+', under '+CN[r.cat]+')').join('\n')+'\n\nFind them in the Workshop.'})}}
   // medical team: do they still exist?
   if(E.med&&E.med.active&&!medTeam().length){E.med.active=false;log('The medical team is gone. The cure will have to wait for someone else.','bad')}
   // radio messages (need the police radio)
@@ -610,6 +621,8 @@ function checkEndings(){
   if(isOut()&&pday()>=25&&!E.gang&&!E.gangSched){E.gangSched=1;queue('gangRaid0',{})}
   // the nearby supermarket is completely finished: the far one comes into play
   if(!S.flags.farOpen&&S.market<1&&S.mktScrap!=null&&S.mktScrap<=0){S.flags.farOpen=1;queue('info',{i:'🏬',t:'Further afield',x:'There is nothing left at the supermarket next door: not a tin, not a bracket. The block\'s runners talk about the big 24-hour supermarket across the estate, past the bus interchange. Nobody has been that far since the outbreak.\n\nThe Far supermarket is now on the Outside tab. It\'s fully stocked, but runs take two phases and are far more dangerous. Flying foxes can\'t reach it.'})}
+  // inventor ending: every invention discovered
+  {const all=RECIPES.filter(r=>!r.secret);if(all.every(r=>S.known[r.id])&&!E.tinkerDone&&S.t-(E.tinkerAsked||-99)>=7){E.tinkerAsked=S.t;queue('tinkerEnd',{})}}
   // kampung ending
   if(isOut()&&pday()>=45&&(E.phil||0)>=60&&blockTrust()>=70&&!E.kampungDone&&S.t-(E.kampungAsked||-99)>=7){E.kampungAsked=S.t;queue('kampungEnd',{})}
 }
@@ -621,6 +634,7 @@ function gangWin(who){
 }
 const GANGS=['the Ah Long crew','the Bedok Boys','the Ave 3 bikers','the Kaki Bukit syndicate','the Changi Road gang'];
 const ENDINGS={
+  tinker:{i:'🔧',t:'The Contraption Kampung',good:1,x:()=>'Durian catapults on the roof. Mahjong-tile armour on the guards. A rice cooker dripping clean water in every corridor, and a karaoke machine wailing from an empty flat to lure the dead away.\n\nWord spread across Singapore about the block that built everything from what people had at home. Engineers from the SAF came to study it. Other blocks copied it. The blueprints, hand-drawn on the backs of Town Council notices, are now in the National Museum.\n\nNecessity, as every Ah Ma knows, is the mother of invention.'},
   gang:{i:'⚔️',t:'Kings of the Estate',good:1,x:()=>'It took four days. Gang fighters and block guards moved street by street, with polearms, parangs and noise lures, clearing the dead from every void deck in '+S.estate+'.\n\nWhen it was done, the estate was quiet, and it was yours. Former looters now patrol the roads. Families from a dozen blocks come to Blk '+S.blk+' for food, protection and justice.\n\nNot the ending anyone imagined. But the dead are gone, and '+S.estate+' is standing.'},
   kampung:{i:'🤝',t:'Kampung Spirit',good:1,x:()=>'Word of Blk '+S.blk+' spread from block to block by torchlight. The flats that shared their rice, took in strangers and lent their fighters became the heart of a network across all of '+S.estate+'.\n\nWhen the SAF finally rolled down the avenue, they found not scattered survivors but a community: lines strung between blocks, gardens on every corridor, and a list of every family that had made it.\n\n"How did you all hold together?" an officer asks. Nobody has a short answer.'},
   cure:{i:'🧪',t:'The Cure',good:1,x:()=>'Seven days in the sick bays, under torchlight, with samples from the sealed quarantine room. Then one morning the doctors come out with red eyes and a single vial.\n\nIt works. Not perfectly, not for everyone, but a bitten resident runs a fever and then simply... gets better.\n\nThe recipe goes out over every radio the block can find. Blk '+S.blk+' will be in the history books as the place where the outbreak started to end.'},
@@ -638,6 +652,7 @@ function newDay(){
   rollWeather();
   const w=S.weather.type;
   if(S.built.filter){S.store.water+=3}
+  if(S.built.still){S.store.water+=(hasPower()||S.built.solar)?4:1}
   if((w==='rain'||w==='storm'||w==='squall')&&S.built.rain>0){const g=Math.round(S.built.rain*(w==='storm'?14:9)*(S.built.filter?1.5:1));S.store.water+=g;log('Rain catchers collected '+g+' water.','good')}
   if(S.t===S.outbreakAt){outbreak();return}
   if(!isOut()){
@@ -913,7 +928,7 @@ function sanDelta(r){
   if(r.job==='guard'&&!has(r,'garang'))d-=.8;
   if(r.job==='rest')d+=1.2;
   if(S.flags.cat)d+=.3;if(S.flags.chute)d-=.3;
-  if(nearKopi(u)){d+=.8;if(d<0)d*=.75}
+  if(nearKopi(u)){d+=S.built.kopirig?1.6:.8;if(d<0)d*=.75}
   if(h.mourn>S.t)d-=1.2;
   if(members(h).some(m=>m!==r&&m.quar))d-=.8;
   if(members(h).some(m=>m!==r&&m.st.K>=8&&!m.away))d+=.4;
@@ -1073,15 +1088,15 @@ function resolveExps(){
     });
     const cap=e.route==='fox'?(((S.built.fox||{})[e.dest]===2)?.85:.6):1;
     survivors.forEach(r=>{
-      if(chance(.06))itemAdd(loot.items,'bicycle');
+      if(chance(.025))itemAdd(loot.items,'bicycle');
       if(chance(.04))itemAdd(loot.items,'battery'); // pried out of an abandoned car // abandoned bikes are everywhere, if you can wheel one home
       const drv=r.arch==='driver'?1.3:1;
       if(e.dest==='far'){if(S.far==null)S.far=100;const sf=S.far/100;const f=Math.round((9+ri(0,9))*sf*drv);loot.food+=f;const w=Math.round(ri(4,9)*sf);loot.water+=w;S.far=Math.max(0,S.far-f*.3-w*.2);if(chance(.08+.3*sf))itemAdd(loot.items,pick(['battery','tape','rope','pail','clock','wire','sheets','tarp']));if(chance(.15*sf))loot.meds++}
       if(e.dest==='market'){const sf=S.market/100;const f=Math.round((6+ri(0,7))*sf*cap*drv*(isOut()?1:1.4));loot.food+=f;const w=Math.round(ri(2,6)*sf*cap);loot.water+=w;
         if(S.market<1){if(S.mktScrap==null)S.mktScrap=60;if(S.mktScrap>0&&chance(.35)){const g=Math.min(S.mktScrap,ri(3,6));S.mktScrap-=g;loot.scrap+=g}}S.market=Math.max(0,S.market-f*.4-w*.3);if(chance(.05+.25*sf))itemAdd(loot.items,pick(['battery','tape','rope','pail','clock','wire','sheets']))}
       if(e.dest==='hawker'){loot.food+=Math.round(ri(3,8)*Math.max(.25,1-(S.flags.hawkerRuns||0)*.06)*cap);S.flags.hawkerRuns=(S.flags.hawkerRuns||0)+1;if(chance(.3))itemAdd(loot.items,pick(['wok','pot','knife','pail']));loot.scrap+=ri(0,2)}
-      if(e.dest==='park'){r.san=clamp(r.san+ri(18,30),0,100);loot.food+=ri(0,3);if(chance(.45))itemAdd(loot.items,pick(['bamboo','rope','tarp','changkol','pail','pipe']))}
-      if(e.dest==='school'){for(let i=0;i<ri(1,2);i++)itemAdd(loot.items,pick(['pipe','tape','rope','sheets','extinguisher','wire','pail','tarp','clock']));loot.meds+=ri(0,1);loot.food+=ri(0,4);loot.scrap+=ri(1,4)}
+      if(e.dest==='park'){r.san=clamp(r.san+ri(18,30),0,100);loot.food+=ri(0,3);if(chance(.45))itemAdd(loot.items,pick(['bamboo','rope','tarp','changkol','pail','pipe','cane','slippers']))}
+      if(e.dest==='school'){for(let i=0;i<ri(1,2);i++)itemAdd(loot.items,pick(['pipe','tape','rope','sheets','extinguisher','wire','pail','tarp','clock','fan','karaoke']));loot.meds+=ri(0,1);loot.food+=ri(0,4);loot.scrap+=ri(1,4)}
       if(e.dest==='poly'){loot.meds+=ri(2,5);if(chance(.3))itemAdd(loot.items,pick(['sheets','tape','pail']))}
       if(e.dest==='police'){if(chance(.5))itemAdd(loot.items,'baton');if(chance(.3))itemAdd(loot.items,'riot');if(chance(.25))itemAdd(loot.items,'helmet');if(chance(.15)&&!S.items.radio&&!loot.items.radio)itemAdd(loot.items,'radio');loot.meds+=ri(0,2);loot.scrap+=ri(0,2)}
     });
@@ -1135,6 +1150,10 @@ function finishProj(){
   if(rc.id==='rainCatcher'){S.built.rain++;x='Rain now fills the store.'}
   if(rc.id==='barricadeKit'){S.built.kits++;S.bar.max+=40;S.bar.hp=S.bar.max;x='The line is rebuilt and stronger.'}
   if(rc.id==='noiseLure'){S.built.lure++;x='Use it on a run (Outside tab) or throw it on a bad night (Block tab).'}
+  if(rc.id==='durianCatapult'){S.built.durian=1;x='The first volley lands. Even from the fifth floor, everyone gags. Below, the dead stagger back.'}
+  if(rc.id==='karaokeDecoy'){S.built.lure+=3;x='Three nights of Hokkien oldies, ready to go. Use them from the Block tab or on a supply run.'}
+  if(rc.id==='riceStill'){S.built.still=1;x='Drip, drip, drip. Clean water from dirty.'}
+  if(rc.id==='kopiRig'){S.built.kopirig=1;x='The smell of real kopi-O fills the corridor. People come out of their flats just to stand near it.'}
   if(rc.id==='waterFilter'){S.built.filter=1;x='Fresh water trickles out of the filter. +3 water a day.'}
   if(rc.id==='alarmLine'){S.built.alarm=1;x='Cans rattle at every gust. Nothing gets close without everyone knowing.'}
   if(rc.id==='solarRig'){S.built.solar=1;x='The fans turn again on the hottest afternoons.'}
@@ -1528,6 +1547,9 @@ EV.estateWar={make:()=>{
     {t:'Go on the offensive',s:'Win: ending. Lose: heavy losses.',f:()=>{if(chance(T/(T+P))){finishGame('gang');return null}const dead=[];fighters.forEach(r=>{if(chance(.35)){kill(r,'Killed in the push to retake '+S.estate);dead.push(r.short)}});S.end.gang.warT=S.t;return 'The push fails at the bus interchange. '+(dead.length?dead.join(', ')+' did not come back.':'Everyone limps home.')}},
     {t:'Not yet',s:'Wait until you\'re stronger',f:()=>{S.end.gang.warT=S.t;return 'The gang leaders shrug. "When you\'re ready."'}}]});
 }};
+EV.tinkerEnd={make:()=>card({i:'🔧',t:'Every idea, built',x:'The inventor pins the last blueprint to the wall of the workshop. Every single idea, worked out from donated brooms, woks, mahjong sets and rice cookers.\n\nVisitors from other blocks have started turning up just to see the contraptions.',c:[
+  {t:'Show the world what a kampung can build',s:'Ending',f:()=>{S.end.tinkerDone=1;finishGame('tinker');return null}},
+  {t:'Not yet. Keep tinkering.',s:'Keep playing',f:()=>'The inventor is already sketching something new on the back of a flyer.'}]})};
 EV.natday={make:()=>card({i:'🇸🇬',t:'National Day',x:'9 August. Someone hangs a flag from the roof. On the radio, a recording of "Home".',c:[{t:'Sing along from the corridors',s:'Morale up, noise up',f:()=>{known().forEach(r=>r.san=clamp(r.san+12,0,100));S.noise+=4;return 'Off key, all of it. Nobody cares.'}},{t:'Keep quiet',f:()=>'The flag flutters in silence.'}]})};
 EV.tdd={make:()=>card({i:'📢',t:'Total Defence Day',x:'15 February, 12.05pm. Somewhere, a timer still works: the Public Warning System sounds its yearly test. Every zombie for miles turns toward the sirens.',zed:1,c:[{t:'Brace',f:()=>{S.flags.horde=1;return 'Tonight will be bad.'}}]})};
 function newHousehold(eth){const h=mkHH(eth);h.known=true;h.kind='family';h.trust=60;S.hh.push(h);return h}
@@ -1581,7 +1603,7 @@ function search(uid){
   if(chance(.25))S.store.meds++;
   const msg=r.short+' searched '+u.id+': '+f+' food, '+sc+' scrap, '+it.join(', ')+'.';log(msg,'good');flash(msg);save();render();
 }
-function convert(uid){const u=U(uid);const k=document.getElementById('roomsel').value;const rm=ROOMS[k];if(!u||u.st!=='empty'||!rm||S.store.scrap<rm.cost)return;if(rooms(k)>=maxRooms(k)){flash('You already have a '+rm.n.toLowerCase()+'. A second one adds nothing.');return}S.store.scrap-=rm.cost;u.room=k;if(k==='depot'&&u.scrapLeft==null)u.scrapLeft=ri(20,35);if(k==='kopi'){const needW=S.grid.water?0:2;u.open=S.store.food>=2&&S.store.water>=needW;if(u.open){S.store.food-=2;S.store.water-=needW}}log(u.id+' converted into a '+rm.n.toLowerCase()+'.','good');save();render()}
+function convert(uid){const u=U(uid);const k=document.getElementById('roomsel').value;const rm=ROOMS[k];if(!u||u.st!=='empty'||!rm||S.store.scrap<rm.cost)return;if(rooms(k)>=maxRooms(k)){flash('You already have a '+rm.n.toLowerCase()+'. A second one adds nothing.');return}S.store.scrap-=rm.cost;u.room=k;if(k==='depot'&&u.scrapLeft==null)u.scrapLeft=ri(20,35);if(k==='kopi'){const needW=(S.grid.water||S.built.kopirig)?0:2;u.open=S.store.food>=2&&S.store.water>=needW;if(u.open){S.store.food-=2;S.store.water-=needW}}log(u.id+' converted into a '+rm.n.toLowerCase()+'.','good');save();render()}
 function moveIn(uid){const u=U(uid);const h=H(+document.getElementById('hhsel').value);if(!u||!h||u.st!=='empty'||u.room)return;if(h.unit){const old=U(h.unit);if(old){old.st='empty';old.hh=null;old.looted=true}}h.unit=u.id;u.hh=h.id;u.st='known';log('The '+h.name+' moved into '+u.id+'.','');save();render()}
 function seal(uid){const u=U(uid);if(!u||u.st!=='danger'||S.store.scrap<5)return;S.store.scrap-=5;u.st='sealed';log(u.id+' sealed shut with planks and wire.','');save();render()}
 function clearUnit(uid){
@@ -2087,7 +2109,7 @@ function budget(){
   const dry=!S.grid.water;const out=isOut();
   const food={store:S.store.food,home:hs.reduce((a,h)=>a+h.food,0),use:(out?eat:0)+kopi*2+(S.flags.cat?1:0),prod:(tended*5+(g-tended)*2)+((S.flags.ally&&S.flags.ally.until>S.t)?4:0),
     notes:[out?eat+' for '+people+' people':'Nobody eats from stock until the outbreak',kopi?kopi*2+' for kopi corners':'',S.flags.cat?'1 for the cat':'',g?'gardens +'+(tended*5+(g-tended)*2):'',(S.flags.ally&&S.flags.ally.until>S.t)?'Blk '+S.flags.allyBlk+' +4':'',S.flags.preserve?'salted food: 10% less':''].filter(Boolean)};
-  const water={store:S.store.water,home:hs.reduce((a,h)=>a+h.water,0),use:dry?(people+kopi*2+g):0,prod:S.built.filter?3:0,
+  const water={store:S.store.water,home:hs.reduce((a,h)=>a+h.water,0),use:dry?(people+kopi*2+g):0,prod:(S.built.filter?3:0)+(S.built.still?((hasPower()||S.built.solar)?4:1):0),
     notes:[dry?people+' to drink':'Taps still running: drinking is free',dry&&kopi?kopi*2+' for kopi corners':'',dry&&g?g+' for gardens':'',S.built.rain?'rain catchers +'+S.built.rain*9+' on rainy days':''].filter(Boolean)};
   const lf=lineForecast();const depot=staffAssign('depot','salvage');let dep=0;for(const id in depot){const w=depot[id];if(w)dep+=Math.min(U(id).scrapLeft,w.arch==='karang'?6:3)}
   const meds={store:S.store.meds,home:0,use:(S.flags.insulin?1:0),prod:0,notes:[S.flags.insulin?'1 a day for diabetes':'Used for treatment and events'].filter(Boolean)};
@@ -2100,6 +2122,7 @@ function endingsPanel(){
   if(E.med&&(E.med.active||E.med.t!=null)){const M=E.med;const days=M.t!=null?S.t-M.t:0;
     h+=`<div class="card small"><b>🧪 The Cure</b>${M.active&&medTeam().length?'':'<span class="badline"> · the medical team is gone</span>'}<ul class="ends">${ck(days>=60,'Medical team stays 60 days ('+days+' so far)')}${ck(S.store.meds>=100,'Medicine '+S.store.meds+'/100')}${ck(S.units.some(u=>u.contam),'Samples: a quarantine room used 2/2 (contaminated)')}${ck(rooms('sickbay')>=2,'Sick bays '+rooms('sickbay')+'/2')}${M.trial?ck(true,'Trials under way'):''}</ul></div>`}
   if(E.gang){const G=E.gang;const gm=known().filter(r=>r.gang).length;h+=`<div class="card small"><b>⚔️ Kings of the Estate</b><ul class="ends">${ck(G.wins>=3,'Beat the gangs 3 times ('+G.wins+' wins). They come back stronger each time (now ~'+G.pow+')')}${ck(G.joined>0,'Gangs join your block ('+G.joined+' so far)')}${ck(gm>=8,'Gang fighters living in the block: '+gm+'/8')}${ck(false,'Then: go on the offensive and clear the estate')}</ul></div>`}
+  {const all=RECIPES.filter(r=>!r.secret);const k=all.filter(r=>S.known[r.id]).length;h+=`<div class="card small"><b>🔧 The Contraption Kampung</b><ul class="ends">${ck(k>=all.length,'Discover every invention: '+k+'/'+all.length+' (some only appear after a while, and the zipline needs a flying fox)')}</ul></div>`}
   const R_=E.radio||{};if(S.items.radio||R_.got){
     h+=`<div class="card small"><b>📻 Lifeboat</b>${R_.lost?'<span class="badline"> · you stopped answering</span>':''}<ul class="ends">${ck(!!S.items.radio,'Have the police radio')}${ck((R_.ans||0)>=RADIO_MSGS.length,'Answer every broadcast ('+(R_.ans||0)+'/'+RADIO_MSGS.length+' answered)')}${ck(isOut()&&pday()>=60,'Survive to day 60'+(isOut()?' (now day '+pday()+')':' (counts from the outbreak)'))}${R_.unlocked?ck(!!R_.booster,'Build the radio booster (needs 2 workshops)'):''}${E.evacDay?ck(false,'Convoy in '+Math.max(0,E.evacDay-S.t)+' days: each evacuee needs 3 food + 3 water'):''}</ul></div>`}
   h+=`<p class="small mute">Some endings stay hidden until something sets them in motion.</p></div>`;return h;
