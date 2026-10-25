@@ -1732,13 +1732,21 @@ function admit(id){
   if(known().filter(x=>x.ward).length>=beds()){flash('All '+beds()+' beds are taken.');return}
   r.ward=u.id;r.job='rest';r.post=null;log(r.short+' was admitted to the sick bay.','');save();render();
 }
-function atHome(r){return !r.away&&!r.ward&&!(r.quar&&r.qRoom)&&r.job!=='guard'&&r.job!=='lookout'&&!(S.ph<3&&POSTS.includes(r.job))}
+// who is drawn at a workplace this render (by day only): everyone else with a job is drawn at home, so nobody vanishes
+function workPosts(){
+  const P={sickbay:[],workshop:[],ids:new Set()};if(S.ph>=3)return P;
+  if(sickbayUnit())P.sickbay=jobbers('medic').slice(0,3);
+  if(rooms('workshop'))P.workshop=jobbers('invent').slice(0,4);
+  const staff=Object.values(staffAssign('garden','garden')).concat(Object.values(staffAssign('depot','salvage'))).filter(Boolean);
+  [...P.sickbay,...P.workshop,...staff].forEach(r=>P.ids.add(r.id));return P;
+}
+function atHome(r){return !r.away&&!r.ward&&!(r.quar&&r.qRoom)&&r.job!=='guard'&&r.job!=='lookout'&&!(UI.posts&&UI.posts.ids.has(r.id))}
 function roomSprites(u){
   let ppl=[];
   if(S.ph<3){
     if(u.room==='garden'||u.room==='depot'){const w=staffAssign(u.room,u.room==='garden'?'garden':'salvage')[u.id];if(w)ppl=[w]}
-    if(u.room==='workshop')ppl=jobbers('invent');
-    if(u.room==='sickbay')ppl=jobbers('medic').concat(known().filter(r=>r.ward&&!r.away));
+    if(u.room==='workshop')ppl=UI.posts?UI.posts.workshop:[];
+    if(u.room==='sickbay')ppl=(UI.posts?UI.posts.sickbay:[]).concat(known().filter(r=>r.ward&&!r.away));
     if(u.room==='kopi'&&u.open)ppl=known().filter(r=>act(r)&&r.job==='rest'&&r.age>=13&&!r.quar&&unitOf(r)&&Math.abs(unitOf(r).lvl-u.lvl)<=2).sort((a,b)=>((a.id*7+S.t*3+S.ph)%11)-((b.id*7+S.t*3+S.ph)%11)).slice(0,3);
   }
   if(u.room==='quarantine')ppl=known().filter(r=>r.quar&&r.qRoom===u.id);
@@ -1764,6 +1772,7 @@ function unitTile(u){
   return `<button class="unit st-known${light}${sel}" data-act="sel" data-v="${u.id}"><span class="uid">${u.id}</span><span class="flags">${flags.join('')}</span><span class="unm">${esc(h.name)} <span style="opacity:.65;font-weight:400">${ms.length}</span></span><span class="spr">${ms.filter(atHome).map(sprite).join('')}</span></button>`;
 }
 function renderTower(){
+  UI.posts=workPosts();
   const wrap=$('#tower-wrap');wrap.className='sky-'+S.ph+(S.weather.type==='haze'?' haze':'');
   const look=lookouts();let h='';
   h+=`<div class="roof"><div class="blkno">${esc(S.blk)}<small>${esc(S.estate)}</small></div><div class="roof-stuff">${look.map(r=>`<span title="Lookout: ${esc(r.short)}">${faceOf(r)}</span>`).join('')}${S.built.rain?`<span title="Rain catchers">⛱️${S.built.rain>1?'×'+S.built.rain:''}</span>`:''}${Object.keys(S.built.fox||{}).length?'<span title="Flying fox">🪢</span>':''}<span class="tank">TANK</span><span class="tank">TANK</span></div></div><div class="roof-slab"></div>`;
