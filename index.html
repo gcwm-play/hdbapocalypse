@@ -519,6 +519,18 @@ function burn(h,u){
   h.items={};h.food=0;h.water=0;h.unit=null;u.hh=null;u.st='gutted';u.gone=true;u.room=null;log(u.id+' burned out.','bad');
   return u.id+' is a blackened shell. The '+h.name+' lost everything they owned and are sleeping in the stairwell.'+(out.length?' '+out.join(', ')+'.':'');
 }
+// each month after the outbreak, isolation wears people down a little faster (stacks)
+const ISO_TEXT=[
+  'A month since the sirens. The novelty of survival has worn off. People sit by the windows for hours, staring at the empty road. Arguments start over nothing.',
+  'Two months. Birthdays pass with a candle in a tin of luncheon meat. Some residents have stopped talking about "when this is over".',
+  'Three months. Nobody remembers the last time they heard a car that wasn\'t an alarm. Children draw zombies in their homework books.',
+  'Four months. The same faces, the same corridor, the same four walls. People flinch at the sound of their own neighbours.',
+  'Another month in the box. The silence outside is worse than the groaning.'];
+function isolationSets(m){
+  const inc=ri(5,10);S.isoMult=(S.isoMult||1)*(1+inc/100);const tot=Math.round((S.isoMult-1)*100);
+  log('Month '+m+' of isolation: sanity now drains '+tot+'% faster.','bad');
+  queue('info',{i:'🪟',t:'Month '+m+': the walls close in',x:ISO_TEXT[Math.min(m-1,ISO_TEXT.length-1)]+'\n\nFrom now on, everyone loses sanity '+inc+'% faster ('+tot+'% faster in total since the outbreak). Kopi corners, comfort, park runs and good news matter more than ever.',bad:1});
+}
 function newDay(){
   S.talks=2+(known().some(r=>act(r)&&r.arch==='rcauntie')?1:0);S.chatUsed={};
   rollWeather();
@@ -563,6 +575,7 @@ function newDay(){
   if(dt.getMonth()===1&&dt.getDate()===15)queue('tdd',{});
   S.news=pick(['Radio: static.','Radio: "...remain indoors. Do not approach the infected..."','Block chat: silent.','Smoke over '+pick(ESTATES)+'.','A helicopter passes, far away.','Car alarms all night on Ave 3.']);
   if(d%10===0)log('Day '+d+'. The block is still standing.','big');
+  if(d>1&&(d-1)%30===0)isolationSets(Math.round((d-1)/30));
 }
 function outbreak(){
   S.failAt={telco:ri(3,7),power:ri(7,15),water:ri(10,19)};
@@ -801,7 +814,7 @@ function sanDelta(r){
   if(members(h).some(m=>m!==r&&m.arch==='helper'))d+=.2;
   if(has(r,'kiasu')&&S.store.food<known().length*2&&isOut())d-=.8;
   if(has(r,'pantang')&&S.ph===3)d-=.5;
-  if(d<0){if(has(r,'bochap'))d*=.6;if(has(r,'steady'))d*=.8}
+  if(d<0){if(has(r,'bochap'))d*=.6;if(has(r,'steady'))d*=.8;d*=S.isoMult||1}
   return d;
 }
 function doSanity(){
@@ -1813,6 +1826,7 @@ function panelBlock(){
   h+=`<div class="kv"><span class="mute">Line</span><span>${S.front===0?'Void deck shutter':'Floor '+pad(S.front+1)+' stairwell'} · ${Math.max(0,Math.round(S.bar.hp))}/${S.bar.max}</span>
   <span class="mute">Guards</span><span>${jobbers('guard').length}</span><span class="mute">Lookouts</span><span>${lookouts().length}</span>
   <span class="mute">Power</span><span>${S.grid.power?'On':'Off'}</span><span class="mute">Taps</span><span>${S.grid.water?'Running':'Dry'}</span><span class="mute">Phones</span><span>${S.grid.telco?'Working':'Dead'}</span>
+  <span class="mute">Isolation</span><span>${S.isoMult>1?'Sanity drains '+Math.round((S.isoMult-1)*100)+'% faster':'Not yet'}</span>
   <span class="mute">Lures</span><span>${S.built.lure}</span><span class="mute">Lamps</span><span>${S.built.lamp}</span></div>`;
   h+=`<h3>Rations from the communal store</h3><div class="row">${['full','half','none'].map(v=>`<button class="${S.ration===v?'btn-main':''}" data-act="ration" data-v="${v}">${{full:'Full',half:'Half',none:'None'}[v]}</button>`).join('')}</div><p class="small mute">Households eat their own food first. When it runs out, the store tops them up at this level.</p>`;
   h+=`<h3>Defence</h3><div class="stack">
