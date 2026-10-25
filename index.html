@@ -575,6 +575,7 @@ function advance(){
   resolveExps();
   maybeEvent();
   S.noise=Math.max(0,S.noise*.5-.5);
+  S.bar.max=Math.round(S.bar.max);
   checkOver();
   save();render();
 }
@@ -1043,7 +1044,7 @@ const REV=[
   {t:'Drive them off with the guards',s:'Guard strength check',f:()=>{const g=jobbers('guard');const G=g.reduce((a,r)=>a+guardPow(r),0);if(G>12+ri(0,10)){itemAdd(S.items,pick(['parang','golf','helmet']));return 'Your guards charge out with poles and woks. The looters flee and drop something.'}g.forEach(r=>{if(chance(.4))r.hp-=ri(10,25)});S.bar.hp-=10;return 'It goes badly. Bruises, cuts, and a dented barricade.'}}]})},
  {id:'horde',w:2,c:()=>isOut()&&pday()>3&&!S.flags.horde,make:()=>{const look=lookouts().length;S.flags.horde=1;if(!look){log('Nobody on the roof saw the horde coming down Ave 3.','bad');return null}
   return card({i:'👁️',t:'Horde on the main road',x:'The lookout on the roof spots hundreds of them shuffling down the main road, drawn by something. They will reach the block tonight.',zed:1,c:[
-  {t:'Reinforce the line now',s:'−5 scrap, +25 barricade',dis:S.store.scrap<5,f:()=>{S.store.scrap-=5;S.bar.hp=Math.min(S.bar.max+10,S.bar.hp+25);S.bar.max=Math.max(S.bar.max,S.bar.hp);return 'Every spare plank and bicycle goes onto the barricade.'}},
+  {t:'Reinforce the line now',s:'−5 scrap, +25 barricade',dis:S.store.scrap<5,f:()=>{S.store.scrap-=5;S.bar.hp=Math.min(S.bar.max+10,S.bar.hp+25);S.bar.max=Math.round(Math.max(S.bar.max,S.bar.hp));return 'Every spare plank and bicycle goes onto the barricade.'}},
   {t:'Throw a noise lure the other way',s:'Uses 1 lure',dis:!S.built.lure,f:()=>{S.built.lure--;S.flags.horde=0;return 'The alarm clock rings out two streets away. The horde turns.'}},
   {t:'Brace',s:'Put more people on guard duty',f:()=>'Everyone who can hold a pole goes down to the line.'}]})}},
  {id:'flood',w:2,c:()=>isOut()&&S.front===0&&['rain','storm'].includes(S.weather.type)&&[0,1,10,11].includes(curDate().getMonth()),make:()=>card({i:'🌊',t:'Flash flood',x:'Monsoon rain. The drains overflow and the void deck floods ankle deep. The water carries things in under the shutter.',bad:1,c:[{t:'Bail it out',s:'Barricade −15',f:()=>{S.bar.hp-=15;if(S.bar.hp<=0)levelFalls();return 'It takes all afternoon. The barricade is soaked and sagging.'}}]})},
@@ -1644,6 +1645,7 @@ document.addEventListener('keydown',e=>{if(e.code==='Space'&&S&&!e.target.closes
 
 function migrate(){
   if(!S)return;
+  S.bar.max=Math.round(S.bar.max);
   const q0=S.units.find(u=>u.room==='quarantine'&&u.st==='empty');if(q0)S.res.forEach(r=>{if(r.alive&&r.quar&&!r.qRoom&&rooms('quarantine')){r.qRoom=q0.id;q0.qUsed=Math.min(2,(q0.qUsed||0)+1)}});
   S.res.forEach(r=>{if(r.short==='You'){const n=r.name.replace(' (you)','');const h=H(r.hh);r.short=h&&h.eth==='cn'?n.split(' ').slice(1).join(' '):n.split(' ')[0]}});
 }
