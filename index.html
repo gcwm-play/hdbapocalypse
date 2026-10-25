@@ -1089,8 +1089,8 @@ const REV=[
  {id:'convoy',w:2,once:1,c:()=>isOut()&&pday()>=10&&known().some(r=>!r.away&&(r.age<13||r.age>=70)),make:()=>{
   const vul=known().filter(r=>!r.away&&!r.quar&&(r.age<13||r.age>=70));if(!vul.length)return null;
   return card({i:'🚛',t:'An evacuation convoy',x:(S.items.radio?'The police radio crackles':'A loudspeaker truck crawls down Ave 3')+': "Evacuation convoy to Pulau Tekong. Departs from the bus interchange at dawn. Priority for children and the elderly."\n\nYou have '+vul.length+' children and elderly residents: '+vul.map(r=>r.short).join(', ')+'. The road to the interchange is not safe, and nobody knows what is really on Tekong.',c:[
-   {t:'Send all '+vul.length+' of them',s:'Fewer mouths, and safer... if it\'s real. Families are torn (−10 sanity).',f:()=>{const fams=[...new Set(vul.map(r=>r.hh))];vul.forEach(r=>exile(r,'Left on the evacuation convoy to Pulau Tekong'));known().forEach(m=>{if(fams.includes(m.hh))m.san=clamp(m.san-10,0,100)});addTimer(ri(4,8),'convoyNews',{hs:fams});return vul.length+' people climb aboard at dawn. Parents and grandchildren walk back up the stairs alone.'}},
-   {t:'Only those whose families agree',s:'About half go',f:()=>{const go=vul.filter(()=>chance(.5));const fams=[...new Set(go.map(r=>r.hh))];go.forEach(r=>exile(r,'Left on the evacuation convoy to Pulau Tekong'));if(go.length)addTimer(ri(4,8),'convoyNews',{hs:fams});return go.length?go.map(r=>r.short).join(', ')+' leave on the convoy. The rest stay.':'In the end, no family can let go.'}},
+   {t:'Send all '+vul.length+' of them',s:'Fewer mouths, and safer... if it\'s real. Families are torn (−10 sanity).',f:()=>{const fams=[...new Set(vul.map(r=>r.hh))];vul.forEach(r=>exile(r,'Left on the evacuation convoy to Pulau Tekong'));known().forEach(m=>{if(fams.includes(m.hh))m.san=clamp(m.san-10,0,100)});queue('convoySupply',{hs:fams,n:vul.length});return vul.length+' people climb aboard at dawn. Parents and grandchildren walk back up the stairs alone.'}},
+   {t:'Only those whose families agree',s:'About half go',f:()=>{const go=vul.filter(()=>chance(.5));const fams=[...new Set(go.map(r=>r.hh))];go.forEach(r=>exile(r,'Left on the evacuation convoy to Pulau Tekong'));if(go.length)queue('convoySupply',{hs:fams,n:go.length});return go.length?go.map(r=>r.short).join(', ')+' leave on the convoy. The rest stay.':'In the end, no family can let go.'}},
    {t:'Nobody goes. We stay together.',s:'+5 trust everywhere',f:()=>{S.hh.forEach(h=>{if(h.known)h.trust=clamp(h.trust+5,0,100)});return 'The trucks rumble past. The block stays whole.'}}]})}},
  {id:'neighbour',w:2,once:1,c:()=>isOut()&&pday()>=6&&known().filter(able).length>=4,make:()=>{
   const blk=String(ri(101,899));S.flags.allyBlk=blk;const lend=known().filter(able).sort((a,b)=>guardPow(b)-guardPow(a)).slice(0,2);
@@ -1220,8 +1220,18 @@ EV.labour={make:a=>{
     {t:'Do everything we can',s:S.store.meds?'−1 meds. Lowers the risk a little more.':'No meds left to give',f:()=>{if(S.store.meds){S.store.meds--;risk=Math.max(.03,risk-.06)}return birth(r,h,risk)}},
     {t:'Let nature take its course',f:()=>birth(r,h,risk)}]});
 }};
+// supplies sent with the convoy raise its odds; food and water are per evacuee, and it never reaches 100%
+const CONVOY_TIERS=[[0,0,.6],[2,2,.7],[4,4,.78],[6,6,.85]];
+EV.convoySupply={make:a=>{
+  const n=a.n||1;
+  return card({i:'🚛',t:'Supplies for the convoy?',x:'The soldiers say the convoy is short of everything. Whatever you send with your '+n+' '+(n===1?'person':'people')+' improves their chances on the road to Tekong.\n\nYour store: '+S.store.food+' food, '+S.store.water+' water.',c:CONVOY_TIERS.map(([f,w,p],i)=>({
+    t:i===0?'Send them with nothing extra':'Send '+f*n+' food and '+w*n+' water',
+    s:'Chance they reach Tekong: '+Math.round(p*100)+'%'+(i===0?'':' ('+f+' food and '+w+' water each)'),
+    dis:S.store.food<f*n||S.store.water<w*n,
+    f:()=>{S.store.food-=f*n;S.store.water-=w*n;addTimer(ri(4,8),'convoyNews',{hs:a.hs,p});log('The convoy left'+(i?' with '+f*n+' food and '+w*n+' water from the store':'')+'. Chance of reaching Tekong: '+Math.round(p*100)+'%.','');return i?'Sacks of rice and cases of bottled water go onto the trucks with them. The block\'s store is lighter, but the odds are better.':'They leave with only what they can carry.'}}))});
+}};
 EV.convoyNews={make:a=>{
-  const fam=known().filter(m=>(a.hs||[]).includes(m.hh));if(!fam.length)return null;const good=chance(.6);
+  const fam=known().filter(m=>(a.hs||[]).includes(m.hh));if(!fam.length)return null;const good=chance(a.p||.6);
   fam.forEach(m=>m.san=clamp(m.san+(good?20:-25),0,100));
   return card({i:'📻',t:good?'News from Tekong':'Terrible news',bad:!good,x:good?'A message relayed block to block by torchlight: the convoy reached Pulau Tekong. The children and elderly are safe behind the wire.\n\nThe families weep with relief. (+20 sanity)':'Word comes back: the convoy was overrun at the Tampines flyover. Nobody knows if anyone survived.\n\nThe families who sent their people are inconsolable. (−25 sanity)',c:ok()});
 }};
