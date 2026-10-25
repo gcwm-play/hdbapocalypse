@@ -333,17 +333,19 @@ const HELPERS=['Maria','Dewi','Joy','Lorna','Sri','Rina','Marites','Wati'];
 const WORKERS=['Rahim','Karthik','Sohel','Murugan','Babul','Selvam','Jahid'];
 const ESTATES=['Tampines','Bedok North','Jurong West','Woodlands','Toa Payoh','Ang Mo Kio','Yishun','Sengkang','Bukit Batok','Pasir Ris','Hougang','Clementi'];
 const ITEMS={broom:'Broom',knife:'Kitchen knife',bamboo:'Bamboo laundry pole',rope:'Nylon rope',sheets:'Bedsheets',tape:'Duct tape',pot:'Cooking pot',pail:'Pail',tarp:'Canvas tarp',pipe:'PVC pipe',bicycle:'Bicycle',extinguisher:'Fire extinguisher',battery:'Car battery',clock:'Alarm clock',wok:'Wok',helmet:'Bicycle helmet',wire:'Electrical wire',hammer:'Hammer',parang:'Parang',changkol:'Changkol',golf:'Golf club',umbrella:'Umbrella',baton:'Police baton',riot:'Riot shield',radio:'Police radio',
-  rifle:'Rifle (SAR 21)',broomSpear:'Broom-handle spear',bambooPole:'Bamboo polearm',wokShield:'Wok shield',potHelmet:'Pot helmet'};
-const GEAR={rifle:{atk:6},knife:{atk:1},hammer:{atk:1},umbrella:{atk:1},golf:{atk:2},changkol:{atk:2},baton:{atk:2},parang:{atk:3},broomSpear:{atk:2},bambooPole:{atk:3},extinguisher:{atk:2},
-  helmet:{def:1},potHelmet:{def:1},wokShield:{def:2},riot:{def:3}};
+  rifle:'Rifle (SAR 21)',steelPole:'Steel-tipped polearm',padArmour:'Padded riot armour',broomSpear:'Broom-handle spear',bambooPole:'Bamboo polearm',wokShield:'Wok shield',potHelmet:'Pot helmet'};
+const GEAR={rifle:{atk:6},knife:{atk:1},hammer:{atk:1},umbrella:{atk:1},golf:{atk:2},changkol:{atk:2},baton:{atk:2},parang:{atk:3},broomSpear:{atk:3},bambooPole:{atk:5},steelPole:{atk:7},extinguisher:{atk:2},
+  helmet:{def:1},potHelmet:{def:2},wokShield:{def:3},padArmour:{def:5},riot:{def:3}};
 const HH_ITEMS={broom:5,knife:6,bamboo:4,sheets:5,pot:4,pail:4,wok:3,rope:3,clock:3,umbrella:4,helmet:2,bicycle:3,golf:1,changkol:1,parang:1,hammer:2,tape:2,pipe:1,tarp:1,battery:1,wire:2,extinguisher:1};
 const RECIPES=[
-  {id:'broomSpear',cat:'weapon',n:'Broom-handle spear',need:{broom:1,knife:1},work:6,known:1,d:'Kitchen knife lashed to a broom. Weapon, attack 2.',hint:'Something long, something sharp.'},
+  {id:'broomSpear',cat:'weapon',n:'Broom-handle spear',need:{broom:1,knife:1},work:6,known:1,d:'Kitchen knife lashed to a broom. Weapon, attack 3.',hint:'Something long, something sharp.'},
   {id:'sheetRope',cat:'route',n:'Bedsheet rope',need:{sheets:2,rope:1},work:6,known:1,d:'A way down when the stairs are lost. Works while the line is at floor 4 or lower.',hint:'Knotted cloth, the classic escape.'},
   {id:'rainCatcher',cat:'living',n:'Rooftop rain catcher',need:{tarp:1,pail:2},work:6,known:1,d:'Collects water on the roof every time it rains.',hint:'Spread something wide over containers.'},
-  {id:'bambooPole',cat:'weapon',n:'Bamboo polearm',need:{bamboo:1,knife:1,tape:1},work:10,d:'The laundry pole, but sharp. Weapon, attack 3.',hint:'The laundry pole could reach further than a broom...'},
-  {id:'wokShield',cat:'armour',n:'Wok shield',need:{wok:1,rope:1},work:5,d:'Armour, defence 2. Fewer bites.',hint:'The kitchen has round, heavy metal things.'},
-  {id:'potHelmet',cat:'armour',n:'Pot helmet',need:{pot:1,rope:1},work:3,d:'Armour, defence 1.',hint:'Protect the head with cookware.'},
+  {id:'bambooPole',cat:'weapon',n:'Bamboo polearm',need:{bamboo:1,knife:1,tape:1},work:10,d:'The laundry pole, but sharp. Weapon, attack 5.',hint:'The laundry pole could reach further than a broom...'},
+  {id:'wokShield',cat:'armour',n:'Wok shield',need:{wok:1,rope:1},work:5,d:'Armour, defence 3. Fewer bites.',hint:'The kitchen has round, heavy metal things.'},
+  {id:'steelPole',cat:'weapon',n:'Steel-tipped polearm',need:{bambooPole:1,pipe:1,wire:1},work:12,d:'Upgrade: a bamboo polearm reinforced with PVC pipe and a wire-bound steel tip. Weapon, attack 7.',hint:'Your best polearm, made sturdier...'},
+  {id:'padArmour',cat:'armour',n:'Padded riot armour',need:{riot:1,sheets:1,tape:1},work:10,d:'Upgrade: a riot shield plus layers of bedsheet padding taped round the arms and chest. Armour, defence 5.',hint:'Make the police shield cover more of you...'},
+  {id:'potHelmet',cat:'armour',n:'Pot helmet',need:{pot:1,rope:1},work:3,d:'Armour, defence 2.',hint:'Protect the head with cookware.'},
   {id:'barricadeKit',cat:'defence',n:'Pipe barricade',need:{pipe:2,tape:1},work:8,d:'Rebuilds the current line: +40 max strength and full repair.',hint:'Plumbing could brace the stairwell.'},
   {id:'noiseLure',cat:'defence',n:'Noise lure',need:{clock:1,battery:1},work:5,d:'Thrown far away, it pulls zombies off a night attack or a supply run.',hint:'Something that rings, and something to keep it ringing.'},
   {id:'lamp',cat:'living',n:'Battery lamp',need:{battery:1,wire:1},work:6,d:'Light after the grid dies. Less sanity loss at night.',hint:'Light without the grid.'},
@@ -499,7 +501,7 @@ function rollWeather(){
   S.weather={type,psi:type==='haze'?ri(110,260):ri(25,70)};
 }
 const DIFF_P={easy:.8,normal:1,hard:1.25};
-function expPressure(){const d=pday();return (3+4.5*Math.sqrt(d)+.12*d)*(DIFF_P[S.diff]||1)}
+function expPressure(){const d=pday();return (3+4.5*Math.sqrt(d)+.12*d)*(DIFF_P[S.diff]||1)*(S.zMult||1)}
 function basePressure(){return expPressure()*(0.7+R()*0.6)}
 function kopiUpkeep(){
   S.units.filter(u=>u.room==='kopi'&&u.st==='empty'&&u.lvl>S.front).forEach(u=>{
@@ -541,9 +543,10 @@ const ISO_TEXT=[
   'Four months. The same faces, the same corridor, the same four walls. People flinch at the sound of their own neighbours.',
   'Another month in the box. The silence outside is worse than the groaning.'];
 function isolationSets(m){
+  const zi=ri(7,10);S.zMult=(S.zMult||1)*(1+zi/100);const ztot=Math.round((S.zMult-1)*100);
   const inc=ri(5,10);S.isoMult=(S.isoMult||1)*(1+inc/100);const tot=Math.round((S.isoMult-1)*100);
   log('Month '+m+' of isolation: sanity now drains '+tot+'% faster.','bad');
-  queue('info',{i:'🪟',t:'Month '+m+': the walls close in',x:ISO_TEXT[Math.min(m-1,ISO_TEXT.length-1)]+'\n\nFrom now on, everyone loses sanity '+inc+'% faster ('+tot+'% faster in total since the outbreak). Kopi corners, comfort, park runs and good news matter more than ever.',bad:1});
+  queue('info',{i:'🪟',t:'Month '+m+': the walls close in',x:ISO_TEXT[Math.min(m-1,ISO_TEXT.length-1)]+'\n\nThe dead are changing too: more of them, and harder to put down. Attacks on the line and supply-run risk are up '+zi+'% ('+ztot+'% since the outbreak). Better weapons and armour matter more every month.\n\nFrom now on, everyone loses sanity '+inc+'% faster ('+tot+'% faster in total since the outbreak). Kopi corners, comfort, park runs and good news matter more than ever.',bad:1});
 }
 /* ================= endings ================= */
 function addPhil(n){S.end=S.end||{};S.end.phil=(S.end.phil||0)+n}
@@ -964,7 +967,7 @@ function lookN(){return jobbers('lookout').length*(S.flags.kwatch?2:1)}
 const PROV=[[0,0,1,'None'],[1,1,.85,'Light'],[2,2,.72,'Full']];
 function expRisk(dest,route,team,lure,prov){
   if(!isOut())return 0;
-  let r=DEST[dest].risk*(1+Math.sqrt(pday())*.13)*route.m;
+  let r=DEST[dest].risk*(1+Math.sqrt(pday())*.13)*route.m*(S.zMult||1);
   const w=S.weather.type;if(w==='rain'||w==='storm')r*=.8;if(w==='haze')r*=.85;
   if(S.ph===3&&route.k!=='sneak')r*=1.3;
   r*=Math.max(.55,1-lookN()*(route.k==='sneak'?.12:.06));
@@ -1984,6 +1987,7 @@ function panelBlock(){
   h+=`<div class="kv"><span class="mute">Line</span><span>${S.front===0?'Void deck shutter':'Floor '+pad(S.front+1)+' stairwell'} · ${Math.max(0,Math.round(S.bar.hp))}/${S.bar.max}</span>
   <span class="mute">Guards</span><span>${jobbers('guard').length}</span><span class="mute">Lookouts</span><span>${lookouts().length}</span>
   <span class="mute">Power</span><span>${S.grid.power?'On':'Off'}</span><span class="mute">Taps</span><span>${S.grid.water?'Running':'Dry'}</span><span class="mute">Phones</span><span>${S.grid.telco?'Working':'Dead'}</span>
+  <span class="mute">Zombies</span><span>${S.zMult>1?Math.round((S.zMult-1)*100)+'% stronger than at the start':'As at the start'}</span>
   <span class="mute">Isolation</span><span>${S.isoMult>1?'Sanity drains '+Math.round((S.isoMult-1)*100)+'% faster':'Not yet'}</span>
   <span class="mute">Lures</span><span>${S.built.lure}</span><span class="mute">Lamps</span><span>${S.built.lamp}</span></div>`;
   h+=`<h3>Rations from the communal store</h3><div class="row">${['full','half','none'].map(v=>`<button class="${S.ration===v?'btn-main':''}" data-act="ration" data-v="${v}">${{full:'Full',half:'Half',none:'None'}[v]}</button>`).join('')}</div><p class="small mute">Households eat their own food first. When it runs out, the store tops them up at this level.</p>`;
@@ -2090,6 +2094,7 @@ document.addEventListener('keydown',e=>{if(e.code==='Space'&&S&&!e.target.closes
 
 function migrate(){
   if(!S)return;
+  if(S.zMult==null&&isOut()&&pday()>31){const m=Math.floor((pday()-1)/30);S.zMult=Math.pow(1.085,m)}
   S.end=S.end||{phil:0};if(isOut()&&!S.end.docSched&&pday()<28){S.end.docSched=1;addTimer(ri(1,Math.max(1,28-pday())),'doctors',{})}
   if((S.timers||[]).some(t=>t.k==='liftshaft')&&!S.flags.liftSealed)S.flags.liftOpen=1;
   const SRCFIX={'a bite on the run':'a bite from a supply run','a bite on guard duty':'a bite from guard duty','a bite while retaking a floor':'a bite from retaking a floor'};S.res.forEach(r=>{if(r.inf&&SRCFIX[r.inf.src])r.inf.src=SRCFIX[r.inf.src]});
