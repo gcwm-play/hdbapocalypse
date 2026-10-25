@@ -358,7 +358,7 @@ const atkOf=r=>(r.wpn&&GEAR[r.wpn]?GEAR[r.wpn].atk||0:0);
 const defOf=r=>(r.arm&&GEAR[r.arm]?GEAR[r.arm].def||0:0);
 const members=h=>S.res.filter(r=>r.alive&&r.hh===h.id);
 const unitOf=r=>{const h=H(r.hh);return h&&h.unit?U(h.unit):null};
-const rooms=k=>S.units.filter(u=>u.room===k&&u.lvl>S.front).length;
+const rooms=k=>S.units.filter(u=>u.room===k&&u.lvl>S.front&&u.st==='empty').length;
 const jobbers=j=>known().filter(r=>act(r)&&r.job===j&&!r.quar);
 const leader=()=>S.res.find(r=>r.alive&&r.leader);
 const alertLvl=()=>{if(isOut())return 4;const d=S.outbreakAt-S.t;return d>10?0:d>5?1:d>2?2:3};
@@ -482,7 +482,8 @@ function newDay(){
     else if(chance(Math.min(.07,.01+.0015*d))){h.fate='turned';if(chance(.6))queue('banging',{u:u.id})}
   });
   // breakouts from known dangerous flats
-  S.units.forEach(u=>{if(u.st==='danger'&&u.lvl>S.front){u.breakout++;if(u.breakout>=3&&chance(.3))breakout(u)}});
+  S.units.forEach(u=>{if(u.st==='danger'&&u.lvl>S.front&&!isInfested(u.lvl)){u.breakout++;if(u.breakout>=(u.outs?2:3)&&chance(.35))breakout(u)}});
+  if(S.infest)for(const l in S.infest){if(+l<=S.front){delete S.infest[l];continue}if(!S.infest[l].sealed&&chance(.4))attackNear(+l,'Zombies from the overrun floor '+pad(+l)+' came through the stairwell','floor '+pad(+l))}
   if(S.flags.cat&&S.store.food>0)S.store.food--;
   // market slowly looted by others
   S.market=Math.max(0,S.market-ri(0,2));
@@ -622,6 +623,7 @@ function levelFalls(){
     if(u.room)txt.push('The '+ROOMS[u.room].n.toLowerCase()+' on '+u.id+' is gone.');
     u.st='lost';u.room=null;
   });
+  if(S.infest)delete S.infest[lvl];
   jobbers('guard').forEach(g=>{if(chance(.2)){g.hp-=ri(10,30);if(g.hp<=0)kill(g,'Killed in the retreat');else if(chance(.25))infect(g,'a bite in the retreat')}});
   S.bar={hp:40+S.built.kits*15,max:60+S.built.kits*40};
   log(txt[0],'big');
@@ -629,12 +631,45 @@ function levelFalls(){
   queue('fall',{x:txt.join('\n\n')});
 }
 function breakout(u){
-  u.breakout=0;
-  const vic=S.units.filter(v=>v.lvl===u.lvl&&v.hh&&H(v.hh).known).flatMap(v=>members(H(v.hh))).filter(r=>!r.away);
-  vic.forEach(r=>{if(chance(.18)){r.hp-=ri(15,35);if(r.hp<=0)kill(r,'Attacked when '+u.id+' broke open');else if(chance(.35))infect(r,'a bite in the corridor')}});
-  S.noise+=6;
-  log('The dead in '+u.id+' broke through the door into the corridor.','bad');
-  queue('info',{i:'🚪',t:u.id+' broke open',x:'What was inside '+u.id+' has smashed through the gate and into the floor '+pad(u.lvl)+' corridor. Neighbours fought it off, but not cleanly. Seal or clear dangerous flats before this happens.',bad:1});
+  u.breakout=0;u.outs=(u.outs||0)+1;S.noise+=6;
+  log('The dead in '+u.id+' broke out into the corridor.','bad');
+  // the first breakout usually hurts someone; repeat breakouts tend to take the whole floor
+  if(chance(u.outs>=2?.6:.35)){infestFloor(u.lvl,u.id);return}
+  attackNear(u.lvl,'What was inside '+u.id+' smashed through the gate into the floor '+pad(u.lvl)+' corridor',u.id);
+}
+const isInfested=l=>!!(S.infest&&S.infest[l]);
+function residentsNear(lvl,span){return known().filter(r=>{if(r.away||r.quar)return false;const u=unitOf(r);return u&&Math.abs(u.lvl-lvl)<=span})}
+function attackNear(lvl,why,src){
+  const pool=residentsNear(lvl,1);
+  if(!pool.length){log(why+'. Nobody was close enough to be hurt.','bad');return}
+  const r=pick(pool);const at=unitOf(r).id;let res;
+  if(chance(.22)){kill(r,'Attacked by what came out of '+src);res=r.name+' at '+at+' was killed.'}
+  else{const d=ri(20,45);r.hp-=d;
+    if(r.hp<=0){kill(r,'Attacked by what came out of '+src);res=r.name+' at '+at+' was killed.'}
+    else{res=r.name+' at '+at+' was mauled (−'+d+' HP) before neighbours drove it back.';if(chance(.45-defOf(r)*.07)){infect(r,'a bite from what came out of '+src);if(r.inf&&r.inf.hidden)res+=' They say they weren\'t bitten.'}}}
+  log(res,'bad');
+  queue('info',{i:'🧟',t:'Attack near floor '+pad(lvl),x:why+'.\n\n'+res+'\n\nUntil '+src+' is sealed or cleared, it will happen again.',bad:1,zed:1});
+}
+function infestFloor(lvl,src){
+  S.infest=S.infest||{};S.infest[lvl]={sealed:false};const hit=[];const fled=[];
+  S.units.filter(v=>v.lvl===lvl).forEach(v=>{
+    const h=v.hh?H(v.hh):null;
+    if(h&&h.known){members(h).forEach(r=>{if(r.away)return;if(chance(.25)){const d=ri(15,40);r.hp-=d;if(r.hp<=0){kill(r,'Killed when floor '+pad(lvl)+' was overrun from inside');hit.push(r.short+' was killed')}else{hit.push(r.short+' was hurt');if(chance(.35))infect(r,'a bite when floor '+pad(lvl)+' was overrun')}}});if(members(h).length){fled.push(h.name)}h.unit=null}
+    else if(h&&!h.known)h.fate='lost';
+    if(v.st!=='sealed'){v.st='infested';v.hh=null}
+    known().filter(r=>r.qRoom===v.id&&r.quar).forEach(r=>{r.quar=false;r.qRoom=null});
+  });
+  log('Floor '+pad(lvl)+' has been overrun from inside.','big');
+  queue('infest',{lvl,x:'The dead from '+src+' spread through the whole floor '+pad(lvl)+' corridor. Nobody can live there now.'+(hit.length?'\n\n'+hit.join('. ')+'.':'')+(fled.length?'\n\n'+fled.join(', ')+' fled into the stairwell with nowhere to live.':'')});
+}
+function sealFloor(lvl){const f=S.infest&&S.infest[lvl];if(!f||f.sealed||S.store.scrap<10)return false;S.store.scrap-=10;f.sealed=true;log('Floor '+pad(lvl)+' sealed off at both stairwell landings.','');return true}
+function retakeFloor(lvl){
+  const team=known().filter(able).sort((a,b)=>guardPow(b)-guardPow(a)).slice(0,3);if(team.length<2)return 'Not enough fit people to try.';
+  const T=team.reduce((a,r)=>a+guardPow(r),0);const P=10+pday()*.3;const win=chance(T/(T+P));const out=[];
+  team.forEach(r=>{r.busy=true;if(chance(win?.25:.55)){const d=ri(12,35);r.hp-=d;if(r.hp<=0){kill(r,'Killed retaking floor '+pad(lvl));out.push(r.short+' was killed.')}else{out.push(r.short+' was hurt.');if(chance(.35-defOf(r)*.07))infect(r,'a bite retaking floor '+pad(lvl))}}});
+  if(win){delete S.infest[lvl];S.units.filter(v=>v.lvl===lvl&&v.st==='infested').forEach(v=>{v.st='empty';v.looted=!!v.room;v.breakout=0});out.unshift(team.map(r=>r.short).join(', ')+' fought their way through floor '+pad(lvl)+'. It\'s clear. Households can move back in.')}
+  else out.unshift('The team was driven back from floor '+pad(lvl)+'.');
+  log(out[0],win?'big':'bad');return out.join('\n');
 }
 function infect(r,src){
   if(r.inf||!r.alive)return;
@@ -645,6 +680,10 @@ function infect(r,src){
     const h=H(r.hh);const kp=members(h).find(m=>m!==r&&has(m,'kaypoh'));
     if(kp&&chance(.5)){r.inf.hidden=false;log(kp.short+' noticed '+r.short+' hiding a bandage. Kaypoh pays off.','bad');queue('infected',{id:r.id})}
   }
+}
+function checkQRooms(){
+  S.units.forEach(u=>{if(u.room!=='quarantine'||(u.qUsed||0)<2)return;if(known().some(r=>r.quar&&r.qRoom===u.id))return;
+    u.room=null;u.st='sealed';u.contam=true;log('The quarantine room at '+u.id+' has held two infected people. It is too contaminated to use again. Sealed for good.','bad')});
 }
 function doInfection(){
   known().forEach(r=>{
@@ -681,6 +720,7 @@ function sanDelta(r){
   return d;
 }
 function doSanity(){
+  checkQRooms();
   known().forEach(r=>{
     if(r.away)return;r.san=clamp(r.san+sanDelta(r),0,100);
     if(r.san<25&&S.t-r.lastBreak>=2&&r.age>=13&&!r.quar&&chance((25-r.san)/25*.16+.01)){r.lastBreak=S.t;queue('breakdown',{id:r.id,k:breakKind(r)})}
@@ -855,9 +895,9 @@ EV.siren={make:()=>card({i:'📢',t:'The sirens',x:'At 7.12am the Public Warning
 ]})};
 EV.infected={make:a=>{
   const r=RS(a.id);if(!r||!r.alive||!r.inf)return null;const h=H(r.hh);
-  const medic=known().find(m=>act(m)&&m.job==='medic'&&m!==r);const sb=rooms('sickbay')>0;const qr=rooms('quarantine')>0;
+  const medic=known().find(m=>act(m)&&m.job==='medic'&&m!==r);const sb=rooms('sickbay')>0;const qrU=S.units.find(v=>v.room==='quarantine'&&v.st==='empty'&&v.lvl>S.front&&(v.qUsed||0)<2);const qr=!!qrU;
   const c=[];
-  c.push({t:qr?'Lock them in the quarantine room':'Lock them in their household shelter',s:qr?'Safe if they turn.':'The steel door should hold. Family will suffer.',f:()=>{r.quar=true;r.job='rest';members(h).forEach(m=>{if(m!==r)m.san=clamp(m.san-(qr?8:15),0,100)});return r.short+' goes in. The door shuts. '+(qr?'':'Through the door, the family can hear everything.')}});
+  c.push({t:qr?'Lock them in the quarantine room at '+qrU.id:'Lock them in their household shelter',s:qr?'Safe if they turn. This will be use '+((qrU.qUsed||0)+1)+' of 2 for that room.':'The steel door should hold. Family will suffer.',f:()=>{r.quar=true;r.job='rest';if(qr){r.qRoom=qrU.id;qrU.qUsed=(qrU.qUsed||0)+1}members(h).forEach(m=>{if(m!==r)m.san=clamp(m.san-(qr?8:15),0,100)});return r.short+' goes in. The door shuts. '+(qr?'':'Through the door, the family can hear everything.')}});
   if(r.inf.limb)c.push({t:'Amputate the limb',s:medic&&sb&&S.store.meds>=1?'Needs a medic + sick bay + 1 meds. Risky.':'Needs a medic on duty, a sick bay and 1 meds',dis:!(medic&&sb&&S.store.meds>=1),f:()=>{S.store.meds--;const p=.45+medic.st.I*.03;if(chance(p)){r.inf=null;r.st.S=Math.max(1,r.st.S-2);r.st.A=Math.max(1,r.st.A-2);r.hp=Math.max(5,r.hp-40);r.san=clamp(r.san-20,0,100);return 'It is ugly work. But the fever breaks. '+r.short+' will live, weaker.'}if(chance(.35)){kill(r,'Died during amputation');return r.short+' did not survive the surgery.'}return 'It spread too far. The infection is still in them.'}});
   c.push({t:'Give medicine to slow it down',s:'−1 meds. Buys time, not a cure.',dis:S.store.meds<1,f:()=>{S.store.meds--;r.inf.turn+=4;return 'Antibiotics and paracetamol. The fever eases, for now.'}});
   c.push({t:'Send them away from the block',s:'Family will not forgive this easily.',f:()=>{exile(r,'Sent away when infected');members(h).forEach(m=>m.san=clamp(m.san-20,0,100));h.trust=clamp(h.trust-25,0,100);return r.short+' walks down the stairs with a bag and a bottle of water. Nobody watches them go.'}});
@@ -977,6 +1017,10 @@ EV.note={make:a=>{const h=H(a.h);if(!h||h.known||h.fate)return null;const u=U(h.
   {t:'Bring them 5 food and make contact',s:'−5 food',dis:S.store.food<5,f:()=>{S.store.food-=5;h.food+=5;reveal(u,'They open the gate in tears.');h.trust=80;return 'The '+h.name+' join the block.'}},
   {t:'Ignore it',f:()=>'The corridor is quiet.'}]})}};
 EV.banging={make:a=>{const u=U(a.u);if(!u||u.st!=='unknown')return null;return card({i:'🚪',t:'Banging in '+u.id,x:'Neighbours on floor '+pad(u.lvl)+' report banging and groaning behind the gate of '+u.id+'. Nobody has answered the door in days.',bad:1,zed:1,c:[{t:'Mark it as dangerous',f:()=>{u.st='danger';const h=H(u.hh);if(h)h.fate='turned';return u.id+' is now marked. Seal it or clear it before it breaks out.'}}]})}};
+EV.infest={make:a=>{const f=S.infest&&S.infest[a.lvl];if(!f)return null;return card({i:'🧟',t:'Floor '+pad(a.lvl)+' is overrun',x:a.x+'\n\nWhile the floor is open, zombies will keep coming through the stairwell at the floors above and below.',bad:1,zed:1,c:[
+  {t:'Barricade the floor off',s:'−10 scrap. Stops the spread. You can still try to take it back later.',dis:S.store.scrap<10,f:()=>{sealFloor(a.lvl);return 'Planks, cupboards and wire go up across both stairwell landings. Floor '+pad(a.lvl)+' is shut.'}},
+  {t:'Take it back now',s:'Your 3 strongest fit people fight through. Risky.',dis:known().filter(able).length<2,f:()=>retakeFloor(a.lvl)},
+  {t:'Decide later',s:'It will keep spreading',f:()=>'Floor '+pad(a.lvl)+' stays open. Tap any flat on it to barricade or retake it.'}]})}};
 EV.natday={make:()=>card({i:'🇸🇬',t:'National Day',x:'9 August. Someone hangs a flag from the roof. On the radio, a recording of "Home".',c:[{t:'Sing along from the corridors',s:'Morale up, noise up',f:()=>{known().forEach(r=>r.san=clamp(r.san+12,0,100));S.noise+=4;return 'Off key, all of it. Nobody cares.'}},{t:'Keep quiet',f:()=>'The flag flutters in silence.'}]})};
 EV.tdd={make:()=>card({i:'📢',t:'Total Defence Day',x:'15 February, 12.05pm. Somewhere, a timer still works: the Public Warning System sounds its yearly test. Every zombie for miles turns toward the sirens.',zed:1,c:[{t:'Brace',f:()=>{S.flags.horde=1;return 'Tonight will be bad.'}}]})};
 function newHousehold(eth){const h=mkHH(eth);h.known=true;h.kind='family';h.trust=60;S.hh.push(h);return h}
@@ -1033,7 +1077,7 @@ function convert(uid){const u=U(uid);const k=document.getElementById('roomsel').
 function moveIn(uid){const u=U(uid);const h=H(+document.getElementById('hhsel').value);if(!u||!h||u.st!=='empty'||u.room)return;if(h.unit){const old=U(h.unit);if(old){old.st='empty';old.hh=null;old.looted=true}}h.unit=u.id;u.hh=h.id;u.st='known';log('The '+h.name+' moved into '+u.id+'.','');save();render()}
 function seal(uid){const u=U(uid);if(!u||u.st!=='danger'||S.store.scrap<5)return;S.store.scrap-=5;u.st='sealed';log(u.id+' sealed shut with planks and wire.','');save();render()}
 function clearUnit(uid){
-  const u=U(uid);if(!u||!(u.st==='danger'||u.st==='sealed'))return;
+  const u=U(uid);if(!u||!(u.st==='danger'||u.st==='sealed')||u.contam)return;
   const team=known().filter(able).sort((a,b)=>guardPow(b)-guardPow(a)).slice(0,2);if(team.length<2)return;
   const T=team.reduce((a,r)=>a+guardPow(r),0);const P=6+pday()*.15;const win=chance(T/(T+P));const out=[];
   team.forEach(r=>{r.busy=true;if(chance(win?.2:.5)){const d=ri(10,30);r.hp-=d;if(r.hp<=0){kill(r,'Killed clearing '+u.id);out.push(r.short+' was killed.')}else{out.push(r.short+' was hurt.');if(chance(.35-defOf(r)*.07))infect(r,'a bite clearing '+u.id)}}});
@@ -1135,9 +1179,10 @@ function unitTile(u){
   if(u.st==='lost')return `<button class="unit st-lost${sel}" data-act="sel" data-v="${u.id}"><span class="uid">${u.id}</span><span class="zz">🧟</span>${(u.i+u.lvl)%2?'<span class="zz" style="animation-delay:-1.3s">🧟</span>':''}</button>`;
   if(u.st==='unknown')return `<button class="unit st-unknown${sel}" data-act="sel" data-v="${u.id}"><span class="uid">${u.id}</span><span class="q">?</span></button>`;
   if(u.st==='danger')return `<button class="unit st-danger${sel}" data-act="sel" data-v="${u.id}"><span class="uid">${u.id}</span><span class="unm">Banging</span><span>🧟</span></button>`;
-  if(u.st==='sealed')return `<button class="unit st-sealed${sel}" data-act="sel" data-v="${u.id}"><span class="uid">${u.id}</span><span class="unm">Sealed</span><span>🚧</span></button>`;
+  if(u.st==='infested'){const sl=S.infest&&S.infest[u.lvl]&&S.infest[u.lvl].sealed;return sl?`<button class="unit st-sealed${sel}" data-act="sel" data-v="${u.id}"><span class="uid">${u.id}</span><span class="unm">Floor sealed</span><span>🚧🧟</span></button>`:`<button class="unit st-lost${sel}" data-act="sel" data-v="${u.id}"><span class="uid">${u.id}</span><span class="unm">Overrun</span><span class="zz">🧟</span></button>`}
+  if(u.st==='sealed')return `<button class="unit st-sealed${sel}" data-act="sel" data-v="${u.id}"><span class="uid">${u.id}</span><span class="unm">${u.contam?'Contaminated':'Sealed'}</span><span>🚧</span></button>`;
   if(u.st==='empty'){
-    if(u.room){const rm=ROOMS[u.room];const n=u.room==='quarantine'?known().filter(r=>r.quar).length:0;return `<button class="unit room-${u.room}${sel}" data-act="sel" data-v="${u.id}"><span class="uid">${u.id}</span><span class="unm">${rm.e} ${rm.n}</span>${n?`<span class="small">${n} inside</span>`:''}${u.room==='garden'?(()=>{const g=gardenAssign()[u.id];return g?`<span class="small">🧑‍🌾 ${esc(g.short)} · +5/day</span>`:`<span class="small" style="color:#fff3b0;font-weight:700">⚠ Needs a gardener</span>`})():''}</button>`}
+    if(u.room){const rm=ROOMS[u.room];const n=u.room==='quarantine'?known().filter(r=>r.quar&&r.qRoom===u.id).length:0;return `<button class="unit room-${u.room}${sel}" data-act="sel" data-v="${u.id}"><span class="uid">${u.id}</span><span class="unm">${rm.e} ${rm.n}</span>${n?`<span class="small">${n} inside</span>`:''}${u.room==='quarantine'?`<span class="small">Uses ${u.qUsed||0}/2</span>`:''}${u.room==='garden'?(()=>{const g=gardenAssign()[u.id];return g?`<span class="small">🧑‍🌾 ${esc(g.short)} · +5/day</span>`:`<span class="small" style="color:#fff3b0;font-weight:700">⚠ Needs a gardener</span>`})():''}</button>`}
     return `<button class="unit st-empty${sel}" data-act="sel" data-v="${u.id}"><span class="uid">${u.id}</span><span class="unm">Empty</span><span class="small">${u.looted?'Searched':'Unsearched'}</span></button>`;
   }
   const h=H(u.hh);const ms=h?members(h):[];
@@ -1212,6 +1257,14 @@ function panelUnit(){
     h+=`<div class="card stack"><b>🚪 Knock on the door</b><span class="small mute">Takes the person's phase.${isOut()?' After the outbreak, some doors should stay shut.':''}</span><div class="row">${workerSelect()}<button data-act="knock" data-v="${u.id}" ${known().some(able)?'':'disabled'}>Knock</button></div></div></div>`;
     return h;
   }
+  if(u.st==='infested'){
+    const f=S.infest&&S.infest[u.lvl];const fit=known().filter(able).length;
+    h+=`<p class="badline">The whole of floor ${pad(u.lvl)} is overrun. ${f&&f.sealed?'It is barricaded off, so it can\'t spread.':'It is open: zombies keep spilling into the floors above and below.'}</p><div class="stack">`;
+    if(f&&!f.sealed)h+=`<button data-act="sealfloor" data-v="${u.lvl}" ${S.store.scrap>=10?'':'disabled'}>🚧 Barricade floor ${pad(u.lvl)} (−10 scrap)</button>`;
+    h+=`<button data-act="retakefloor" data-v="${u.lvl}" ${fit>=2?'':'disabled'}>⚔️ Send your 3 strongest to take floor ${pad(u.lvl)} back</button><span class="small mute">Success clears every flat on the floor. Failure means injuries, bites or deaths.</span></div>`;
+    return h;
+  }
+  if(u.st==='sealed'&&u.contam)return h+'<p class="mute">The old quarantine room. Too contaminated to ever use again. It stays sealed.</p>';
   if(u.st==='danger'||u.st==='sealed'){
     const canClear=known().filter(able).length>=2;
     h+=`<p class="${u.st==='danger'?'badline':'mute'}">${u.st==='danger'?'Something is inside, throwing itself at the gate. If it isn\'t dealt with, it will break out into the corridor.':'Planks and wire hold the gate shut. It\'s safe for now.'}</p><div class="stack">
@@ -1225,7 +1278,7 @@ function panelUnit(){
       if(!water)h+=`<p class="badline">Not enough water in the store. Gardens produce nothing until there is.</p>`;
       if(!g)h+=`<div class="card stack"><b>🧑‍🌾 Assign a gardener</b><div class="row">${workerSelect(r=>r.job!=='garden',true)}<button data-act="tend" data-v="${u.id}" ${known().some(r=>able(r)&&r.job!=='garden')?'':'disabled'}>Assign</button></div><span class="small mute">Sets their job to Tend garden. Each gardener looks after one garden.</span></div>`;
       h+=`<p class="small mute">${jobbers('garden').length} gardener(s) for ${rooms('garden')} garden(s).</p>`}
-    if(u.room==='quarantine'){const q=known().filter(r=>r.quar);h+=q.length?q.map(personCard).join(''):'<p class="mute">Nobody inside.</p>'}return h}
+    if(u.room==='quarantine'){const q=known().filter(r=>r.quar&&r.qRoom===u.id);h+=`<p class="${(u.qUsed||0)>=1?'warnline':'mute'}">Used ${u.qUsed||0} of 2 times. After 2 people have been through it, the flat is too contaminated and will be sealed for good.</p>`;h+=q.length?q.map(personCard).join(''):'<p class="mute">Nobody inside.</p>'}return h}
     h+=`<p class="mute">Nobody lives here now.</p><div class="stack">`;
     if(!u.looted)h+=`<div class="card stack"><b>🔍 Search the flat</b><div class="row">${workerSelect()}<button data-act="search" data-v="${u.id}" ${known().some(able)?'':'disabled'}>Search</button></div></div>`;
     h+=`<div class="card stack"><b>🛠️ Repurpose it</b><div class="row"><select id="roomsel" aria-label="Room type">${Object.entries(ROOMS).map(([k,r])=>`<option value="${k}">${r.e} ${r.n} (−${r.cost} scrap)</option>`).join('')}</select><button data-act="convert" data-v="${u.id}">Convert</button></div><span class="small mute">${Object.values(ROOMS).map(r=>r.n+': '+r.d).join(' ')}</span></div>`;
@@ -1251,7 +1304,7 @@ function gearSel(r,type){
   return `<select data-chg="${type}" data-id="${r.id}" aria-label="${type==='wpn'?'Weapon':'Armour'} for ${esc(r.short)}"><option value="">${type==='wpn'?'No weapon':'No armour'}</option>${cur?`<option value="${cur}" selected>${lab(cur)}</option>`:''}${list.map(k=>`<option value="${k}">${lab(k)} ×${S.items[k]}</option>`).join('')}</select>`;
 }
 function gardenAssign(){
-  const gs=S.units.filter(u=>u.room==='garden'&&u.lvl>S.front).sort((a,b)=>a.lvl-b.lvl||a.i-b.i);const gd=jobbers('garden');const m={};const used=new Set();
+  const gs=S.units.filter(u=>u.room==='garden'&&u.lvl>S.front&&u.st==='empty').sort((a,b)=>a.lvl-b.lvl||a.i-b.i);const gd=jobbers('garden');const m={};const used=new Set();
   // people assigned to a specific garden first, then everyone else fills the rest in order
   gs.forEach(u=>{const g=gd.find(r=>r.garden===u.id&&!used.has(r.id));m[u.id]=g||null;if(g)used.add(g.id)});
   gs.forEach(u=>{if(m[u.id])return;const g=gd.find(r=>!used.has(r.id));m[u.id]=g||null;if(g)used.add(g.id)});
@@ -1412,7 +1465,9 @@ const ACT={
   dest:d=>{UI.dest=d.v;render()},
   chat:d=>chat(d.v),knock:d=>knock(d.v),search:d=>search(d.v),convert:d=>convert(d.v),movein:d=>moveIn(d.v),seal:d=>seal(d.v),clear:d=>clearUnit(d.v),
   donate:d=>donate(+d.v,d.k),askfood:d=>moveFood(+d.v,'in'),givefood:d=>moveFood(+d.v,'out'),givewater:d=>moveFood(+d.v,'out','water'),
-  talk:d=>talkTo(+d.v),release:d=>{const r=RS(+d.v);if(r){r.quar=false;save();render()}},
+  talk:d=>talkTo(+d.v),release:d=>{const r=RS(+d.v);if(r){r.quar=false;r.qRoom=null;checkQRooms();save();render()}},
+  sealfloor:d=>{sealFloor(+d.v);save();render()},
+  retakefloor:d=>{const x=retakeFloor(+d.v);queue('info',{i:'⚔️',t:'Floor '+pad(+d.v),x});save();render()},
   dispatch:d=>dispatch(d.v),
   build:d=>startProj(d.v),
   pf:d=>{UI.pf=d.v;render()},
@@ -1445,6 +1500,7 @@ document.addEventListener('keydown',e=>{if(e.code==='Space'&&S&&!e.target.closes
 
 function migrate(){
   if(!S)return;
+  const q0=S.units.find(u=>u.room==='quarantine'&&u.st==='empty');if(q0)S.res.forEach(r=>{if(r.alive&&r.quar&&!r.qRoom&&rooms('quarantine')){r.qRoom=q0.id;q0.qUsed=Math.min(2,(q0.qUsed||0)+1)}});
   S.res.forEach(r=>{if(r.short==='You'){const n=r.name.replace(' (you)','');const h=H(r.hh);r.short=h&&h.eth==='cn'?n.split(' ').slice(1).join(' '):n.split(' ')[0]}});
 }
 function start(data){
