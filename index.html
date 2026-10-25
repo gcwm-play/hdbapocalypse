@@ -316,8 +316,8 @@ const HELPERS=['Maria','Dewi','Joy','Lorna','Sri','Rina','Marites','Wati'];
 const WORKERS=['Rahim','Karthik','Sohel','Murugan','Babul','Selvam','Jahid'];
 const ESTATES=['Tampines','Bedok North','Jurong West','Woodlands','Toa Payoh','Ang Mo Kio','Yishun','Sengkang','Bukit Batok','Pasir Ris','Hougang','Clementi'];
 const ITEMS={broom:'Broom',knife:'Kitchen knife',bamboo:'Bamboo laundry pole',rope:'Nylon rope',sheets:'Bedsheets',tape:'Duct tape',pot:'Cooking pot',pail:'Pail',tarp:'Canvas tarp',pipe:'PVC pipe',bicycle:'Bicycle',extinguisher:'Fire extinguisher',battery:'Car battery',clock:'Alarm clock',wok:'Wok',helmet:'Bicycle helmet',wire:'Electrical wire',hammer:'Hammer',parang:'Parang',changkol:'Changkol',golf:'Golf club',umbrella:'Umbrella',baton:'Police baton',riot:'Riot shield',radio:'Police radio',
-  broomSpear:'Broom-handle spear',bambooPole:'Bamboo polearm',wokShield:'Wok shield',potHelmet:'Pot helmet'};
-const GEAR={knife:{atk:1},hammer:{atk:1},umbrella:{atk:1},golf:{atk:2},changkol:{atk:2},baton:{atk:2},parang:{atk:3},broomSpear:{atk:2},bambooPole:{atk:3},extinguisher:{atk:2},
+  rifle:'Rifle (SAR 21)',broomSpear:'Broom-handle spear',bambooPole:'Bamboo polearm',wokShield:'Wok shield',potHelmet:'Pot helmet'};
+const GEAR={rifle:{atk:6},knife:{atk:1},hammer:{atk:1},umbrella:{atk:1},golf:{atk:2},changkol:{atk:2},baton:{atk:2},parang:{atk:3},broomSpear:{atk:2},bambooPole:{atk:3},extinguisher:{atk:2},
   helmet:{def:1},potHelmet:{def:1},wokShield:{def:2},riot:{def:3}};
 const HH_ITEMS={broom:5,knife:6,bamboo:4,sheets:5,pot:4,pail:4,wok:3,rope:3,clock:3,umbrella:4,helmet:2,bicycle:2,golf:1,changkol:1,parang:1,hammer:2,tape:2,pipe:1,tarp:1,battery:1,wire:2,extinguisher:1};
 const RECIPES=[
@@ -406,7 +406,7 @@ function nameHH(h){
   if(h.eth==='ml'||!h.sur)h.name=(head.short)+'’s household';else h.name=h.sur+' family';
 }
 function mkRes(arch,h,o){
-  o=o||{};const A=ARCH[arch];const sex=o.sex||A.sex||(chance(.5)?'M':'F');const age=o.age||ri(A.age[0],A.age[1]);const E=ETH[h.eth];
+  o=o||{};const A=ARCH[arch];const sex=o.sex||A.sex||(chance(.5)?'M':'F');const age=o.age!=null?o.age:ri(A.age[0],A.age[1]);const E=ETH[h.eth];
   let short,name;
   for(let k=0;k<12;k++){
     if(arch==='helper'){short=name=pick(HELPERS)}
@@ -489,6 +489,26 @@ function kopiUpkeep(){
   });
 }
 function nearKopi(u){return !!u&&S.units.some(k=>k.room==='kopi'&&k.open&&k.st==='empty'&&k.lvl>S.front&&Math.abs(k.lvl-u.lvl)<=2)}
+const hasPower=()=>S.grid.power||(S.flags.gen||0)>S.t;
+function addTimer(days,k,a){S.timers=S.timers||[];S.timers.push({d:S.t+days,k,a:a||{}})}
+const TIMERS={
+  labour:a=>queue('labour',a),
+  convoyNews:a=>queue('convoyNews',a),
+  deserter:a=>queue('deserter2',a),
+  armedLooters:a=>queue('armedLooters',a),
+  liftshaft:a=>{if(S.flags.liftSealed)return;const top=Math.max(S.front+1,S.floors-ri(0,2));attackNear(top,'Zombies climbed the dead lift shaft and burst out of the lift doors on floor '+pad(top),'the lift shaft');addTimer(ri(4,7),'liftshaft',{})},
+};
+function birth(r,h,risk){
+  const baby=mkRes('kid',h,{age:0});baby.san=100;baby.traits=[];S.stats.born=(S.stats.born||0)+1;const sex=baby.sex==='M'?'boy':'girl';
+  if(chance(risk)){kill(r,'Died giving birth');return 'A healthy baby '+sex+', '+baby.short+'. But '+r.short+' lost too much blood. She did not make it.\n\nThe block mourns her, and takes turns holding the baby.'}
+  known().forEach(m=>m.san=clamp(m.san+12,0,100));return 'A healthy baby '+sex+'! '+baby.short+' cries loud enough for the whole block to hear. People laugh for the first time in weeks. (+12 sanity for everyone)';
+}
+function burn(h,u){
+  S.noise+=8;const out=[];
+  members(h).forEach(r=>{if(!r.away&&!r.quar&&chance(.3)){r.hp-=ri(10,30);if(r.hp<=0)kill(r,'Died in a fire at '+u.id);else out.push(r.short+' was burned')}});
+  h.items={};h.food=0;h.water=0;h.unit=null;u.hh=null;u.st='gutted';u.gone=true;u.room=null;log(u.id+' burned out.','bad');
+  return u.id+' is a blackened shell. The '+h.name+' lost everything they owned and are sleeping in the stairwell.'+(out.length?' '+out.join(', ')+'.':'');
+}
 function newDay(){
   S.talks=2+(known().some(r=>act(r)&&r.arch==='rcauntie')?1:0);S.chatUsed={};
   rollWeather();
@@ -518,6 +538,13 @@ function newDay(){
   if(S.infest)for(const l in S.infest){if(+l<=S.front){delete S.infest[l];continue}if(!S.infest[l].sealed&&chance(.4))attackNear(+l,'Zombies from the overrun floor '+pad(+l)+' came through the stairwell','floor '+pad(+l))}
   if(S.flags.cat&&S.store.food>0)S.store.food--;
   kopiUpkeep();
+  // scheduled follow-ups and ongoing deals
+  S.timers=S.timers||[];
+  if(S.timers.length){const due=S.timers.filter(t=>t.d<=S.t);S.timers=S.timers.filter(t=>t.d>S.t);due.forEach(t=>{if(TIMERS[t.k])TIMERS[t.k](t.a)})}
+  if(S.flags.ally&&S.flags.ally.until>S.t){S.store.food+=4;log('Rice from Blk '+S.flags.allyBlk+' came over the rope (+4 food).','good')}
+  if(S.flags.insulin){const r=RS(S.flags.insulin);if(!r||!r.alive)S.flags.insulin=0;else if(S.store.meds>0)S.store.meds--;else{r.hp-=15;log(r.short+' had no medicine today.','bad');if(r.hp<=0){kill(r,'Ran out of medicine for their diabetes');S.flags.insulin=0}}}
+  if(S.flags.insulinNo){const r=RS(S.flags.insulinNo);if(!r||!r.alive)S.flags.insulinNo=0;else{r.hp-=10;if(r.hp<=0){kill(r,'Went without medicine for their diabetes');S.flags.insulinNo=0}}}
+  if(S.flags.gen&&S.flags.gen===S.t)log('The generator coughs and dies. Out of diesel.','bad');
   if(isOut()&&blockTrust()<22&&known().length>3&&S.t-(S.flags.oustT||-9)>3&&chance(.35)){S.flags.oustT=S.t;queue('ousted',{})}
   // market slowly looted by others
   S.market=Math.max(0,S.market-ri(0,2));
@@ -544,7 +571,7 @@ function consume(){
   const ration=S.ration;
   S.hh.forEach(h=>{
     if(!h.known)return;const ms=members(h);if(!ms.length)return;
-    const hawk=ms.some(r=>r.arch==='hawker'&&act(r))?.85:1;
+    const hawk=(ms.some(r=>r.arch==='hawker'&&act(r))?.85:1)*(S.flags.preserve?.9:1);
     const needF=Math.ceil(ms.length*hawk);let got=Math.min(h.food,needF);h.food-=got;
     let short=needF-got;if(short>0){const give=ration==='full'?short:ration==='half'?Math.ceil(short/2):0;const g=Math.min(give,S.store.food);S.store.food-=g;got+=g}
     const fF=clamp(got/needF,0,1);
@@ -586,7 +613,7 @@ function doJobs(){
   // medic
   const medics=jobbers('medic');const sb=rooms('sickbay')>0;
   medics.forEach(m=>{
-    const amt=(3+m.st.I*.7+(m.arch==='nurse'?3:0))*(sb?2:1);
+    const amt=(3+m.st.I*.7+(m.arch==='nurse'?3:0))*(sb?2:1)*(S.flags.herbs?1.25:1);
     ks.filter(r=>r.hp<100).sort((a,b)=>a.hp-b.hp).slice(0,2).forEach(r=>r.hp=Math.min(100,r.hp+amt));
     ks.forEach(r=>{if(r.inf&&r.inf.hidden&&chance(.04*m.st.I/5+(sb?.1:0)+(m.arch==='nurse'?.06:0))){r.inf.hidden=false;log(m.short+' found a bite '+r.short+' was hiding.','bad');queue('infected',{id:r.id})}});
   });
@@ -615,6 +642,8 @@ function guardPow(r){
 function doThreat(){
   const f=[.25,.2,.5,1][S.ph];
   let p=basePressure()*f+S.noise*f;
+  if((S.flags.gen||0)>S.t)p+=3*f; // the generator is loud
+  p+=jobbers('guard').filter(g=>g.wpn==='rifle').length*1.5*f; // so is gunfire
   if(S.ph===3){
     if(S.flags.horde){p*=2.2;S.flags.horde=false;log('The horde hit the line tonight.','bad')}
     if(S.flags.lure){p*=.5;S.flags.lure=false;log('The noise lure pulled them away for a while.','good')}
@@ -743,7 +772,7 @@ function sanDelta(r){
   if(r.hun>50)d-=1.2;if(r.thi>50)d-=1.6;if(r.hp<50)d-=.8;
   if(isOut()&&u&&u.lvl-S.front<=2)d-=.7;
   if(!u)d-=2;
-  if(!S.grid.power){if((S.weather.type==='hot'||S.weather.type==='sunny')&&S.ph===1)d-=1.3;if(S.ph>=2&&!S.built.lamp)d-=.6}
+  if(!hasPower()){if((S.weather.type==='hot'||S.weather.type==='sunny')&&S.ph===1)d-=1.3;if(S.ph>=2&&!S.built.lamp)d-=.6}
   if(S.weather.type==='haze')d-=.7;if(S.weather.type==='rain'||S.weather.type==='storm')d+=.2;
   if(r.job==='guard'&&!has(r,'garang'))d-=.8;
   if(r.job==='rest')d+=1.2;
@@ -822,12 +851,13 @@ function routes(dest){
   return out;
 }
 function lookouts(){return jobbers('lookout')}
+function lookN(){return jobbers('lookout').length*(S.flags.kwatch?2:1)}
 function expRisk(dest,route,team,lure){
   if(!isOut())return 0;
   let r=DEST[dest].risk*(1+Math.sqrt(pday())*.13)*route.m;
   const w=S.weather.type;if(w==='rain'||w==='storm')r*=.8;if(w==='haze')r*=.85;
   if(S.ph===3&&route.k!=='sneak')r*=1.3;
-  r*=Math.max(.55,1-lookouts().length*(route.k==='sneak'?.12:.06));
+  r*=Math.max(.55,1-lookN()*(route.k==='sneak'?.12:.06));
   r*=Math.max(.55,1-team.reduce((a,x)=>a+atkOf(x),0)*.04);
   if(lure)r*=.6;
   return clamp(r,.02,.9);
@@ -848,7 +878,7 @@ function dispatch(dest){
 function resolveExps(){
   const done=S.exps.filter(e=>e.back<=tick());S.exps=S.exps.filter(e=>e.back>tick());
   done.forEach(e=>{
-    if(e.wander||e.camp){returnLoner(e);return}
+    if(e.wander||e.camp||e.lend){returnLoner(e);return}
     const team=e.team.map(RS).filter(Boolean);const route={k:e.route,m:e.rm};
     const risk=expRisk(e.dest,route,team,e.lure);const lines=[];const loot={food:0,water:0,meds:0,scrap:0,items:{}};
     const survivors=[];
@@ -883,6 +913,11 @@ function resolveExps(){
 
 function returnLoner(e){
   const r=RS(e.team[0]);if(!r||!r.alive)return;r.away=false;
+  if(e.lend){
+    if(chance(.85)){S.store.food+=6;r.san=clamp(r.san+5,0,100);queue('info',{i:'🤝',t:r.short+' is back',x:r.name+' crosses back from Blk '+S.flags.allyBlk+' with a sack of rice as thanks (+6 food). "Their line held. Barely."'})}
+    else{r.wpn=null;r.arm=null;exile(r,'Killed defending Blk '+S.flags.allyBlk);queue('info',{i:'🤝',t:r.short+' didn\'t come back',x:'A torch message from Blk '+S.flags.allyBlk+': '+r.name+' died holding their stairwell. They send their apologies, and nothing else.',bad:1})}
+    return;
+  }
   if(e.camp){
     if(!isOut()||chance(.5)){itemAdd(S.items,'riot');itemAdd(S.items,'baton');S.store.meds+=3;S.store.food+=8;r.san=clamp(r.san+10,0,100);queue('info',{i:'🪖',t:r.short+' is back',x:r.name+' climbs over the barricade in torn uniform. "Camp is gone. I took what I could." He brings a riot shield, a baton, field rations and a medical pouch.'})}
     else{exile(r,'Reported for duty. Never heard from again');queue('info',{i:'🪖',t:'No word from '+r.short,x:'Weeks pass. '+r.name+' never comes back from camp.',bad:1})}
@@ -996,6 +1031,77 @@ function harm(r,h){
 }
 // random events
 const REV=[
+ {id:'hoarder',w:2,c:()=>isOut()&&pday()>6&&S.hh.some(h=>h.known&&h.unit&&h.food>=15&&!members(h).some(r=>r.leader)),make:()=>{
+  const h=S.hh.filter(x=>x.known&&x.unit&&x.food>=15&&!members(x).some(r=>r.leader)).sort((a,b)=>b.food-a.food)[0];if(!h)return null;
+  const k=known().find(r=>has(r,'kaypoh')&&r.hh!==h.id);const hungry=known().filter(r=>r.hun>=50).length;
+  return card({i:'🍚',t:'A stash behind the cupboard',x:(k?k.short+', always kaypoh,':'A neighbour')+' noticed the '+h.name+' at '+h.unit+' have been eating well. Behind a false cupboard: '+h.food+' days of rice, tins and Milo.'+(hungry?'\n\nMeanwhile '+hungry+' residents are going hungry.':''),c:[
+   {t:'Confiscate it for the communal store',s:'+'+h.food+' food. The '+h.name+' will hate you (−35 trust). '+(hungry?'Hungry households approve.':'Some neighbours think it goes too far.'),f:()=>{const f=h.food;S.store.food+=f;h.food=0;h.trust=clamp(h.trust-35,0,100);members(h).forEach(m=>m.san=clamp(m.san-12,0,100));S.hh.forEach(x=>{if(x.known&&x!==h)x.trust=clamp(x.trust+(hungry?6:-3),0,100)});return 'The bags come out one by one: '+f+' food into the store.'}},
+   {t:'Ask them to share half',s:'Your best talker tries (Kampung spirit check)',f:()=>{const t=best('K');const half=Math.floor(h.food/2);if(t&&t.st.K*10+ri(0,40)>65){h.food-=half;S.store.food+=half;h.trust=clamp(h.trust-5,0,100);return t.short+' talks to them over kopi. They hand over '+half+' food, embarrassed.'}h.trust=clamp(h.trust-10,0,100);return 'They slam the gate. "Our food, our business."'}},
+   {t:'Leave it. It\'s their food.',s:'Other households notice (−5 trust each)',f:()=>{S.hh.forEach(x=>{if(x.known&&x!==h)x.trust=clamp(x.trust-5,0,100)});h.trust=clamp(h.trust+10,0,100);return 'The stash stays. Word gets around that some families eat better than others.'}}]})}},
+ {id:'pregnant',w:1,once:1,c:()=>known().some(r=>r.sex==='F'&&r.age>=20&&r.age<=42&&act(r)),make:()=>{
+  const r=pick(known().filter(x=>x.sex==='F'&&x.age>=20&&x.age<=42&&act(x)));const h=H(r.hh);
+  return card({i:'🤰',t:r.short+' is pregnant',x:r.name+' of the '+h.name+' tells you quietly: she\'s pregnant, and close to term. Maybe a week.\n\nA birth in the middle of all this could lift the whole block, or go very wrong. A medic, a sick bay and medicine all make it safer.',c:[
+   {t:'Set aside 3 meds for the birth',s:'−3 meds now. Much safer delivery.',dis:S.store.meds<3,f:()=>{S.store.meds-=3;addTimer(ri(4,7),'labour',{id:r.id,prep:1});known().forEach(m=>m.san=clamp(m.san+5,0,100));return 'A box marked with her name goes into the medicine cupboard. Word spreads, and people smile.'}},
+   {t:'We\'ll manage when it comes',f:()=>{addTimer(ri(4,7),'labour',{id:r.id});return 'She nods. Everyone hopes for the best.'}}]})}},
+ {id:'convoy',w:2,once:1,c:()=>isOut()&&pday()>=10&&known().some(r=>!r.away&&(r.age<13||r.age>=70)),make:()=>{
+  const vul=known().filter(r=>!r.away&&!r.quar&&(r.age<13||r.age>=70));if(!vul.length)return null;
+  return card({i:'🚛',t:'An evacuation convoy',x:(S.items.radio?'The police radio crackles':'A loudspeaker truck crawls down Ave 3')+': "Evacuation convoy to Pulau Tekong. Departs from the bus interchange at dawn. Priority for children and the elderly."\n\nYou have '+vul.length+' children and elderly residents: '+vul.map(r=>r.short).join(', ')+'. The road to the interchange is not safe, and nobody knows what is really on Tekong.',c:[
+   {t:'Send all '+vul.length+' of them',s:'Fewer mouths, and safer... if it\'s real. Families are torn (−10 sanity).',f:()=>{const fams=[...new Set(vul.map(r=>r.hh))];vul.forEach(r=>exile(r,'Left on the evacuation convoy to Pulau Tekong'));known().forEach(m=>{if(fams.includes(m.hh))m.san=clamp(m.san-10,0,100)});addTimer(ri(4,8),'convoyNews',{hs:fams});return vul.length+' people climb aboard at dawn. Parents and grandchildren walk back up the stairs alone.'}},
+   {t:'Only those whose families agree',s:'About half go',f:()=>{const go=vul.filter(()=>chance(.5));const fams=[...new Set(go.map(r=>r.hh))];go.forEach(r=>exile(r,'Left on the evacuation convoy to Pulau Tekong'));if(go.length)addTimer(ri(4,8),'convoyNews',{hs:fams});return go.length?go.map(r=>r.short).join(', ')+' leave on the convoy. The rest stay.':'In the end, no family can let go.'}},
+   {t:'Nobody goes. We stay together.',s:'+5 trust everywhere',f:()=>{S.hh.forEach(h=>{if(h.known)h.trust=clamp(h.trust+5,0,100)});return 'The trucks rumble past. The block stays whole.'}}]})}},
+ {id:'neighbour',w:2,once:1,c:()=>isOut()&&pday()>=6&&known().filter(able).length>=4,make:()=>{
+  const blk=String(ri(101,899));S.flags.allyBlk=blk;const lend=known().filter(able).sort((a,b)=>guardPow(b)-guardPow(a)).slice(0,2);
+  return card({i:'🔦',t:'Torches from Blk '+blk,x:'Every night this week someone across the road has flashed a torch at your block: three long, three short. Tonight a note arrives tied to a brick.\n\n"Blk '+blk+'. We have rice from the wet market but our line is breaking. Lend us 2 fighters for a week and we send food every day. — Uncle Lim"',c:[
+   {t:'Lend '+lend.map(r=>r.short).join(' and '),s:'Your 2 best fighters are gone for 7 days. +4 food a day while the deal lasts. They might not both come back.',dis:lend.length<2,f:()=>{lend.forEach(r=>{r.away=true;S.exps.push({dest:'lend',route:'gate',rm:1,team:[r.id],back:tick()+28,lend:1})});S.flags.ally={until:S.t+7};return lend.map(r=>r.short).join(' and ')+' cross the road at night with their weapons. Your own line is thinner now.'}},
+   {t:'Trade scrap for rice instead',s:'−10 scrap, +18 food, once',dis:S.store.scrap<10,f:()=>{S.store.scrap-=10;S.store.food+=18;return 'A rope is strung between the blocks. Scrap goes over, rice comes back.'}},
+   {t:'Ignore the torches',f:()=>'You draw the curtains. The torches stop after a few nights.'}]})}},
+ {id:'fire',w:2,c:()=>isOut()&&S.hh.some(h=>h.known&&h.unit&&!members(h).some(r=>r.leader)),make:()=>{
+  const h=pick(S.hh.filter(x=>x.known&&x.unit&&!members(x).some(r=>r.leader)));const u=U(h.unit);
+  const cause=hasPower()?'An overloaded extension cord':pick(['A candle left burning','A gas stove used indoors','Joss sticks too close to the curtains']);
+  return card({i:'🔥',t:'Fire in '+u.id,x:cause+' set the '+h.name+'\'s flat on fire. Smoke is pouring into the floor '+pad(u.lvl)+' corridor. The glow and the shouting will draw attention.',bad:1,c:[
+   {t:'Use a fire extinguisher',s:S.items.extinguisher?'Uses 1 fire extinguisher':'You don\'t have one in the communal store',dis:!S.items.extinguisher,f:()=>{itemAdd(S.items,'extinguisher',-1);return 'One long white blast and it\'s out. Scorched walls, nothing worse.'}},
+   {t:'Bucket brigade',s:'Up to −25 water from the store. Works if there\'s enough water.',dis:S.store.water<10,f:()=>{const w=Math.min(25,S.store.water);S.store.water-=w;if(w>=25||chance(.5))return 'Pails pass hand to hand down the corridor. The fire dies, hissing.';return 'The water runs out too soon.\n\n'+burn(h,u)}},
+   {t:'Get everyone out and let it burn',s:'The flat and everything in it are gone for good',f:()=>burn(h,u)}]})}},
+ {id:'generator',w:2,once:1,c:()=>isOut()&&!S.grid.power,make:()=>{const f=best('S')||known()[0];return card({i:'⚙️',t:'A generator in the carpark',x:f.short+' found a diesel generator in a contractor\'s van in the multi-storey carpark, half a tank left. Enough for about 10 days.\n\nPower means lights, fans and working lamps again. It also means a roaring engine, every single night.',c:[
+   {t:'Run it for the block',s:'Power for 10 days: no sanity loss from darkness or heat. Nightly attacks get heavier.',f:()=>{S.flags.gen=S.t+10;return 'It coughs, then roars. Lights flicker on across the block. People cheer, then glance nervously at the street.'}},
+   {t:'Strip it for parts',s:'+15 scrap, quietly',f:()=>{S.store.scrap+=15;return 'Copper, steel and bolts. The barricade gets stronger instead.'}}]})}},
+ {id:'prophet',w:1,once:1,c:()=>isOut()&&pday()>8&&known().some(r=>act(r)&&r.age>=18&&(has(r,'pantang')||r.san<40)),make:()=>{
+  const p=pick(known().filter(r=>act(r)&&r.age>=18&&(has(r,'pantang')||r.san<40)));const t=best('K',known().filter(r=>act(r)&&r!==p));
+  return card({i:'🕯️',t:p.short+' has a message',x:p.name+' has started gathering people on the landing every night. "This is punishment. The dead walk because we forgot how to live. Pray with me and we will be spared."\n\nThe group grows each night. Some have stopped turning up for their duties.',c:[
+   {t:'Let them pray',s:'Big comfort for the scared and superstitious, but 2 workers quit their jobs',f:()=>{known().forEach(r=>{if(has(r,'pantang')||r.age>=65||r.san<40)r.san=clamp(r.san+15,0,100)});const q=known().filter(r=>act(r)&&r.job!=='rest'&&r.job!=='guard').slice(0,2);q.forEach(r=>r.job='rest');return 'Candles every night on the landing.'+(q.length?' '+q.map(r=>r.short).join(' and ')+' stop working to join them. Check the Residents tab.':'')}},
+   {t:'Shut it down',s:p.short+'\'s household will resent it, and the superstitious are scared',f:()=>{p.san=clamp(p.san-20,0,100);H(p.hh).trust=clamp(H(p.hh).trust-20,0,100);known().filter(r=>has(r,'pantang')).forEach(r=>r.san=clamp(r.san-8,0,100));return 'The candles are put out. '+p.short+' stares at you for a long time.'}},
+   {t:'Turn it into a community gathering'+(t?' ('+t.short+')':''),s:'Kampung spirit check. Works out well for everyone if it lands.',dis:!t,f:()=>{if(t.st.K*10+ri(0,40)>70){known().forEach(r=>r.san=clamp(r.san+6,0,100));p.san=clamp(p.san+15,0,100);return t.short+' joins the nightly gathering and turns it into a time to share stories and news. Everyone feels a little better.'}p.san=clamp(p.san-10,0,100);return 'It turns into a shouting match on the landing. Nobody feels better.'}}]})}},
+ {id:'tank',w:2,once:1,c:()=>isOut()&&!S.grid.water&&S.store.water>=30,make:()=>card({i:'🚱',t:'Something in the water',x:'Residents complain the stored water smells wrong. On the roof, the cleaner finds why: a body in the open tank. It has been there a while.\n\nThe store holds '+S.store.water+' water.',bad:1,c:[
+   {t:'Boil all of it',s:'−8 scrap burned as firewood. The water is safe.',dis:S.store.scrap<8,f:()=>{S.store.scrap-=8;return 'Woks over fires of broken furniture all day. It tastes of smoke, but it\'s safe.'}},
+   {t:'Dump the worst of it',s:'Lose half the water',f:()=>{const l=Math.floor(S.store.water/2);S.store.water-=l;return l+' water poured down the drain.'}},
+   {t:'Risk it',s:'Keep all of it. Some people may get sick.',f:()=>{const v=known().filter(()=>chance(.3));v.forEach(r=>{r.hp-=ri(15,30);if(r.hp<=0)kill(r,'Died of a gut infection from bad water')});return v.length?v.length+' residents come down with stomach cramps and fever.':'Somehow, nobody gets sick.'}}]})},
+ {id:'liftshaft',w:2,once:1,c:()=>isOut()&&!S.grid.power&&S.floors>=8,make:()=>card({i:'🛗',t:'Scratching in the lift shaft',x:'With the lifts dead, residents on the top floors hear scratching and thumping inside the lift shaft. Something is climbing the cables.',zed:1,c:[
+   {t:'Wire and brace every lift door shut',s:'−8 scrap',dis:S.store.scrap<8,f:()=>{S.store.scrap-=8;S.flags.liftSealed=1;return 'Every lift door is wired, braced and nailed. The scratching goes on, but nothing gets out.'}},
+   {t:'It\'s probably rats',s:'Save the scrap',f:()=>{addTimer(ri(2,4),'liftshaft',{});return 'People turn their radios up to drown it out.'}}]})},
+ {id:'drop',w:1,c:()=>isOut()&&pday()>5&&lookouts().length>0&&known().filter(able).length>=2,make:()=>{
+  const team=known().filter(able).sort((a,b)=>b.st.A-a.st.A).slice(0,3);
+  return card({i:'🪂',t:'A supply drop',x:'The lookout on the roof shouts: a helicopter just dropped a pallet on the school field, two streets away. Other survivors will have seen it too. It\'s now or never.',c:[
+   {t:'Send '+team.map(r=>r.short).join(', ')+' to grab it',s:'Your fastest people make a dangerous dash. Big reward.',f:()=>{const lines=[];let back=0;team.forEach(r=>{r.busy=true;const x=R();if(x<.12){r.wpn=null;r.arm=null;kill(r,'Killed racing for a supply drop');lines.push(r.short+' did not make it back.')}else if(x<.35){r.hp-=ri(15,35);if(r.hp<=0){kill(r,'Died of wounds after the supply drop');lines.push(r.short+' died of their wounds.')}else{lines.push(r.short+' was hurt.');if(chance(.35))infect(r,'a bite at the school field');back++}}else back++});
+     if(back){const f=ri(15,25),m=ri(3,6),w=ri(10,20);S.store.food+=f;S.store.meds+=m;S.store.water+=w;lines.unshift('They got the pallet: '+f+' food, '+w+' water and '+m+' meds.')}else lines.unshift('Nobody came back with the pallet.');return lines.join('\n')}},
+   {t:'Too risky. Let it go.',f:()=>'You watch strangers drag the pallet away.'}]})}},
+ {id:'deserter',w:1,once:1,c:()=>isOut()&&pday()>=5&&S.front<=2,make:()=>card({i:'🎖️',t:'A soldier at the barricade',x:'A young man in a torn No. 4 uniform, with a rifle and a few magazines, asks to come in. "My unit is gone. I just need somewhere to sleep."\n\nA rifle would change everything at the line. He looks exhausted, and a little wild around the eyes.',c:[
+   {t:'Let him in',s:'A strong guard with a rifle (attack 6). Gunfire draws more of them.',f:()=>{const h=newHousehold('cn');const r=mkRes('nsf',h);r.traits=['garang'];r.wpn='rifle';r.job='guard';nameHH(h);h.name='The lone soldier';addTimer(ri(5,9),'deserter',{id:r.id});return r.name+' slings his rifle and takes the night watch without being asked. Find him a flat.'}},
+   {t:'Turn him away',s:'He might not take it well',f:()=>{addTimer(ri(3,6),'armedLooters',{});return 'He stares at you for a long moment, then walks off toward the expressway.'}}]})},
+ {id:'insulin',w:1,once:1,c:()=>isOut()&&known().some(r=>r.age>=60&&act(r)),make:()=>{const r=pick(known().filter(x=>x.age>=60&&act(x)));return card({i:'💉',t:r.short+'\'s medicine',x:r.name+' is diabetic and has just run out of their own medicine. Without a dose each day, they will slowly get weaker.',c:[
+   {t:'Give them 1 meds a day from the store',s:'Keeps them going. If the store runs dry, they decline fast.',f:()=>{S.flags.insulin=r.id;return 'Every morning, one dose from the box.'}},
+   {t:'We can\'t spare it',s:'They lose health every day until the end',f:()=>{S.flags.insulinNo=r.id;members(H(r.hh)).forEach(m=>{if(m!==r)m.san=clamp(m.san-12,0,100)});return r.short+' nods slowly. "Never mind. I am old already."'}}]})}},
+ {id:'strike',w:1,c:()=>isOut()&&jobbers('guard').length>=3&&known().some(r=>r.hun>30),make:()=>{const g=jobbers('guard');return card({i:'✊',t:'The guards want more',x:'The '+g.length+' guards on the line send '+g[0].short+' to speak for them. "We hold the line every night while others sleep. Double rations, or we stand down."',c:[
+   {t:'Double rations for the guards',s:'−'+g.length*4+' food now',dis:S.store.food<g.length*4,f:()=>{S.store.food-=g.length*4;g.forEach(r=>{r.san=clamp(r.san+10,0,100);r.hun=0});return 'The guards eat well tonight and go back to the line in better spirits.'}},
+   {t:'Rotate: guards rest, others take their shift',s:'The guards rest. Your strongest resting residents take over.',f:()=>{const sub=known().filter(r=>able(r)&&r.job==='rest'&&!g.includes(r)).sort((a,b)=>guardPow(b)-guardPow(a)).slice(0,g.length);g.forEach(r=>{r.job='rest';r.san=clamp(r.san+12,0,100)});sub.forEach(r=>r.job='guard');return 'New faces on the line tonight: '+(sub.map(r=>r.short).join(', ')||'nobody. The line is empty!')+' Check the Residents tab.'}},
+   {t:'Refuse',s:'Some may walk off the line',f:()=>{const q=g.filter(()=>chance(.4));q.forEach(r=>{r.job='rest';r.san=clamp(r.san-8,0,100)});return q.length?q.map(r=>r.short).join(', ')+' walk off the line. The rest stay, grumbling.':'They grumble, but stay.'}}]})}},
+ {id:'kampung',w:1,once:1,c:()=>known().some(r=>r.age>=65&&r.st.K>=6&&act(r)),make:()=>{const r=pick(known().filter(x=>x.age>=65&&x.st.K>=6&&act(x)));return card({i:'👵',t:r.short+' remembers the old days',x:'"During the Japanese time we had nothing also. We survived." '+r.name+' offers to teach the block something from the kampung days. Pick one:',c:[
+   {t:'Salting and drying food',s:'Every household needs 10% less food from now on',f:()=>{S.flags.preserve=1;return 'Ikan bilis on every ledge, salted vegetables in every jar. Food goes further now.'}},
+   {t:'Herbal remedies',s:'+4 meds now, and medics heal 25% faster',f:()=>{S.store.meds+=4;S.flags.herbs=1;return 'Ginger, bitter gourd leaves, pandan. Not a hospital, but it helps.'}},
+   {t:'Kampung night watch',s:'Every rooftop lookout counts double for supply runs',f:()=>{S.flags.kwatch=1;return 'Whistles, tin cans on strings and a proper rota. The watch gets sharper.'}}]})}},
+ {id:'kidsout',w:1,c:()=>isOut()&&known().filter(r=>r.age>=8&&r.age<=16&&act(r)).length>=2,make:()=>{const k=known().filter(r=>r.age>=8&&r.age<=16&&act(r)).slice(0,3);return card({i:'⚽',t:'The kids are missing',x:k.map(r=>r.short).join(', ')+' aren\'t in their flats. Someone saw them squeeze past the barricade an hour ago with a football. "Just to the playground," one told a friend.',bad:1,c:[
+   {t:'Send your fastest adult after them',s:'Risky for whoever goes',f:()=>{const r=known().filter(x=>able(x)&&x.age>=18).sort((a,b)=>b.st.A-a.st.A)[0];if(!r)return 'Nobody is fit to go. You wait, and hope.';r.busy=true;if(chance(.75)){k.forEach(x=>x.san=clamp(x.san+10,0,100));return r.short+' drags them all back by the ears. Grounded forever.'}r.hp-=ri(15,30);if(r.hp<=0)kill(r,'Killed bringing the kids back from the playground');else if(chance(.4))infect(r,'a bite at the playground');return r.short+' got them all back, but something got hold of them first.'}},
+   {t:'Wait and hope',f:()=>{const lost=k.filter(()=>chance(.3));lost.forEach(x=>{if(chance(.5))kill(x,'Killed at the playground');else infect(x,'a bite at the playground')});return lost.length?'At dusk, not all of them come back unhurt.':'At dusk they wander back, grinning. Their parents don\'t know whether to hug them or scream.'}}]})}},
+
  {id:'panicbuy',w:3,c:()=>!isOut()&&alertLvl()>=1,make:()=>{const b=best('A');return card({i:'🛒',t:'Panic buying',x:'Block chat: "[Forwarded many times] Rice will run out by Friday!!! Go now!!!" Photos show a queue snaking out of the supermarket.',c:[
   {t:'Send '+(b?b.short:'someone')+' to queue now',dis:!b,s:'Food for the store',f:()=>{const f=ri(9,15);S.store.food+=f;S.market=Math.max(10,S.market-8);b.busy=true;b.san=clamp(b.san-4,0,100);return b.short+' comes back two hours later, sweaty, with '+f+' food.'}},
   {t:'Calm the group chat',s:'Kampung spirit check',f:()=>{const k=best('K');if(k&&k.st.K*10+ri(0,30)>70){known().forEach(r=>r.san=clamp(r.san+4,0,100));return k.short+' posts a long, calm message. People settle down.'}known().filter(r=>has(r,'kiasu')).forEach(r=>r.san=clamp(r.san-6,0,100));return 'Nobody listens. Three more forwards arrive.'}},
@@ -1063,6 +1169,29 @@ const REV=[
   {t:'Investigate',s:'Best Intellect or a Kaypoh',f:()=>{const k=known().find(r=>has(r,'kaypoh'))||best('I');if(k&&chance(.55)){S.store.food+=f;const cul=pick(S.hh.filter(h=>h.known));cul.trust=clamp(cul.trust-10,0,100);return k.short+' follows the trail of grains to the '+cul.name+'. The food comes back.'}return 'No luck. People start locking their gates.'}},
   {t:'Let it go',f:()=>'Suspicion lingers in the corridor.'}]})}},
 ];
+EV.labour={make:a=>{
+  const r=RS(a.id);if(!r||!r.alive)return null;const h=H(r.hh);
+  const medic=known().find(m=>act(m)&&m!==r&&(m.job==='medic'||m.arch==='nurse'));const sb=rooms('sickbay')>0;
+  let risk=.35;if(a.prep)risk-=.15;if(medic)risk-=.12;if(sb)risk-=.08;risk=Math.max(.04,risk);
+  return card({i:'👶',t:r.short+' has gone into labour',x:'It\'s happening. '+(medic?medic.short+' is with her. ':'There is no medic on hand. ')+(sb?'The sick bay is ready.':'No sick bay, just the flat.')+(a.prep?' The meds you set aside are here.':'')+'\n\nRisk to her life: about '+Math.round(risk*100)+'%.',c:[
+    {t:'Do everything we can',s:S.store.meds?'−1 meds. Lowers the risk a little more.':'No meds left to give',f:()=>{if(S.store.meds){S.store.meds--;risk=Math.max(.03,risk-.06)}return birth(r,h,risk)}},
+    {t:'Let nature take its course',f:()=>birth(r,h,risk)}]});
+}};
+EV.convoyNews={make:a=>{
+  const fam=known().filter(m=>(a.hs||[]).includes(m.hh));if(!fam.length)return null;const good=chance(.6);
+  fam.forEach(m=>m.san=clamp(m.san+(good?20:-25),0,100));
+  return card({i:'📻',t:good?'News from Tekong':'Terrible news',bad:!good,x:good?'A message relayed block to block by torchlight: the convoy reached Pulau Tekong. The children and elderly are safe behind the wire.\n\nThe families weep with relief. (+20 sanity)':'Word comes back: the convoy was overrun at the Tampines flyover. Nobody knows if anyone survived.\n\nThe families who sent their people are inconsolable. (−25 sanity)',c:ok()});
+}};
+EV.deserter2={make:a=>{
+  const r=RS(a.id);if(!r||!r.alive||r.away)return null;
+  return card({i:'🎖️',t:r.short+' wants more',x:r.name+' corners you on the stairs. "I hold the line every night. I want double rations. And I don\'t take orders from office workers."\n\nOther residents are watching how you handle it.',c:[
+    {t:'Give him double rations',s:'−10 food. Others decide he\'s untouchable (−5 trust everywhere).',dis:S.store.food<10,f:()=>{S.store.food-=10;r.san=clamp(r.san+15,0,100);S.hh.forEach(h=>{if(h.known&&h.id!==r.hh)h.trust=clamp(h.trust-5,0,100)});return 'He takes the bag and goes back to the line without a word.'}},
+    {t:'Same rations as everyone',s:'He might leave, and take the rifle with him',f:()=>{if(chance(.5)){const f=Math.min(10,S.store.food);S.store.food-=f;r.wpn=null;exile(r,'Deserted the block with his rifle');return 'In the morning he is gone, with his rifle and '+f+' food from the store.'}S.hh.forEach(h=>{if(h.known)h.trust=clamp(h.trust+5,0,100)});r.san=clamp(r.san-10,0,100);return 'He grumbles, but stays. The block respects you for standing firm (+5 trust).'}},
+    {t:'Disarm him while he sleeps and throw him out',s:'Keep the rifle. Risky.',f:()=>{const g=jobbers('guard').filter(x=>x!==r).sort((a,b)=>guardPow(b)-guardPow(a))[0];if(g&&chance(.6)){r.wpn=null;itemAdd(S.items,'rifle');exile(r,'Thrown out of the block after being disarmed');return 'It goes quietly. The rifle is in the communal store, and he is out past the barricade before dawn.'}const v=g||pick(known().filter(x=>x!==r));if(v){v.hp-=ri(25,45);if(v.hp<=0)kill(v,'Shot by the soldier during a scuffle')}S.noise+=10;r.wpn=null;exile(r,'Fled the block after a shootout');return 'He wakes up. A shot rings out across the whole estate. He runs, without the rifle'+(v?', and '+v.short+' is badly hurt':'')+'. The rifle is lost in the struggle.'}}]});
+}};
+EV.armedLooters={make:()=>card({i:'🔫',t:'He came back',x:'The soldier you turned away is back, with four others. A rifle shot shatters a window on floor '+pad(Math.min(S.floors,S.front+2))+'. "Thirty food. Now. Or we come in."',bad:1,c:[
+  {t:'Pay them',s:'−30 food',dis:S.store.food<30,f:()=>{S.store.food-=30;return 'They take it and leave. Nobody says anything for the rest of the day.'}},
+  {t:'Hold the line',s:'They will shoot up the barricade',f:()=>{S.bar.hp-=35;S.noise+=12;const g=pick(jobbers('guard'));let x='Bullets chew into the barricade before they give up and leave.';if(g&&chance(.4)){g.hp-=ri(20,40);if(g.hp<=0){kill(g,'Shot by armed looters');x+=' '+g.short+' was killed.'}else x+=' '+g.short+' was hit.'}if(S.bar.hp<=0)levelFalls();return x}}]})};
 EV.kids={make:()=>card({i:'🏫',t:'Survivors at the gate',x:'A teacher and three students from the primary school are hammering on the gate. They have been hiding in the school hall for days.',c:[
   {t:'Take them in',s:'+4 residents. More mouths.',f:()=>{const h=newHousehold('cn');mkRes('teacher',h);for(let i=0;i<3;i++)mkRes('kid',h);nameHH(h);h.name='School survivors';return 'They come in shaking. Find them a flat, or they sleep in the stairwell.'}},
   {t:'Give them food, send them on',s:'−4 food',dis:S.store.food<4,f:()=>{S.store.food-=4;known().forEach(r=>r.san=clamp(r.san-4,0,100));return 'They walk off toward the MRT station.'}},
@@ -1105,9 +1234,9 @@ function reveal(u,msg){const h=H(u.hh);if(!h)return;h.known=true;u.st='known';lo
 function maybeEvent(){
   if(S.over)return;
   if(!chance(isOut()?.32:.38))return;
-  const opts=REV.filter(e=>(S.evcd[e.id]||-99)<S.t-2&&e.c());if(!opts.length)return;
+  const opts=REV.filter(e=>(S.evcd[e.id]||-99)<S.t-5&&!(e.once&&S.flags['ev_'+e.id])&&e.c());if(!opts.length)return;
   const tot=opts.reduce((a,e)=>a+e.w,0);let x=R()*tot;let ev=opts[0];for(const e of opts){x-=e.w;if(x<=0){ev=e;break}}
-  S.evcd[ev.id]=S.t;queue('r:'+ev.id,{});
+  S.evcd[ev.id]=S.t;if(ev.once)S.flags['ev_'+ev.id]=1;queue('r:'+ev.id,{});
 }
 function buildCard(q){
   try{return buildCard0(q)}catch(e){console.error(e);return null}
@@ -1300,7 +1429,7 @@ function unitTile(u){
   }
   const h=H(u.hh);const ms=h?members(h):[];
   if(!ms.length)return `<button class="unit st-empty${sel}" data-act="sel" data-v="${u.id}"><span class="uid">${u.id}</span><span class="unm">Empty</span></button>`;
-  const light=S.grid.power?'':(S.built.lamp?' lampon':' dark');
+  const light=hasPower()?'':(S.built.lamp?' lampon':' dark');
   const flags=[];if(ms.some(r=>r.quar))flags.push('🔒');if(ms.some(r=>r.inf&&!r.inf.hidden))flags.push('🦷');if(ms.some(r=>r.hp<50))flags.push('🤕');if(ms.some(r=>r.hun>=50))flags.push('<span title="Someone here is hungry">🍚</span>');if(ms.some(r=>r.thi>=50))flags.push('<span title="Someone here is thirsty">💧</span>');if(ms.some(r=>r.leader))flags.push('⭐');
   return `<button class="unit st-known${light}${sel}" data-act="sel" data-v="${u.id}"><span class="uid">${u.id}</span><span class="flags">${flags.join('')}</span><span class="unm">${esc(h.name)} <span style="opacity:.65;font-weight:400">${ms.length}</span></span><span class="spr">${ms.filter(atHome).map(sprite).join('')}</span></button>`;
 }
@@ -1645,6 +1774,7 @@ document.addEventListener('keydown',e=>{if(e.code==='Space'&&S&&!e.target.closes
 
 function migrate(){
   if(!S)return;
+  S.timers=S.timers||[];
   S.bar.max=Math.round(S.bar.max);
   const q0=S.units.find(u=>u.room==='quarantine'&&u.st==='empty');if(q0)S.res.forEach(r=>{if(r.alive&&r.quar&&!r.qRoom&&rooms('quarantine')){r.qRoom=q0.id;q0.qUsed=Math.min(2,(q0.qUsed||0)+1)}});
   S.res.forEach(r=>{if(r.short==='You'){const n=r.name.replace(' (you)','');const h=H(r.hh);r.short=h&&h.eth==='cn'?n.split(' ').slice(1).join(' '):n.split(' ')[0]}});
