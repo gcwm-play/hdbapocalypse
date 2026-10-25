@@ -177,6 +177,10 @@ h3{font-size:13px;text-transform:uppercase;letter-spacing:.08em;color:var(--mute
 .job-off,.jh-off{--jc:#4f5b68}
 .job-run{--jc:#b48ef0}
 .job-talk{--jc:#e58fd0}
+.suit,button.trait{cursor:help;background:transparent;font:inherit;font-size:11px;line-height:1.5}
+button.trait{padding:0 5px;border-radius:4px}
+#tip{position:fixed;z-index:70;max-width:270px;background:var(--panel2);border:1px solid var(--lamp);border-radius:8px;padding:8px 10px;font-size:12px;line-height:1.45;box-shadow:0 8px 24px #000a}
+#tip b{color:var(--lamp)}
 .suit{font-size:11px;border:1px solid var(--jc);color:var(--jc);border-radius:4px;padding:0 5px}
 .jc{color:var(--jc)}
 .guide-t{background:transparent;border:none;color:var(--lamp);padding:2px 0;margin-bottom:6px;text-align:left}
@@ -230,6 +234,7 @@ h3{font-size:13px;text-transform:uppercase;letter-spacing:.08em;color:var(--mute
   </main>
 </div>
 <div id="modal" hidden></div>
+<div id="tip" role="tooltip" hidden></div>
 <div id="title"></div>
 
 <script>
@@ -262,16 +267,16 @@ const ARCH={
 const STK=['K','I','A','S','U'];
 const STN={K:'Kampung spirit',I:'Intellect',A:'Agility',S:'Strength',U:'Endurance'};
 const TRAITS={
-  kiasu:['Kiasu','Afraid of losing out. Stressed when the food store runs low.'],
-  bochap:['Bo Chap','Doesn\'t care much. Loses sanity slower.'],
-  pantang:['Pantang','Superstitious. Stressed at night.'],
-  kaypoh:['Kaypoh','Nosy. Better at spotting hidden bites in the household.'],
-  paiseh:['Pai Seh','Won\'t ask for help. Very likely to hide a bite.'],
-  garang:['Garang','Brave. Stronger guard, no stress from guard duty.'],
-  steady:['Steady','Reliable. Loses sanity slower.'],
-  sian:['Sian','Low motivation. Sometimes skips work.'],
-  atas:['Atas','Looks down on others. Rarely donates anything.'],
-  inventor:['Inventor','Can turn donated household items into weapons and tools.'],
+  kiasu:['Kiasu','Afraid of losing out. Loses extra sanity when the communal food store drops below 2 days of food, and is more likely to steal food during a breakdown.'],
+  bochap:['Bo Chap','Doesn\'t care much. Every sanity loss is 40% smaller, and grief hits them half as hard.'],
+  pantang:['Pantang','Superstitious. Loses extra sanity every night. Comforted by Hungry Ghost Month offerings, and terrified if you forbid them.'],
+  kaypoh:['Kaypoh','Nosy. Often notices when someone in their household is hiding a bite. Good at catching food thieves.'],
+  paiseh:['Pai Seh','Won\'t ask for help. Hides 85% of bites (others hide 30%), so an infection can surprise the whole household. Keep them off guard duty and supply runs.'],
+  garang:['Garang','Brave. +2 fighting strength, and no sanity loss from guard duty.'],
+  steady:['Steady','Reliable. Every sanity loss is 20% smaller.'],
+  sian:['Sian','Low motivation. About 1 phase in 20 they skip their job, and their workshop work is sometimes slow.'],
+  atas:['Atas','Looks down on others. Their household rarely agrees to donate items, and they resent newcomers like the dorm workers.'],
+  inventor:['Inventor','Can build things in the workshop from donated items. Only inventors on the Workshop job make progress, and higher Intellect makes them faster.'],
 };
 const TRAIT_POOL=['kiasu','bochap','pantang','kaypoh','paiseh','garang','steady','sian','atas'];
 const ETH={
@@ -309,7 +314,7 @@ const ROOMS={
   workshop:{n:'Workshop',e:'🔧',cost:6,d:'Inventors work 50% faster.'},
   sickbay:{n:'Sick bay',e:'🩹',cost:6,d:'Medics heal twice as fast and spot hidden bites more often.'},
   quarantine:{n:'Quarantine room',e:'🔒',cost:4,d:'Uses the flat\'s steel-door household shelter. Lock up suspected infected safely.'},
-  garden:{n:'Corridor garden',e:'🌱',cost:5,d:'Kangkong and sweet potato leaves: +5 food a day when tended, while there is water.'},
+  garden:{n:'Corridor garden',e:'🌱',cost:5,d:'Kangkong and sweet potato leaves. +5 food a day with a gardener, +2 without. Each gardener tends one garden. Needs 1 water a day once the taps are dry.'},
 };
 const JOBS={rest:'Rest',guard:'Guard the line',lookout:'Rooftop lookout',invent:'Workshop',medic:'Medic',garden:'Tend garden'};
 const DEST={
@@ -555,7 +560,7 @@ function doJobs(){
   }
   // garden
   const gardens=rooms('garden');
-  if(gardens&&S.ph===1){const tend=jobbers('garden').length;const water=S.grid.water||S.store.water>=gardens;if(water){if(!S.grid.water)S.store.water-=gardens;const f=gardens*(tend?5:2);S.store.food+=f}}
+  if(gardens&&S.ph===1){const tend=Math.min(gardens,jobbers('garden').length);const water=S.grid.water||S.store.water>=gardens;if(water){if(!S.grid.water)S.store.water-=gardens;const f=tend*5+(gardens-tend)*2;S.store.food+=f}else log('The corridor gardens wilted today: no water to spare.','bad')}
   // sian skip
   ks.forEach(r=>{if(act(r)&&has(r,'sian')&&r.job!=='rest'&&chance(.05)){log(r.short+' couldn\'t be bothered today. Sian.','');r.busy=true}});
 }
@@ -1061,6 +1066,7 @@ function wipe(){try{localStorage.removeItem(SAVE_KEY)}catch(e){}}
 /* ================= render ================= */
 const $=s=>document.querySelector(s);
 function render(){
+  const tp=document.getElementById('tip');if(tp)tp.hidden=true;
   if(!S){renderTitle();return}
   $('#title').hidden=true;
   renderModal();renderHUD();renderTower();renderTabs();renderPanel();
@@ -1109,7 +1115,7 @@ function unitTile(u){
   if(u.st==='danger')return `<button class="unit st-danger${sel}" data-act="sel" data-v="${u.id}"><span class="uid">${u.id}</span><span class="unm">Banging</span><span>🧟</span></button>`;
   if(u.st==='sealed')return `<button class="unit st-sealed${sel}" data-act="sel" data-v="${u.id}"><span class="uid">${u.id}</span><span class="unm">Sealed</span><span>🚧</span></button>`;
   if(u.st==='empty'){
-    if(u.room){const rm=ROOMS[u.room];const n=u.room==='quarantine'?known().filter(r=>r.quar).length:0;return `<button class="unit room-${u.room}${sel}" data-act="sel" data-v="${u.id}"><span class="uid">${u.id}</span><span class="unm">${rm.e} ${rm.n}</span>${n?`<span class="small">${n} inside</span>`:''}</button>`}
+    if(u.room){const rm=ROOMS[u.room];const n=u.room==='quarantine'?known().filter(r=>r.quar).length:0;return `<button class="unit room-${u.room}${sel}" data-act="sel" data-v="${u.id}"><span class="uid">${u.id}</span><span class="unm">${rm.e} ${rm.n}</span>${n?`<span class="small">${n} inside</span>`:''}${u.room==='garden'?(()=>{const g=gardenAssign()[u.id];return g?`<span class="small">🧑‍🌾 ${esc(g.short)} · +5/day</span>`:`<span class="small" style="color:#fff3b0;font-weight:700">⚠ Needs a gardener</span>`})():''}</button>`}
     return `<button class="unit st-empty${sel}" data-act="sel" data-v="${u.id}"><span class="uid">${u.id}</span><span class="unm">Empty</span><span class="small">${u.looted?'Searched':'Unsearched'}</span></button>`;
   }
   const h=H(u.hh);const ms=h?members(h):[];
@@ -1160,7 +1166,7 @@ function personCard(r){
   if(r.busy&&!r.away)status.push('<span class="mute small">Busy this phase</span>');
   return `<div class="card pers"><div class="big">${faceOf(r)}</div><div class="stack" style="gap:5px;min-width:0">
     <div><b>${esc(r.name)}</b> <span class="mute small">${r.age} · ${A.i} ${A.l}</span></div>
-    <div>${r.traits.map(t=>`<span class="trait ${t==='inventor'?'inv':''}" title="${esc(TRAITS[t][1])}">${TRAITS[t][0]}</span>`).join('')}</div>
+    <div>${r.traits.map(t=>`<button class="trait ${t==='inventor'?'inv':''}" data-act="tip" data-h="${TRAITS[t][0]}" data-tip="${esc(TRAITS[t][1])}">${TRAITS[t][0]}</button>`).join('')}</div>
     <div class="stats">${STK.filter(k=>k!=='U').map(k=>`<span>${STN[k]} <b>${r.st[k]}</b></span>`).join('')}${r.age>=13?`<span title="Overall fighting strength: strength, weapon, health, sanity and traits">Fighting <b>${guardPow(r).toFixed(1)}</b></span>`:''}</div>
     <div class="meters"><span>Sanity</span>${bar(r.san,sanCol(r.san))}<span class="mono">${Math.round(r.san)}</span><span>Health</span>${bar(r.hp,r.hp>50?'var(--ok)':'var(--blood)')}<span class="mono">${Math.round(r.hp)}</span>${isOut()?`<span>Hunger</span>${bar(r.hun,'var(--warn)')}<span class="mono">${Math.round(r.hun)}</span>${S.grid.water?'':`<span>Thirst</span>${bar(r.thi,'#6fb6e8')}<span class="mono">${Math.round(r.thi)}</span>`}`:''}</div>
     ${status.join(' ')}
@@ -1191,7 +1197,12 @@ function panelUnit(){
     return h;
   }
   if(u.st==='empty'){
-    if(u.room){const rm=ROOMS[u.room];h+=`<p><b>${rm.e} ${rm.n}</b><br><span class="mute">${rm.d}</span></p>`;if(u.room==='quarantine'){const q=known().filter(r=>r.quar);h+=q.length?q.map(personCard).join(''):'<p class="mute">Nobody inside.</p>'}return h}
+    if(u.room){const rm=ROOMS[u.room];h+=`<p><b>${rm.e} ${rm.n}</b><br><span class="mute">${rm.d}</span></p>`;if(u.room==='garden'){const g=gardenAssign()[u.id];const water=S.grid.water||S.store.water>=rooms('garden');
+      h+=g?`<p class="goodline">Tended by ${esc(g.short)}: +5 food a day.</p>`:`<p class="warnline">Nobody is tending this garden: only +2 food a day.</p>`;
+      if(!water)h+=`<p class="badline">Not enough water in the store. Gardens produce nothing until there is.</p>`;
+      if(!g)h+=`<div class="card stack"><b>🧑‍🌾 Assign a gardener</b><div class="row">${workerSelect()}<button data-act="tend" data-v="${u.id}" ${known().some(able)?'':'disabled'}>Assign</button></div><span class="small mute">Sets their job to Tend garden. Each gardener looks after one garden.</span></div>`;
+      h+=`<p class="small mute">${jobbers('garden').length} gardener(s) for ${rooms('garden')} garden(s).</p>`}
+    if(u.room==='quarantine'){const q=known().filter(r=>r.quar);h+=q.length?q.map(personCard).join(''):'<p class="mute">Nobody inside.</p>'}return h}
     h+=`<p class="mute">Nobody lives here now.</p><div class="stack">`;
     if(!u.looted)h+=`<div class="card stack"><b>🔍 Search the flat</b><div class="row">${workerSelect()}<button data-act="search" data-v="${u.id}" ${known().some(able)?'':'disabled'}>Search</button></div></div>`;
     h+=`<div class="card stack"><b>🛠️ Repurpose it</b><div class="row"><select id="roomsel" aria-label="Room type">${Object.entries(ROOMS).map(([k,r])=>`<option value="${k}">${r.e} ${r.n} (−${r.cost} scrap)</option>`).join('')}</select><button data-act="convert" data-v="${u.id}">Convert</button></div><span class="small mute">${Object.values(ROOMS).map(r=>r.n+': '+r.d).join(' ')}</span></div>`;
@@ -1216,6 +1227,7 @@ function gearSel(r,type){
   const lab=k=>ITEMS[k]+(type==='wpn'?' (atk '+GEAR[k].atk+')':' (def '+GEAR[k].def+')');
   return `<select data-chg="${type}" data-id="${r.id}" aria-label="${type==='wpn'?'Weapon':'Armour'} for ${esc(r.short)}"><option value="">${type==='wpn'?'No weapon':'No armour'}</option>${cur?`<option value="${cur}" selected>${lab(cur)}</option>`:''}${list.map(k=>`<option value="${k}">${lab(k)} ×${S.items[k]}</option>`).join('')}</select>`;
 }
+function gardenAssign(){const gs=S.units.filter(u=>u.room==='garden'&&u.lvl>S.front).sort((a,b)=>a.lvl-b.lvl||a.i-b.i);const gd=jobbers('garden');const m={};gs.forEach((u,i)=>m[u.id]=gd[i]||null);return m}
 function suits(r){
   if(r.age<13)return [];
   const o=[];const gBase=2.5+r.st.S*.5+(has(r,'garang')?2:0)+(['nsman','nsf','worker'].includes(r.arch)?2:0);
@@ -1227,15 +1239,23 @@ function suits(r){
   if(!o.length||r.age>=70)o.push(['lookout','Lookout']);
   return o;
 }
+const SUIT_TIP={
+  guard:'Good base fighting strength from Strength, traits or military/construction background. ★★ = among your best fighters. Give them a weapon and put them on Guard the line.',
+  run:'High Agility: each point above 5 cuts their risk on supply runs by 5%. Grab drivers also bring back 30% more food.',
+  invent:'Has the Inventor trait. Set their job to Workshop to build weapons and tools.',
+  medic:'High Intellect (or a nurse): heals faster and spots hidden bites more often on the Medic job.',
+  talk:'High Kampung spirit: best at comforting people, talking them out of breakdowns and getting wary neighbours to open the door.',
+  lookout:'No standout fighting or running strengths. Lookout duty doesn\'t depend on stats, and every lookout makes supply runs safer and warns of hordes.',
+};
 const TRAIT_WARN={paiseh:'hides bites: keep off risky jobs',sian:'sometimes skips work',pantang:'stressed at night',atas:'rarely donates',kiasu:'panics when food is low'};
 function suitLine(r){
   const s=suits(r);if(!s.length)return '';
   const w=r.traits.filter(t=>TRAIT_WARN[t]).map(t=>`<span class="warnline small">⚠ ${TRAITS[t][0]}: ${TRAIT_WARN[t]}</span>`).join(' ');
-  return `<div class="row" style="gap:4px;margin-top:3px"><span class="small mute">Suits:</span>${s.map(([k,n])=>`<span class="suit job-${k}">${n}</span>`).join('')}${w?' '+w:''}</div>`;
+  return `<div class="row" style="gap:4px;margin-top:3px"><span class="small mute">Suits:</span>${s.map(([k,n])=>`<button class="suit job-${k}" data-act="tip" data-h="${n}" data-tip="${esc(SUIT_TIP[k])}">${n}</button>`).join('')}${w?' '+w:''}</div>`;
 }
 function personRow(r){
   const u=unitOf(r);const adult=r.age>=13;const free=adult&&!r.away&&!r.quar;
-  const tr=r.traits.map(t=>`<span class="trait ${t==='inventor'?'inv':''}" title="${esc(TRAITS[t][1])}">${TRAITS[t][0]}</span>`).join('');
+  const tr=r.traits.map(t=>`<button class="trait ${t==='inventor'?'inv':''}" data-act="tip" data-h="${TRAITS[t][0]}" data-tip="${esc(TRAITS[t][1])}">${TRAITS[t][0]}</button>`).join('');
   const tags=[u?u.id:'stairwell'];if(r.leader&&r.arch!=='you')tags.push('⭐ leader');if(r.inf&&!r.inf.hidden)tags.push('🦷');if(r.quar)tags.push('🔒 quarantined');if(r.away)tags.push('away');if(!adult)tags.push('child');
   return `<div class="prow2 ${free?'job-'+r.job:'job-off'}"><span class="big2">${faceOf(r)}</span><div style="min-width:0">
     <div class="nm"><a href="#" data-act="selres" data-v="${r.id}" style="color:inherit">${esc(r.short)}</a> <span class="mute small">${ARCH[r.arch].i} ${esc(ARCH[r.arch].l)} · ${tags.join(' · ')}</span></div>
@@ -1367,6 +1387,8 @@ const ACT={
   dispatch:d=>dispatch(d.v),
   build:d=>startProj(d.v),
   pf:d=>{UI.pf=d.v;render()},
+  tip:(d,el)=>showTip(d,el),
+  tend:d=>{const r=RS(+document.getElementById('worker').value);if(r){r.job='garden';save();render()}},
   guide:()=>{UI.guide=!UI.guide;render()},
   armguards:()=>armGuards(),
   invwork:()=>{known().filter(r=>able(r)&&has(r,'inventor')).forEach(r=>r.job='invent');save();render()},
@@ -1375,7 +1397,15 @@ const ACT={
   choice:d=>choose(+d.v),ok:()=>{UI.result=null;render()},
   quit:()=>{if(!S.over&&!UI.confirmQuit){UI.confirmQuit=1;flash('Press again to abandon this block.');setTimeout(()=>UI.confirmQuit=0,3000);return}UI.confirmQuit=0;wipe();S=null;CUR=null;UI.result=null;render()},
 };
-document.addEventListener('click',e=>{const b=e.target.closest('[data-act]');if(!b||b.disabled)return;if(b.tagName==='A')e.preventDefault();const f=ACT[b.dataset.act];if(f)f(b.dataset)});
+document.addEventListener('click',e=>{const tp=$('#tip');if(!tp.hidden&&!e.target.closest('[data-act=tip]'))tp.hidden=true;const b=e.target.closest('[data-act]');if(!b||b.disabled)return;if(b.tagName==='A')e.preventDefault();const f=ACT[b.dataset.act];if(f)f(b.dataset,b)});
+document.getElementById('panel').addEventListener('scroll',()=>{$('#tip').hidden=true},{passive:true});
+function showTip(d,el){
+  const t=$('#tip');if(!t.hidden&&t.dataset.for===d.h){t.hidden=true;return}
+  t.dataset.for=d.h;t.innerHTML='<b>'+esc(d.h)+'</b><br>'+esc(d.tip);t.hidden=false;
+  const r=el.getBoundingClientRect();const w=Math.min(270,innerWidth-24);t.style.maxWidth=w+'px';
+  t.style.left=Math.max(12,Math.min(r.left,innerWidth-w-12))+'px';
+  const h=t.offsetHeight;t.style.top=(r.bottom+6+h>innerHeight-8?Math.max(8,r.top-6-h):r.bottom+6)+'px';
+}
 document.addEventListener('change',e=>{const el=e.target;const k=el.dataset&&el.dataset.chg;if(!k)return;const id=+el.dataset.id;
   if(k==='job')setJob(id,el.value);
   if(k==='wpn')equip(id,'wpn',el.value);
