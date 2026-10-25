@@ -819,6 +819,8 @@ function finishProj(){
   log('Workshop finished: '+rc.n+'.','good');
   queue('info',{i:'🛠️',t:rc.n+' is ready',x:rc.d+'\n\n'+x});
 }
+function revealed(rc){S.hintRev=S.hintRev||{};if(!S.hintRev[rc.id])S.hintRev[rc.id]=[Object.keys(rc.need)[0]];return S.hintRev[rc.id]}
+function revealItem(rc,k){const rv=revealed(rc);if(rv.includes(k))return false;rv.push(k);if(rv.length>=Object.keys(rc.need).length&&!S.known[rc.id]){S.known[rc.id]=true;log('Worked it out: '+rc.n+'.','good')}return true}
 function experiment(){
   const sel=UI.expSel.slice().sort();if(sel.length<2)return;
   if(S.flags.expT===tick()){flash('The inventor already tried something this phase.');return}
@@ -827,7 +829,12 @@ function experiment(){
   const rc=RECIPES.find(r=>{const k=Object.keys(r.need).sort();return k.length===sel.length&&k.every((x,i)=>x===sel[i])});
   if(rc&&!S.known[rc.id]){S.known[rc.id]=true;log('Eureka: '+rc.n+'!','good');queue('info',{i:'💡',t:'Eureka: '+rc.n,x:'Turning the '+sel.map(k=>ITEMS[k].toLowerCase()).join(' and the ')+' over and over, the inventor sees it.\n\n'+rc.d+'\n\nThe blueprint is now in the workshop.'})}
   else if(rc)flash('You already know that one: '+rc.n+'.');
-  else{log('The inventor fiddled with '+sel.map(k=>ITEMS[k].toLowerCase()).join(' + ')+'. Nothing useful.','');flash('Nothing useful came of it.')}
+  else{
+    const found=[];
+    RECIPES.filter(r=>!S.known[r.id]).forEach(r=>sel.forEach(k=>{if(r.need[k]&&revealItem(r,k))found.push(ITEMS[k]+(S.known[r.id]?' (completes the '+r.n.toLowerCase()+'!)':''))}));
+    if(found.length){log('Close! The inventor realised the '+found.join(' and the ').toLowerCase()+' belong in an unknown idea.','good');flash('Close! New ingredient found: '+found.join(', ')+'. Check the blueprints.')}
+    else{log('The inventor fiddled with '+sel.map(k=>ITEMS[k].toLowerCase()).join(' + ')+'. Nothing useful.','');flash('Nothing new. Those items either aren\'t part of an unknown idea, or you already found them there.')}
+  }
   UI.expSel=[];save();render();
 }
 
@@ -957,7 +964,7 @@ const REV=[
   {t:'Check them over carefully',s:'Medic or Kaypoh helps',f:()=>{if(r.inf){r.inf.hidden=false;S.queue.unshift({id:'infected',a:{id:r.id}});return 'There it is, under the sleeve. A bite.'}return 'No wounds. Just a fever. Probably.'}},
   {t:'Give medicine',s:'−1 meds',dis:S.store.meds<1,f:()=>{S.store.meds--;r.hp=Math.min(100,r.hp+15);return 'The fever breaks overnight.'}},
   {t:'Watch and wait',f:()=>'Everyone watches '+r.short+' a bit more closely.'}]})}},
- {id:'idea',w:1,c:()=>known().some(r=>act(r)&&has(r,'inventor'))&&RECIPES.some(r=>!S.known[r.id]),make:()=>{const rc=pick(RECIPES.filter(r=>!S.known[r.id]));const inv=known().find(r=>act(r)&&has(r,'inventor'));if(!inv||!rc)return null;return card({i:'💡',t:inv.short+' has an idea',x:'"'+rc.hint+'" '+inv.short+' sketches on the back of a Town Council notice. Try combining items in the Workshop tab.',c:ok('Noted')})}},
+ {id:'idea',w:1,c:()=>known().some(r=>act(r)&&has(r,'inventor'))&&RECIPES.some(r=>!S.known[r.id]),make:()=>{const rc=pick(RECIPES.filter(r=>!S.known[r.id]));const inv=known().find(r=>act(r)&&has(r,'inventor'));if(!inv||!rc)return null;const nk=Object.keys(rc.need).find(k=>!revealed(rc).includes(k));if(nk)revealItem(rc,nk);return card({i:'💡',t:inv.short+' has an idea',x:(nk?'"It needs a '+ITEMS[nk].toLowerCase()+'..." ':'')+'"'+rc.hint+'" '+inv.short+' sketches on the back of a Town Council notice. Try combining items in the Workshop tab.',c:ok('Noted')})}},
  {id:'theft',w:1,c:()=>isOut()&&S.store.food>12,make:()=>{const f=ri(4,8);S.store.food-=f;return card({i:'🔍',t:'The store has been raided',x:f+' food has gone missing from the communal store overnight.',bad:1,c:[
   {t:'Investigate',s:'Best Intellect or a Kaypoh',f:()=>{const k=known().find(r=>has(r,'kaypoh'))||best('I');if(k&&chance(.55)){S.store.food+=f;const cul=pick(S.hh.filter(h=>h.known));cul.trust=clamp(cul.trust-10,0,100);return k.short+' follows the trail of grains to the '+cul.name+'. The food comes back.'}return 'No luck. People start locking their gates.'}},
   {t:'Let it go',f:()=>'Suspicion lingers in the corridor.'}]})}},
@@ -1343,9 +1350,9 @@ function panelWorkshop(){
   h+=`<h3>Communal items</h3>`;
   const it=Object.keys(S.items);
   h+=it.length?`<div class="itemchips">${it.map(k=>`<button class="ic ${UI.expSel.includes(k)?'on':''}" data-act="expsel" data-v="${k}">${ITEMS[k]} ×${S.items[k]}</button>`).join('')}</div>`:'<p class="mute small">Empty. Ask households to donate items from their flats.</p>';
-  h+=`<div class="row" style="margin-top:8px"><button data-act="experiment" ${UI.expSel.length>=2?'':'disabled'}>💡 Try combining ${UI.expSel.length?UI.expSel.map(k=>ITEMS[k]).join(' + '):'selected items'}</button></div><p class="small mute">Pick 2 or 3 items and let the inventor experiment. Items are not used up.</p>`;
+  h+=`<div class="row" style="margin-top:8px"><button data-act="experiment" ${UI.expSel.length>=2?'':'disabled'}>💡 Try combining ${UI.expSel.length?UI.expSel.map(k=>ITEMS[k]).join(' + '):'selected items'}</button></div><p class="small mute">Pick the items an idea needs and let the inventor try. Items are not used up. Each idea below says how many different items it needs and which ones you already know. A wrong guess that includes a right item still reveals that item.</p>`;
   h+=`<h3>Blueprints</h3><div class="stack">`+RECIPES.map(rc=>{
-    if(!S.known[rc.id])return `<div class="card"><b class="mute">??? Unknown idea</b><br><span class="small mute">Hint: ${rc.hint}</span></div>`;
+    if(!S.known[rc.id]){const ks=Object.keys(rc.need);const rv=revealed(rc);return `<div class="card stack" style="gap:4px"><b class="mute">??? Unknown idea · needs ${ks.length} different items</b><span class="small">${ks.map(k=>rv.includes(k)?`<span class="${S.items[k]?'goodline':'badline'}">${ITEMS[k]}</span>`:'<span class="mute">???</span>').join(' + ')}</span><span class="small mute">Hint: ${rc.hint}</span></div>`}
     const need=Object.entries(rc.need).map(([k,n])=>`<span class="${(S.items[k]||0)>=n?'goodline':'badline'}">${n}× ${ITEMS[k]}</span>`).join(' + ');
     const done=(rc.id==='flyingFox'&&S.built.fox)||(rc.id==='sheetRope'&&S.built.rope);
     return `<div class="card stack" style="gap:4px"><b>${rc.n}</b><span class="small mute">${rc.d}</span><span class="small">${need} · ${rc.work} work</span><div class="row"><button data-act="build" data-v="${rc.id}" ${!S.proj&&hasNeeds(rc)&&!done?'':'disabled'}>${done?'Built':'Build'}</button>${done?'':S.proj?'<span class="small mute">Workshop busy. One project at a time.</span>':!hasNeeds(rc)?'<span class="small mute">Missing items (in red).</span>':''}</div></div>`}).join('')+`</div>`;
