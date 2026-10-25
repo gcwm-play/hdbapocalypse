@@ -164,6 +164,17 @@ h3{font-size:13px;text-transform:uppercase;letter-spacing:.08em;color:var(--mute
 .prow2 .big2{font-size:22px;line-height:1.2}
 .prow2 .nm{font-size:13px}
 .prow2 select{font-size:12px;flex:1;min-width:0}
+.prow2{--jc:#8e9fb0;border:none;border-left:4px solid var(--jc);background:color-mix(in srgb,var(--jc) 11%,var(--panel));border-radius:5px;padding:8px 8px 8px 8px;margin-bottom:5px}
+.prow2 select[data-chg=job]{border-color:var(--jc);box-shadow:inset 3px 0 0 var(--jc)}
+.jh{display:flex;align-items:center;gap:7px;color:var(--jc)}
+.jh::before{content:"";width:10px;height:10px;border-radius:2px;background:var(--jc)}
+.job-guard,.jh-guard{--jc:#ec6a52}
+.job-lookout,.jh-lookout{--jc:#5aa9e6}
+.job-invent,.jh-invent{--jc:#f4b740}
+.job-medic,.jh-medic{--jc:#4fd1c5}
+.job-garden,.jh-garden{--jc:#9cc35a}
+.job-rest,.jh-rest{--jc:#a3adb8}
+.job-off,.jh-off{--jc:#4f5b68}
 .prow .nm{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .prow select{width:100%;font-size:12px}
 .itemchips{display:flex;flex-wrap:wrap;gap:4px}
@@ -1203,7 +1214,7 @@ function personRow(r){
   const u=unitOf(r);const adult=r.age>=13;const free=adult&&!r.away&&!r.quar;
   const tr=r.traits.map(t=>`<span class="trait ${t==='inventor'?'inv':''}" title="${esc(TRAITS[t][1])}">${TRAITS[t][0]}</span>`).join('');
   const tags=[u?u.id:'stairwell'];if(r.leader&&r.arch!=='you')tags.push('⭐ leader');if(r.inf&&!r.inf.hidden)tags.push('🦷');if(r.quar)tags.push('🔒 quarantined');if(r.away)tags.push('away');if(!adult)tags.push('child');
-  return `<div class="prow2"><span class="big2">${faceOf(r)}</span><div style="min-width:0">
+  return `<div class="prow2 ${free?'job-'+r.job:'job-off'}"><span class="big2">${faceOf(r)}</span><div style="min-width:0">
     <div class="nm"><a href="#" data-act="selres" data-v="${r.id}" style="color:inherit">${esc(r.short)}</a> <span class="mute small">${ARCH[r.arch].i} ${esc(ARCH[r.arch].l)} · ${tags.join(' · ')}</span></div>
     <div>${tr}<span class="stats" style="display:inline-flex;margin-left:4px"><span>S <b>${r.st.S}</b></span><span>A <b>${r.st.A}</b></span><span>I <b>${r.st.I}</b></span><span>K <b>${r.st.K}</b></span>${adult?`<span title="Fighting strength">⚔ <b>${guardPow(r).toFixed(1)}</b></span>`:''}</span></div>
     <div class="row" style="gap:4px;flex-wrap:nowrap;margin:3px 0"><span class="small mute" style="width:14px">🧠</span>${bar(r.san,sanCol(r.san))}<span class="small mute" style="width:14px">❤</span>${bar(r.hp,r.hp>50?'var(--ok)':'var(--blood)')}</div>
@@ -1217,7 +1228,7 @@ function panelPeople(){
   h+=`<div class="row" style="margin:8px 0">${[['job','By job'],['inventor','Inventors'],['fighters','Fighters'],['flat','By flat']].map(([k,n])=>`<button class="${F===k?'btn-main':''}" data-act="pf" data-v="${k}">${n}</button>`).join('')}</div>`;
   const freeWpn=Object.keys(S.items).some(k=>GEAR[k]);
   h+=`<div class="row" style="margin-bottom:8px"><button data-act="armguards" ${jobbers('guard').length&&(freeWpn||true)?'':'disabled'}>⚔️ Arm the guards (best gear to strongest)</button>${known().some(r=>able(r)&&has(r,'inventor')&&r.job!=='invent')?'<button data-act="invwork">🔧 Put free inventors to work</button>':''}</div>`;
-  const sec=(title,list,note)=>list.length?`<h3>${title} · ${list.length}</h3>${note?`<p class="small mute" style="margin:0 0 4px">${note}</p>`:''}${list.map(personRow).join('')}`:'';
+  const sec=(title,list,note)=>list.length?`<h3 class="jh jh-${{Guards:'guard','Rooftop lookouts':'lookout',Workshop:'invent',Medics:'medic',Gardeners:'garden','Unassigned (resting)':'rest'}[title]||'off'}">${title} · ${list.length}</h3>${note?`<p class="small mute" style="margin:0 0 4px">${note}</p>`:''}${list.map(personRow).join('')}`:'';
   const byFloor=(a,b)=>{const ua=unitOf(a),ub=unitOf(b);return (ub?ub.lvl:99)-(ua?ua.lvl:99)||a.hh-b.hh};
   if(F==='job'){
     const working=ks.filter(r=>r.age>=13&&!r.away&&!r.quar);
@@ -1227,7 +1238,7 @@ function panelPeople(){
     h+=sec('Workshop',working.filter(r=>r.job==='invent'),S.proj?'Building: '+RECIPES.find(x=>x.id===S.proj.id).n:'No project. Start one in the Workshop tab.');
     h+=sec('Medics',working.filter(r=>r.job==='medic'));
     h+=sec('Gardeners',working.filter(r=>r.job==='garden'));
-    h+=sec('Resting',working.filter(r=>r.job==='rest').sort((a,b)=>(has(b,'inventor')-has(a,'inventor'))||guardPow(b)-guardPow(a)));
+    h+=sec('Unassigned (resting)',working.filter(r=>r.job==='rest').sort((a,b)=>(has(b,'inventor')-has(a,'inventor'))||guardPow(b)-guardPow(a)));
     h+=sec('Away',ks.filter(r=>r.away));h+=sec('Quarantined',ks.filter(r=>r.quar&&!r.away));h+=sec('Children',ks.filter(r=>r.age<13&&!r.away));
   }else if(F==='inventor'){
     const inv=ks.filter(r=>has(r,'inventor'));h+=inv.length?sec('Inventors',inv,'Only residents with the Inventor trait make progress. Others on Workshop just help.'):'<p class="mute">No inventors yet. Reach more neighbours: some have the Inventor trait.</p>';
