@@ -1211,7 +1211,7 @@ function panelOutside(){
 function panelWorkshop(){
   const inv=known().filter(r=>has(r,'inventor'));
   let h=`<h2>Workshop</h2><p class="small mute">Inventors: ${inv.length?inv.map(r=>esc(r.short)+(r.job==='invent'?' (working)':' (not assigned)')).join(', '):'none yet. Look for neighbours with the Inventor trait.'}${rooms('workshop')?' · Workshop room: +50%':''}</p>`;
-  if(S.proj){const rc=RECIPES.find(r=>r.id===S.proj.id);h+=`<div class="card"><b>Building: ${rc.n}</b>${bar(S.proj.prog/S.proj.work*100,'var(--lamp)')}<span class="small mute">${Math.floor(S.proj.prog)}/${S.proj.work} work. Set an inventor's job to Workshop to make progress.</span></div>`}
+  if(S.proj){const rc=RECIPES.find(r=>r.id===S.proj.id);h+=`<div class="card"><b>Building: ${rc.n}</b>${bar(S.proj.prog/S.proj.work*100,'var(--lamp)')}<span class="small mute">${Math.floor(S.proj.prog)}/${S.proj.work} work.</span>${jobbers('invent').some(r=>has(r,'inventor'))?`<span class="small goodline"> ${jobbers('invent').filter(r=>has(r,'inventor')).map(r=>esc(r.short)).join(', ')} working on it.</span>`:`<div class="badline" style="margin-top:4px">Nobody is working on it. An inventor's job must be set to Workshop.</div>`}<div class="row" style="margin-top:8px">${inv.some(r=>able(r)&&r.job!=='invent')?`<button class="btn-main" data-act="invwork">Put free inventors to work</button>`:''}<button data-act="cancelproj">Cancel (items returned)</button></div></div>`}
   h+=`<h3>Communal items</h3>`;
   const it=Object.keys(S.items);
   h+=it.length?`<div class="itemchips">${it.map(k=>`<button class="ic ${UI.expSel.includes(k)?'on':''}" data-act="expsel" data-v="${k}">${ITEMS[k]} ×${S.items[k]}</button>`).join('')}</div>`:'<p class="mute small">Empty. Ask households to donate items from their flats.</p>';
@@ -1220,7 +1220,7 @@ function panelWorkshop(){
     if(!S.known[rc.id])return `<div class="card"><b class="mute">??? Unknown idea</b><br><span class="small mute">Hint: ${rc.hint}</span></div>`;
     const need=Object.entries(rc.need).map(([k,n])=>`<span class="${(S.items[k]||0)>=n?'goodline':'badline'}">${n}× ${ITEMS[k]}</span>`).join(' + ');
     const done=(rc.id==='flyingFox'&&S.built.fox)||(rc.id==='sheetRope'&&S.built.rope);
-    return `<div class="card stack" style="gap:4px"><b>${rc.n}</b><span class="small mute">${rc.d}</span><span class="small">${need} · ${rc.work} work</span><div><button data-act="build" data-v="${rc.id}" ${!S.proj&&hasNeeds(rc)&&!done?'':'disabled'}>${done?'Built':'Build'}</button></div></div>`}).join('')+`</div>`;
+    return `<div class="card stack" style="gap:4px"><b>${rc.n}</b><span class="small mute">${rc.d}</span><span class="small">${need} · ${rc.work} work</span><div class="row"><button data-act="build" data-v="${rc.id}" ${!S.proj&&hasNeeds(rc)&&!done?'':'disabled'}>${done?'Built':'Build'}</button>${done?'':S.proj?'<span class="small mute">Workshop busy. One project at a time.</span>':!hasNeeds(rc)?'<span class="small mute">Missing items (in red).</span>':''}</div></div>`}).join('')+`</div>`;
   return h;
 }
 function panelBlock(){
@@ -1272,7 +1272,9 @@ const ACT={
   donate:d=>donate(+d.v,d.k),askfood:d=>moveFood(+d.v,'in'),givefood:d=>moveFood(+d.v,'out'),givewater:d=>moveFood(+d.v,'out','water'),
   talk:d=>talkTo(+d.v),release:d=>{const r=RS(+d.v);if(r){r.quar=false;save();render()}},
   dispatch:d=>dispatch(d.v),
-  build:d=>startProj(d.v),expsel:d=>{const i=UI.expSel.indexOf(d.v);if(i>=0)UI.expSel.splice(i,1);else if(UI.expSel.length<3)UI.expSel.push(d.v);render()},experiment:()=>experiment(),
+  build:d=>startProj(d.v),
+  invwork:()=>{known().filter(r=>able(r)&&has(r,'inventor')).forEach(r=>r.job='invent');save();render()},
+  cancelproj:()=>{if(!S.proj)return;const rc=RECIPES.find(r=>r.id===S.proj.id);for(const k in rc.need)itemAdd(S.items,k,rc.need[k]);log('Workshop project cancelled: '+rc.n+'.','');S.proj=null;save();render()},expsel:d=>{const i=UI.expSel.indexOf(d.v);if(i>=0)UI.expSel.splice(i,1);else if(UI.expSel.length<3)UI.expSel.push(d.v);render()},experiment:()=>experiment(),
   ration:d=>{S.ration=d.v;save();render()},reinforce:()=>reinforce(),lure:()=>throwLure(),retake:()=>retake(),strip:d=>strip(+d.v),
   choice:d=>choose(+d.v),ok:()=>{UI.result=null;render()},
   quit:()=>{if(!S.over&&!UI.confirmQuit){UI.confirmQuit=1;flash('Press again to abandon this block.');setTimeout(()=>UI.confirmQuit=0,3000);return}UI.confirmQuit=0;wipe();S=null;CUR=null;UI.result=null;render()},
