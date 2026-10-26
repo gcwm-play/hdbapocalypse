@@ -329,6 +329,8 @@ button.trait{padding:0 5px;border-radius:4px}
 @container (max-width:90px){.sp{scale:1.05}}
 .sp{pointer-events:auto;cursor:pointer}
 .sp:hover{filter:drop-shadow(0 0 3px #fff)}
+.comfort{padding:2px 8px;font-size:12px;white-space:nowrap;flex:none}
+.comfort.low:not(:disabled){border-color:var(--warn);color:var(--warn)}
 .card.pers.focus,.prow2.focus{outline:2px solid var(--tc,var(--lamp));outline-offset:2px;animation:focuspulse 1.2s ease-out 2}
 @keyframes focuspulse{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--tc,#f4b740) 60%,transparent)}100%{box-shadow:0 0 0 12px transparent}}
 .sp,.zz{background-image:var(--atlas);background-repeat:no-repeat;background-size:72px auto;image-rendering:pixelated}
@@ -2196,7 +2198,7 @@ function personRow(r){
   return `<div class="prow2 ${free?'job-'+r.job:'job-off'}${UI.focus===r.id?' focus':''}" data-rid="${r.id}"><span class="big2">${faceOf(r)}</span><div style="min-width:0">
     <div class="nm"><a href="#" data-act="selres" data-v="${r.id}" style="color:inherit">${esc(r.short)}</a> <span class="mute small">${ARCH[r.arch].i} ${esc(ARCH[r.arch].l)} · ${tags.join(' · ')}</span></div>
     <div>${tr}<span class="stats" style="display:inline-flex;margin-left:4px"><span>Strength <b>${r.st.S}</b></span><span>Agility <b>${r.st.A}</b></span><span>Intellect <b>${r.st.I}</b></span><span>Kampung spirit <b>${r.st.K}</b></span>${adult?`<span title="Overall fighting strength: strength, weapon, health, sanity and traits">Fighting <b>${guardPow(r).toFixed(1)}</b></span>`:''}</span></div>${suitLine(r)}
-    <div class="row" style="gap:4px;flex-wrap:nowrap;margin:3px 0"><span class="small mute">Sanity</span>${bar(r.san,sanCol(r.san))}<span class="small mute">Health</span>${bar(r.hp,r.hp>50?'var(--ok)':'var(--blood)')}</div>
+    <div class="row" style="gap:4px;flex-wrap:nowrap;margin:3px 0"><span class="small mute">Sanity</span>${bar(r.san,sanCol(r.san))}<span class="small mute">Health</span>${bar(r.hp,r.hp>50?'var(--ok)':'var(--blood)')}${!r.away&&!r.quar?`<button class="comfort ${r.san<40?'low':''}" data-act="talk" data-v="${r.id}" ${S.talks>0&&r.san<100?'':'disabled'} title="A neighbour with good Kampung spirit spends time with them. Raises sanity.">💬 Comfort (${S.talks} left)</button>`:''}</div>
     ${admitBtn(r)}
     ${free?`<div class="row" style="gap:4px"><select data-chg="job" data-id="${r.id}" aria-label="Job for ${esc(r.short)}">${jobOpts(r)}</select>${r.job==='lookout'?toolSel(r):gearSel(r,'wpn')+gearSel(r,'arm')}</div>`:''}
   </div></div>`;
