@@ -407,7 +407,7 @@ const RECIPES=[
   {id:'zipline',cat:'route',n:'Two-way zipline (upgrade)',need:{battery:1,wire:1,rope:1},work:10,d:'Motorises a flying fox so it runs both ways: a quarter of the normal risk, up to 3 riders. When it\'s done, you choose which flying fox to upgrade.',hint:'Something to pull the line back up...'},
 ];
 const ROOMS={
-  workshop:{n:'Workshop',e:'🔧',cost:6,once:1,d:'Inventors work 50% faster. One is enough.'},
+  workshop:{n:'Workshop',e:'🔧',cost:6,once:1,d:'Where inventors try combinations and build gear. Nothing gets invented without one. One is enough.'},
   sickbay:{n:'Sick bay',e:'🩹',cost:6,once:1,d:'Medics heal twice as fast and spot hidden bites more often. Needed for amputations. One is enough.'},
   quarantine:{n:'Quarantine room',e:'🔒',cost:4,d:'Uses the flat\'s steel-door household shelter. Lock up suspected infected safely.'},
   depot:{n:'Karang guni depot',e:'♻️',cost:2,staff:'salvage',d:'Strip the flat for barricade material: +3 scrap a day with a worker (a karang guni man gets +6). Each flat only holds so much. When it runs out, the flat is stripped bare and gone for good.'},
@@ -685,6 +685,7 @@ function finishGame(id){
 function endingsSeen(){try{return JSON.parse(localStorage.getItem('hdbapoc-endings')||'[]')}catch(e){return[]}}
 function newDay(){
   S.talks=2+(known().some(r=>act(r)&&r.arch==='rcauntie')?1:0);S.chatUsed={};
+  if(!S.flags.invPitch&&!rooms('workshop')&&S.t>=(S.flags.invPitchAgain||0)&&!S.queue.some(q=>q.id==='invPitch')){const iv=known().filter(r=>act(r)&&has(r,'inventor'));if(iv.length)queue('invPitch',{id:pick(iv).id})}
   rollWeather();
   const w=S.weather.type;
   if(S.built.filter){S.store.water+=3}
@@ -803,10 +804,11 @@ function doJobs(){
     ks.forEach(r=>{if(r.inf&&r.inf.hidden&&chance(.04*m.st.I/5+(sb?.1:0)+(m.arch==='nurse'?.06:0))){r.inf.hidden=false;log(m.short+' found a bite '+r.short+' was hiding.','bad');queue('infected',{id:r.id})}});
   });
   // inventor
-  if(S.proj){
+  if(!rooms('workshop')&&jobbers('invent').length){jobbers('invent').forEach(r=>r.job='rest');log('There is no workshop any more. The inventors have gone home.','bad')}
+  if(S.proj&&rooms('workshop')){
     const inv=jobbers('invent').filter(r=>has(r,'inventor'));const helpers=jobbers('invent').filter(r=>!has(r,'inventor'));
     if(inv.length){
-      let p=inv.reduce((a,r)=>a+2+r.st.I*.3,0)+helpers.length*.8;if(rooms('workshop'))p*=1.5;
+      let p=(inv.reduce((a,r)=>a+2+r.st.I*.3,0)+helpers.length*.8)*1.5;
       if(inv.some(r=>has(r,'sian'))&&chance(.25))p*=.3;
       S.proj.prog+=p;
       if(S.proj.prog>=S.proj.work)finishProj();
@@ -1177,6 +1179,7 @@ function recipeOpen(r){if(r.id==='zipline'&&!Object.keys(S.built.fox||{}).length
   if(S.known[r.id])return true;if(r.secret)return false;if(r.unlock)return isOut()&&pday()>=r.unlock;return true}
 function startProj(id){
   const rc=RECIPES.find(r=>r.id===id);if(!rc||S.proj||!hasNeeds(rc))return;
+  if(!rooms('workshop')){flash('You need a workshop first. Repurpose an empty flat.');return}
   if(id==='booster'&&rooms('workshop')<2){flash('The booster needs two workshops.');return}
   for(const k in rc.need)itemAdd(S.items,k,-rc.need[k]);
   S.proj={id,prog:0,work:rc.work};log('The workshop starts on: '+rc.n+'.','');save();render();
@@ -1426,7 +1429,7 @@ const REV=[
   {t:'Check them over carefully',s:'Medic or Kaypoh helps',f:()=>{if(r.inf){r.inf.hidden=false;S.queue.unshift({id:'infected',a:{id:r.id}});return 'There it is, under the sleeve. A bite.'}return 'No wounds. Just a fever. Probably.'}},
   {t:'Give medicine',s:'−1 meds',dis:S.store.meds<1,f:()=>{S.store.meds--;r.hp=Math.min(100,r.hp+15);return 'The fever breaks overnight.'}},
   {t:'Watch and wait',f:()=>'Everyone watches '+r.short+' a bit more closely.'}]})}},
- {id:'idea',w:1,c:()=>known().some(r=>act(r)&&has(r,'inventor'))&&RECIPES.some(r=>!S.known[r.id]&&recipeOpen(r)),make:()=>{const rc=pick(RECIPES.filter(r=>!S.known[r.id]&&recipeOpen(r)));const inv=known().find(r=>act(r)&&has(r,'inventor'));if(!inv||!rc)return null;const nk=Object.keys(rc.need).find(k=>!revealed(rc).includes(k));if(nk)revealItem(rc,nk);return card({i:'💡',t:inv.short+' has an idea',x:(nk?'"It needs a '+ITEMS[nk].toLowerCase()+'..." ':'')+'"'+rc.hint+'" '+inv.short+' sketches on the back of a Town Council notice. Try combining items in the Workshop tab.',c:ok('Noted')})}},
+ {id:'idea',w:1,c:()=>rooms('workshop')&&known().some(r=>act(r)&&has(r,'inventor'))&&RECIPES.some(r=>!S.known[r.id]&&recipeOpen(r)),make:()=>{const rc=pick(RECIPES.filter(r=>!S.known[r.id]&&recipeOpen(r)));const inv=known().find(r=>act(r)&&has(r,'inventor'));if(!inv||!rc)return null;const nk=Object.keys(rc.need).find(k=>!revealed(rc).includes(k));if(nk)revealItem(rc,nk);return card({i:'💡',t:inv.short+' has an idea',x:(nk?'"It needs a '+ITEMS[nk].toLowerCase()+'..." ':'')+'"'+rc.hint+'" '+inv.short+' sketches on the back of a Town Council notice. Try combining items in the Workshop tab.',c:ok('Noted')})}},
  {id:'theft',w:1,c:()=>isOut()&&S.store.food>12,make:()=>{const f=ri(4,8);S.store.food-=f;return card({i:'🔍',t:'The store has been raided',x:f+' food has gone missing from the communal store overnight.',bad:1,c:[
   {t:'Investigate',s:'Best Intellect or a Kaypoh',f:()=>{const k=known().find(r=>has(r,'kaypoh'))||best('I');if(k&&chance(.55)){S.store.food+=f;const cul=pick(S.hh.filter(h=>h.known));cul.trust=clamp(cul.trust-10,0,100);return k.short+' follows the trail of grains to the '+cul.name+'. The food comes back.'}return 'No luck. People start locking their gates.'}},
   {t:'Let it go',f:()=>'Suspicion lingers in the corridor.'}]})}},
@@ -1527,6 +1530,15 @@ EV.medTrouble={make:a=>{
 EV.cureReady={make:()=>{if(!medActive())return null;return card({i:'🧪',t:'The doctors are ready',x:'Two months of work. Samples from the sealed quarantine room. Two sick bays, a hundred doses of medicine. '+medTeam()[0].name+' gathers everyone in the corridor.\n\n"We think we can make something that stops the turning. It will take a week and most of our medicine. It might not work."',c:[
   {t:'Begin the trials',s:'−50 meds. A week of work.',f:()=>{S.store.meds-=50;S.end.med.trial=S.t;addTimer(7,'cureDone',{});return 'The sick bays go quiet and smell of disinfectant. Nobody is allowed in.'}},
   {t:'Not yet',s:'They\'ll ask again in a few days',f:()=>'"We\'ll be ready when you are."'}]})}};
+// an inventor asks for a workshop: the way into inventing
+function pitchFlat(){return S.units.filter(u=>u.st==='empty'&&!u.room&&u.lvl>S.front).sort((a,b)=>b.lvl-a.lvl)[0]}
+EV.invPitch={make:a=>{const r=RS(a.id);if(!r||!act(r)||rooms('workshop'))return null;
+  const others=known().filter(m=>m!==r&&act(m)&&has(m,'inventor')).map(m=>m.short);
+  const u=pitchFlat();const can=u&&S.store.scrap>=ROOMS.workshop.cost;
+  return card({i:'🔧',t:r.short+' has a proposal',x:r.short+' catches you at the lift lobby with a notebook full of sketches.\n\n"Give us a flat and some scrap for a workshop. '+(others.length?others.join(' and ')+' and I':'I')+' could make real gear for the block: weapons, tools, maybe even a way across to the supermarket."',
+    c:[{t:'Set up a workshop',s:can?'Repurpose '+u.id+' (−'+ROOMS.workshop.cost+' scrap)':!u?'No empty flat to spare yet':'Needs '+ROOMS.workshop.cost+' scrap (you have '+S.store.scrap+')',dis:!can,f:()=>{S.flags.invPitch=1;S.store.scrap-=ROOMS.workshop.cost;u.room='workshop';known().filter(m=>able(m)&&has(m,'inventor')).forEach(m=>m.job='invent');log(u.id+' converted into a workshop.','good');
+        return r.short+' grins and starts moving tables. The inventors are at work in '+u.id+'. See what they can make in the Workshop tab.'}},
+      {t:'Later',s:can?'Ask again in a few days':'Repurpose an empty flat from the Flat tab when you can',f:()=>{S.flags.invPitchAgain=S.t+4;r.san=clamp(r.san-3,0,100);return can?'"Okay lah. The offer stands." '+r.short+' folds the notebook away.':'"When there\'s a flat and some scrap, find me." You can convert any empty flat into a workshop from the Flat tab.'}}]})}};
 EV.cureDone={make:()=>card({i:'🧪',t:'A single vial',x:'On the seventh morning, the doctors come out with red eyes and a single glass vial.',c:[{t:'See what happens',f:()=>{finishGame('cure');return null}}]})};
 EV.radioMsg={make:a=>{const R_=S.end.radio;return card({i:'📻',t:'Radio message '+(a.n+1)+' of '+RADIO_MSGS.length,x:'The police radio crackles to life:\n\n'+RADIO_MSGS[a.n]+'\n\nNobody knows if anyone can hear you. They have never answered.',c:[
   {t:'Respond: "This is Blk '+S.blk+', '+S.estate+'. We hear you."',s:'Keep the channel alive. The transmission makes some noise.',f:()=>{R_.ans++;S.noise+=3;known().forEach(r=>r.san=clamp(r.san+3,0,100));return R_.ans>=RADIO_MSGS.length?'Static. Then nothing. You have answered every message.':'Static. No reply. But you keep the frequency written on the wall.'}},
@@ -1917,7 +1929,7 @@ function personCard(r){
   </div></div>`;
 }
 function jobOpts(r){
-  return Object.entries(JOBS).filter(([k])=>(k!=='garden'||rooms('garden'))&&(k!=='salvage'||rooms('depot'))).filter(([k])=>!(k==='guard'&&r.age>=75)).map(([k,n])=>`<option value="${k}" ${r.job===k?'selected':''}>${n}${k==='invent'&&!has(r,'inventor')?' (helper)':''}</option>`).join('');
+  return Object.entries(JOBS).filter(([k])=>(k!=='garden'||rooms('garden'))&&(k!=='salvage'||rooms('depot'))&&(k!=='invent'||rooms('workshop')||r.job==='invent')).filter(([k])=>!(k==='guard'&&r.age>=75)).map(([k,n])=>`<option value="${k}" ${r.job===k?'selected':''}>${n}${k==='invent'&&!has(r,'inventor')?' (helper)':''}</option>`).join('');
 }
 function panelUnit(){
   const u=UI.sel?U(UI.sel):null;
@@ -2019,7 +2031,7 @@ const SUIT_TIP={
   garden:'Green Fingers: grows 8 food a day in a garden instead of 5. Set their job to Tend garden.',
   guard:'Good base fighting strength from Strength, traits or military/construction background. ★★ = among your best fighters. Give them a weapon and put them on Guard the line.',
   run:'High Agility: each point above 5 cuts their risk on supply runs by 5%. Grab drivers also bring back 30% more food.',
-  invent:'Has the Inventor trait. Set their job to Workshop to build weapons and tools.',
+  invent:'Has the Inventor trait. Once the block has a workshop, set their job to Workshop to build weapons and tools.',
   medic:'High Intellect (or a nurse): heals faster and spots hidden bites more often on the Medic job.',
   talk:'High Kampung spirit: best at comforting people, talking them out of breakdowns and getting wary neighbours to open the door.',
   lookout:'No standout fighting or running strengths. Lookout duty doesn\'t depend on stats, and every lookout makes supply runs safer and warns of hordes.',
@@ -2064,7 +2076,7 @@ function panelPeople(){
     <p><b>Good traits:</b> Garang (fighter, no guard stress), Steady and Bo Chap (lose sanity slower), Kaypoh (spots a family member's hidden bite), Inventor. <b>Watch out for:</b> Pai Seh (likely to hide a bite), Sian (skips work), Pantang (stressed at night), Kiasu (stressed when food is low), Atas (won't donate).</p>
   </div>`;
   const freeWpn=Object.keys(S.items).some(k=>GEAR[k]);
-  h+=`<div class="row" style="margin-bottom:8px"><button data-act="armguards" ${jobbers('guard').length&&(freeWpn||true)?'':'disabled'}>⚔️ Arm the guards (best gear to strongest)</button>${known().some(r=>able(r)&&has(r,'inventor')&&r.job!=='invent')?'<button data-act="invwork">🔧 Put free inventors to work</button>':''}</div>`;
+  h+=`<div class="row" style="margin-bottom:8px"><button data-act="armguards" ${jobbers('guard').length&&(freeWpn||true)?'':'disabled'}>⚔️ Arm the guards (best gear to strongest)</button>${rooms('workshop')&&known().some(r=>able(r)&&has(r,'inventor')&&r.job!=='invent')?'<button data-act="invwork">🔧 Put free inventors to work</button>':''}</div>`;
   const sec=(title,list,note)=>list.length?`<h3 class="jh jh-${{Guards:'guard','Rooftop lookouts':'lookout',Workshop:'invent',Medics:'medic',Gardeners:'garden','Unassigned (resting)':'rest','In the sick bay':'ward'}[title]||'off'}">${title} · ${list.length}</h3>${note?`<p class="small mute" style="margin:0 0 4px">${note}</p>`:''}${list.map(personRow).join('')}`:'';
   const byFloor=(a,b)=>{const ua=unitOf(a),ub=unitOf(b);return (ub?ub.lvl:99)-(ua?ua.lvl:99)||a.hh-b.hh};
   if(F==='job'){
@@ -2128,7 +2140,8 @@ function panelOutside(){
 }
 function panelWorkshop(){
   const inv=known().filter(r=>has(r,'inventor'));
-  let h=`<h2>Workshop</h2><p class="small mute">Inventors: ${inv.length?inv.map(r=>esc(r.short)+(r.job==='invent'?' (working)':' (not assigned)')).join(', '):'none yet. Look for neighbours with the Inventor trait.'}${rooms('workshop')?' · Workshop room: +50%':''}</p>`;
+  let h=`<h2>Workshop</h2><p class="small mute">Inventors: ${inv.length?inv.map(r=>esc(r.short)+(r.job==='invent'?' (working)':' (not assigned)')).join(', '):'none yet. Look for neighbours with the Inventor trait.'}</p>`;
+  if(!rooms('workshop'))h+=`<div class="card" style="border-color:var(--warn)"><b>🔧 No workshop yet</b><p class="small" style="margin:4px 0 0">Inventors need a room to work in. Pick an empty flat above the line and repurpose it as a Workshop (6 scrap). Until then nobody can try combinations or build.</p></div>`;
   if(S.proj){const rc=RECIPES.find(r=>r.id===S.proj.id);h+=`<div class="card"><b>Building: ${rc.n}</b>${bar(S.proj.prog/S.proj.work*100,'var(--lamp)')}<span class="small mute">${Math.floor(S.proj.prog)}/${S.proj.work} work.</span>${jobbers('invent').some(r=>has(r,'inventor'))?`<span class="small goodline"> ${jobbers('invent').filter(r=>has(r,'inventor')).map(r=>esc(r.short)).join(', ')} working on it.</span>`:`<div class="badline" style="margin-top:4px">Nobody is working on it. An inventor's job must be set to Workshop.</div>`}<div class="row" style="margin-top:8px">${inv.some(r=>able(r)&&r.job!=='invent')?`<button class="btn-main" data-act="invwork">Put free inventors to work</button>`:''}<button data-act="cancelproj">Cancel (items returned)</button></div></div>`}
   h+=`<h3>Communal items</h3>`;
   const it=Object.keys(S.items);
@@ -2136,7 +2149,7 @@ function panelWorkshop(){
    const mats=it.filter(k=>!GEAR[k]||k==='knife'||k==='umbrella'||k==='extinguisher').sort(az),gear=it.filter(k=>GEAR[k]&&!mats.includes(k)).sort(az);
    h+=it.length?`<p class="small mute" style="margin:0 0 4px">Materials (A to Z)</p><div class="itemchips">${mats.map(chip).join('')||'<span class="small mute">None</span>'}</div>${gear.length?`<p class="small mute" style="margin:8px 0 4px">Weapons &amp; armour (A to Z): some upgrades use these too</p><div class="itemchips">${gear.map(chip).join('')}</div>`:''}`:'<p class="mute small">Empty. Ask households to donate items from their flats.</p>';}
   const selKey=UI.expSel.slice().sort().join('+');const triedIt=(S.tried||[]).includes(selKey);
-  h+=`<div class="row" style="margin-top:8px"><button data-act="experiment" ${UI.expSel.length>=2&&!triedIt?'':'disabled'}>💡 Try combining ${UI.expSel.length?UI.expSel.map(k=>ITEMS[k]).join(' + '):'selected items'}</button>${triedIt?'<span class="small warnline">You already tried this combination.</span>':''}</div>${(S.tried||[]).length?`<p class="small mute" style="margin:6px 0 0"><b>Already tried:</b> ${S.tried.slice(-12).reverse().map(t=>t.split('+').map(k=>ITEMS[k]).join(' + ')).join(' · ')}</p>`:''}<p class="small mute">Pick the items an idea needs and let the inventor try. Items are not used up. Each idea below says how many different items it needs and which ones you already know. A wrong guess that includes a right item still reveals that item.</p>`;
+  h+=`<div class="row" style="margin-top:8px"><button data-act="experiment" ${UI.expSel.length>=2&&!triedIt&&rooms('workshop')?'':'disabled'}>💡 Try combining ${UI.expSel.length?UI.expSel.map(k=>ITEMS[k]).join(' + '):'selected items'}</button>${triedIt?'<span class="small warnline">You already tried this combination.</span>':''}</div>${(S.tried||[]).length?`<p class="small mute" style="margin:6px 0 0"><b>Already tried:</b> ${S.tried.slice(-12).reverse().map(t=>t.split('+').map(k=>ITEMS[k]).join(' + ')).join(' · ')}</p>`:''}<p class="small mute">Pick the items an idea needs and let the inventor try. Items are not used up. Each idea below says how many different items it needs and which ones you already know. A wrong guess that includes a right item still reveals that item.</p>`;
   const bpCard=rc=>{
     if(!S.known[rc.id]){const ks=Object.keys(rc.need);const rv=revealed(rc);return `<div class="card stack" style="gap:4px"><b class="mute">??? Unknown idea · needs ${ks.length} different items</b><span class="small">${ks.map(k=>rv.includes(k)?`<span class="${S.items[k]?'goodline':'badline'}">${ITEMS[k]}</span>`:'<span class="mute">???</span>').join(' + ')}</span><span class="small mute">Hint: ${rc.hint}</span></div>`}
     const need=Object.entries(rc.need).map(([k,n])=>`<span class="${(S.items[k]||0)>=n?'goodline':'badline'}">${n}× ${ITEMS[k]}</span>`).join(' + ');
@@ -2146,6 +2159,7 @@ function panelWorkshop(){
     if(rc.id==='zipline'&&!Object.values(fx).some(v=>v===1))why=Object.keys(fx).length?'Every flying fox is already a zipline':'Build a flying fox first';
     if(rc.id==='booster'&&rooms('workshop')<2)why='Needs two workshops (repurpose a second empty flat)';
     if(rc.id==='booster'&&S.end&&S.end.radio&&S.end.radio.booster)why='Already built';
+    if(!why&&!rooms('workshop'))why='Needs a workshop';
     const done=!!why;
     return `<div class="card stack" style="gap:4px"><b>${rc.n}</b><span class="small mute">${rc.d}</span><span class="small">${need} · ${rc.work} work</span><div class="row"><button data-act="build" data-v="${rc.id}" ${!S.proj&&hasNeeds(rc)&&!done?'':'disabled'}>Build</button>${done?'<span class="small mute">'+why+'.</span>':S.proj?'<span class="small mute">Workshop busy. One project at a time.</span>':!hasNeeds(rc)?'<span class="small mute">Missing items (in red).</span>':''}</div></div>`};
   const CATS=[['weapon','⚔️ Weapons','#ec6a52'],['armour','🛡️ Armour','#5aa9e6'],['route','🪢 Routes out','#b48ef0'],['defence','🧱 Defence','#f4b740'],['living','💧 Water & light','#4fd1c5'],['radio','📻 Radio','#9cc35a']];
@@ -2388,7 +2402,7 @@ const ACT={
   closeroom:d=>{const u=U(d.v);if(!u||!u.room||u.room==='quarantine')return;const n=ROOMS[u.room].n;known().forEach(r=>{if(r.post===u.id){r.post=null;r.garden=null;if(['garden','salvage'].includes(r.job))r.job='rest'}});u.room=null;u.open=false;log(n+' at '+u.id+' closed down. The flat is free to repurpose.','');save();render()},
   guide:()=>{UI.guide=!UI.guide;render()},
   armguards:()=>armGuards(),
-  invwork:()=>{known().filter(r=>able(r)&&has(r,'inventor')).forEach(r=>r.job='invent');save();render()},
+  invwork:()=>{if(!rooms('workshop'))return;known().filter(r=>able(r)&&has(r,'inventor')).forEach(r=>r.job='invent');save();render()},
   cancelproj:()=>{if(!S.proj)return;const rc=RECIPES.find(r=>r.id===S.proj.id);for(const k in rc.need)itemAdd(S.items,k,rc.need[k]);log('Workshop project cancelled: '+rc.n+'.','');S.proj=null;save();render()},expsel:d=>{const i=UI.expSel.indexOf(d.v);if(i>=0)UI.expSel.splice(i,1);else if(UI.expSel.length<3)UI.expSel.push(d.v);render()},experiment:()=>experiment(),
   ration:d=>{S.ration=d.v;save();render()},reinforce:()=>reinforce(),lure:()=>throwLure(),retake:()=>retake(),strip:d=>strip(+d.v),
   choice:d=>choose(+d.v),ok:()=>{UI.result=null;render()},
