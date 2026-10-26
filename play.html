@@ -691,10 +691,12 @@ const RADIO_MSGS=[
 function checkEndings(){
   S.end=S.end||{};const E=S.end;
   // new inventions unlock over time
-  {const fresh=RECIPES.filter(r=>r.unlock&&isOut()&&pday()>=r.unlock&&!(S.flags.idea||{})[r.id]);
+  // they only come once someone with the Inventor trait is around and has a workshop to think in
+  {const who=known().find(r=>act(r)&&has(r,'inventor'));
+   const fresh=who&&rooms('workshop')?RECIPES.filter(r=>r.unlock&&isOut()&&pday()>=r.unlock&&!(S.flags.idea||{})[r.id]):[];
    if(fresh.length){S.flags.idea=S.flags.idea||{};const CN={weapon:'Weapons',armour:'Armour',route:'Routes out',defence:'Defence',living:'Water & light',radio:'Radio'};
     fresh.forEach(r=>{S.flags.idea[r.id]=1;log('New idea in the workshop: '+r.hint,'good')});
-    queue('info',{i:'💡',t:fresh.length>1?fresh.length+' new ideas in the workshop':'A new idea in the workshop',x:'After '+pday()+' days of making do, the inventor has '+(fresh.length>1?'some new ideas':'a new idea')+' scribbled on notice-board flyers:\n\n'+fresh.map(r=>'• "'+r.hint+'" ('+Object.keys(r.need).length+' items, starting with '+ITEMS[revealed(r)[0]]+', under '+CN[r.cat]+')').join('\n')+'\n\nFind them in the Workshop.'})}}
+    queue('info',{i:'💡',t:fresh.length>1?fresh.length+' new ideas in the workshop':'A new idea in the workshop',x:'After '+pday()+' days of making do, '+who.short+' has '+(fresh.length>1?'some new ideas':'a new idea')+' scribbled on notice-board flyers:\n\n'+fresh.map(r=>'• "'+r.hint+'" ('+Object.keys(r.need).length+' items, starting with '+ITEMS[revealed(r)[0]]+', under '+CN[r.cat]+')').join('\n')+'\n\nFind them in the Workshop.'})}}
   // medical team: do they still exist?
   if(E.med&&E.med.active&&!medTeam().length){E.med.active=false;log('The medical team is gone. The cure will have to wait for someone else.','bad')}
   // radio messages (need the police radio)
@@ -1236,7 +1238,7 @@ function returnLoner(e){
 /* ================= inventor ================= */
 function hasNeeds(rc){for(const k in rc.need)if((S.items[k]||0)<rc.need[k])return false;return true}
 function recipeOpen(r){if(r.id==='zipline'&&!Object.keys(S.built.fox||{}).length)return false; // the upgrade only exists once there's a flying fox
-  if(S.known[r.id])return true;if(r.secret)return false;if(r.unlock)return isOut()&&pday()>=r.unlock;return true}
+  if(S.known[r.id])return true;if(r.secret)return false;if(r.unlock)return !!(S.flags.idea||{})[r.id];return true}
 function startProj(id){
   const rc=RECIPES.find(r=>r.id===id);if(!rc||S.proj||!hasNeeds(rc))return;
   if(!rooms('workshop')){flash('You need a workshop first. Repurpose an empty flat.');return}
