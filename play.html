@@ -265,6 +265,8 @@ button.trait{padding:0 5px;border-radius:4px}
 .ev .choices{display:flex;flex-direction:column;gap:6px}
 .ev .choices button{text-align:left;padding:9px 12px}
 .ev .choices small{display:block;color:var(--mute);font-size:11px}
+.ev .choices button.ign{border-style:dashed;background:transparent;color:var(--mute)}
+.ev .choices button.ign:hover:not(:disabled){color:var(--ink)}
 /* ---------- ending scenes ---------- */
 #modal.endm{background:#000;overflow:hidden}
 .endscene{position:absolute;inset:0;width:100%;height:100%;animation:scfade 1.6s both}
@@ -345,7 +347,11 @@ button.trait{padding:0 5px;border-radius:4px}
 <script>
 "use strict";
 /* ================= data ================= */
-const PH=['Morning','Afternoon','Evening','Night'];
+const PH=['Morning','Afternoon','Night','Night'];
+const nextPH=()=>S.ph>=2?'Morning':PH[S.ph+1];
+// when something due at tick T shows up, counted in visible phases (a tick-3 arrival is seen next morning)
+function visIn(T){const d=Math.floor(T/4),p=T%4;const seen=p===3?(d+1)*3:d*3+p;const now=S.t*3+Math.min(S.ph,2);const n=Math.max(1,seen-now);
+  return (p===3||p===0)&&n===1&&S.ph>=2?'by morning':n===1?'next phase':'in '+n+' phases'}
 const SAVE_KEY='hdbapoc-save-v1';
 const ARCH={
   you:{l:'You (block leader)',i:'⭐',age:[30,48],st:[6,6,5,5,5]},
@@ -802,8 +808,15 @@ function consume(){
 }
 
 /* ================= phase loop ================= */
+// The player sees three phases (morning, afternoon, night). Inside, a day still has four ticks:
+// night runs the old evening and night ticks back to back, so rates per day stay the same.
 function advance(){
   if(!S||S.over||S.queue.length)return;
+  const steps=S.ph===2?2:1;
+  for(let k=0;k<steps&&!S.over;k++)tickStep(k===steps-1);
+  save();render();
+}
+function tickStep(last){
   doJobs();
   if(isOut())doThreat();
   doInfection();
@@ -812,11 +825,11 @@ function advance(){
   S.res.forEach(r=>r.busy=false);
   if(S.ph>3){S.ph=0;S.t++;newDay()}
   resolveExps();
-  maybeEvent();
+  // one roll per visible phase instead of per tick, scaled so events come as often per day as before
+  if(last)maybeEvent(4/3);
   S.noise=Math.max(0,S.noise*.5-.5);
   S.bar.max=Math.round(S.bar.max);
   checkOver();
-  save();render();
 }
 function doJobs(){
   const ks=known();
@@ -1083,7 +1096,7 @@ function routes(dest){
   const fx=(S.built.fox||{})[dest]||0;const lost=S.front>0;
   return [
     {k:'gate',n:'Walk out',m:1,max:4,ok:!lost,show:true,why:'The void deck is overrun'},
-    {k:'sneak',n:'Sneak down the stairs',m:+(1.5+.15*S.front).toFixed(2),max:3,ok:lost&&S.ph>=2,show:lost,why:'Only in the evening or at night'},
+    {k:'sneak',n:'Sneak down the stairs',m:+(1.5+.15*S.front).toFixed(2),max:3,ok:lost&&S.ph>=2,show:lost,why:'Only at night'},
     {k:'rope',n:'Bedsheet rope',m:1.25,max:3,ok:lost&&!!S.built.rope&&S.front<=3,show:lost,unk:!S.built.rope,why:S.built.rope?'The line is too high up for the rope':'Build a bedsheet rope in the Workshop'},
     {k:'fox',n:fx===2?'Zipline':'Flying fox',m:fx===2?.25:.5,max:fx===2?3:2,ok:!!fx,show:dest!=='far',unk:!fx,why:'Build a flying fox in the Workshop and rig it to the '+DEST[dest].n.toLowerCase()},
   ].filter(r=>r.show);
@@ -1111,7 +1124,7 @@ function expRisk(dest,route,team,lure,prov){
   if(!isOut())return 0;
   let r=DEST[dest].risk*(1+Math.sqrt(pday())*.13)*route.m*(S.zMult||1);
   const w=S.weather.type;if(w==='rain'||w==='storm')r*=.8;if(w==='haze')r*=.85;
-  if(S.ph===3&&route.k!=='sneak')r*=1.3;
+  if(S.ph>=2&&route.k!=='sneak')r*=1.15; // night runs: darker than the old evening slot, lighter than the old small hours
   r*=Math.max(.55,1-lookN()*(route.k==='sneak'?.12:.06));
   r*=Math.max(.55,1-team.reduce((a,x)=>a+atkOf(x),0)*.04);
   if(lure)r*=.6;
@@ -1268,6 +1281,10 @@ function queue(id,a){S.queue.push({id,a:a||{}})}
 let CUR=null;
 const EV={};
 function card(o){return o}
+// the do-nothing choice every decision gets: last in the list, with its own consequence
+function IG(s,f,t){return {t:t||'Ignore it',s,f,ign:1}}
+// existing do-nothing choices get the same look
+const IGN_RE=/^(Ignore|Leave it|Leave them|Later|Not yet|Wait and|Watch and wait|Let it go|Too risky|Stay silent|Decide later|Nothing to be done|Let nature take its course|We'll manage)/;
 function ok(t){return[{t:t||'OK',f:()=>null}]}
 // forced events
 EV.intro={make:()=>card({i:'🏢',t:'Blk '+S.blk+' '+S.estate,x:'Something is wrong overseas, and the news is creeping closer. Nobody knows when it will reach Singapore. Maybe a week. Maybe two.\n\nYou know a few neighbours. The rest of the block is a row of closed gates. Message them on the block chat while phones work, gather supplies, and get the household items you need for the inventor to make weapons.\n\nWhen it starts, hold the void deck for as long as you can.',c:ok('Get to work')})};
@@ -1280,6 +1297,7 @@ EV.fall={make:a=>card({i:'🧟',t:'The line has fallen',x:a.x+'\n\nResidents wit
 EV.siren={make:()=>card({i:'📢',t:'The sirens',x:'At 7.12am the Public Warning System starts wailing the Important Message tone. It is not a test.\n\nThe radio repeats: stay indoors, lock your gates. From the corridor you can see people running at the bus stop. Some of them are not running away.\n\nThe void deck shutters are your first line. Put people on Guard duty or they will not hold.',zed:1,c:[
   {t:'Pull down the void deck shutters and pile furniture behind them',s:'+20 barricade, −3 scrap',f:()=>{S.bar.max+=20;S.bar.hp=S.bar.max;S.store.scrap=Math.max(0,S.store.scrap-3);return 'The shutters slam down. Sofas, bicycles and the letterbox benches go behind them.'}},
   {t:'Get on the block chat: "Everyone stay inside, lock your gates"',s:'Telco still works. Calms people.',f:()=>{known().forEach(r=>r.san=clamp(r.san+6,0,100));return 'Thumbs-up reactions flood in. People feel a bit less alone.'}},
+  IG('Wait and see what happens',()=>{S.bar.hp=Math.round(S.bar.hp*.7);known().forEach(r=>r.san=clamp(r.san-4,0,100));return 'You watch from the corridor. By the time anyone moves, the shutters are only half down and the block chat is pure panic.'}),
 ]})};
 EV.infected={make:a=>{
   const r=RS(a.id);if(!r||!r.alive||!r.inf)return null;const h=H(r.hh);
@@ -1363,12 +1381,14 @@ const REV=[
    {t:'Get everyone out and let it burn',s:'The flat and everything in it are gone for good',f:()=>burn(h,u)}]})}},
  {id:'generator',w:2,once:1,c:()=>isOut()&&!S.grid.power,make:()=>{const f=best('S')||known()[0];return card({i:'⚙️',t:'A generator in the carpark',x:f.short+' found a diesel generator in a contractor\'s van in the multi-storey carpark, half a tank left. Enough for about 10 days.\n\nPower means lights, fans and working lamps again. It also means a roaring engine, every single night.',c:[
    {t:'Run it for the block',s:'Power for 10 days: no sanity loss from darkness or heat. Nightly attacks get heavier.',f:()=>{S.flags.gen=S.t+10;return 'It coughs, then roars. Lights flicker on across the block. People cheer, then glance nervously at the street.'}},
-   {t:'Strip it for parts',s:'+15 scrap, quietly',f:()=>{S.store.scrap+=15;return 'Copper, steel and bolts. The barricade gets stronger instead.'}}]})}},
+   {t:'Strip it for parts',s:'+15 scrap, quietly',f:()=>{S.store.scrap+=15;return 'Copper, steel and bolts. The barricade gets stronger instead.'}},
+   IG('Leave it in the carpark. Someone else may find it.',()=>{if(chance(.5)){S.noise+=8;return 'Two nights later someone across the road gets it running. The roar draws the dead down Ave 3, right past your block.'}return 'A week later the van is empty. Somebody else took it.'})]})}},
  {id:'prophet',w:1,once:1,c:()=>isOut()&&pday()>8&&known().some(r=>act(r)&&r.age>=18&&(has(r,'pantang')||r.san<40)),make:()=>{
   const p=pick(known().filter(r=>act(r)&&r.age>=18&&(has(r,'pantang')||r.san<40)));const t=best('K',known().filter(r=>act(r)&&r!==p));
   return card({i:'🕯️',t:p.short+' has a message',x:p.name+' has started gathering people on the landing every night. "This is punishment. The dead walk because we forgot how to live. Pray with me and we will be spared."\n\nThe group grows each night. Some have stopped turning up for their duties.',c:[
    {t:'Let them pray',s:'Big comfort for the scared and superstitious, but 2 workers quit their jobs',f:()=>{known().forEach(r=>{if(has(r,'pantang')||r.age>=65||r.san<40)r.san=clamp(r.san+15,0,100)});const q=known().filter(r=>act(r)&&r.job!=='rest'&&r.job!=='guard').slice(0,2);q.forEach(r=>r.job='rest');return 'Candles every night on the landing.'+(q.length?' '+q.map(r=>r.short).join(' and ')+' stop working to join them. Check the Residents tab.':'')}},
    {t:'Shut it down',s:p.short+'\'s household will resent it, and the superstitious are scared',f:()=>{p.san=clamp(p.san-20,0,100);H(p.hh).trust=clamp(H(p.hh).trust-20,0,100);known().filter(r=>has(r,'pantang')).forEach(r=>r.san=clamp(r.san-8,0,100));return 'The candles are put out. '+p.short+' stares at you for a long time.'}},
+   IG('Say nothing. The group keeps growing.',()=>{const q=known().filter(r=>act(r)&&r.job!=='rest'&&r.job!=='guard'&&(has(r,'pantang')||r.san<50)).slice(0,3);q.forEach(r=>r.job='rest');known().forEach(r=>{if(!has(r,'pantang')&&r.age<65)r.san=clamp(r.san-4,0,100)});return 'Nobody stops it and nobody blesses it. The prayers on the landing get louder and stranger.'+(q.length?' '+q.map(r=>r.short).join(', ')+' stop turning up for their jobs. Check the Residents tab.':'')}),
    {t:'Turn it into a community gathering'+(t?' ('+t.short+')':''),s:'Kampung spirit check. Works out well for everyone if it lands.',dis:!t,f:()=>{if(t.st.K*10+ri(0,40)>70){known().forEach(r=>r.san=clamp(r.san+6,0,100));p.san=clamp(p.san+15,0,100);return t.short+' joins the nightly gathering and turns it into a time to share stories and news. Everyone feels a little better.'}p.san=clamp(p.san-10,0,100);return 'It turns into a shouting match on the landing. Nobody feels better.'}}]})}},
  {id:'tank',w:2,once:1,c:()=>isOut()&&!S.grid.water&&S.store.water>=30,make:()=>card({i:'🚱',t:'Something in the water',x:'Residents complain the stored water smells wrong. On the roof, the cleaner finds why: a body in the open tank. It has been there a while.\n\nThe store holds '+S.store.water+' water.',bad:1,c:[
    {t:'Boil all of it',s:'−8 scrap burned as firewood. The water is safe.',dis:S.store.scrap<8,f:()=>{S.store.scrap-=8;return 'Woks over fires of broken furniture all day. It tastes of smoke, but it\'s safe.'}},
@@ -1385,18 +1405,21 @@ const REV=[
    {t:'Too risky. Let it go.',f:()=>'You watch strangers drag the pallet away.'}]})}},
  {id:'deserter',w:1,once:1,c:()=>isOut()&&pday()>=5&&S.front<=2,make:()=>card({i:'🎖️',t:'A soldier at the barricade',x:'A young man in a torn No. 4 uniform, with a rifle and a few magazines, asks to come in. "My unit is gone. I just need somewhere to sleep."\n\nA rifle would change everything at the line. He looks exhausted, and a little wild around the eyes.',c:[
    {t:'Let him in',s:'A strong guard with a rifle (attack 6). Gunfire draws more of them.',f:()=>{const h=newHousehold('cn');const r=mkRes('nsf',h);r.traits=['garang'];r.wpn='rifle';r.job='guard';nameHH(h);h.name='The lone soldier';addTimer(ri(5,9),'deserter',{id:r.id});return r.name+' slings his rifle and takes the night watch without being asked. Find him a flat.'}},
-   {t:'Turn him away',s:'He might not take it well',f:()=>{addTimer(ri(3,6),'armedLooters',{});return 'He stares at you for a long moment, then walks off toward the expressway.'}}]})},
+   {t:'Turn him away',s:'He might not take it well',f:()=>{addTimer(ri(3,6),'armedLooters',{});return 'He stares at you for a long moment, then walks off toward the expressway.'}},
+   IG('Leave him outside the shutter',()=>{S.noise+=5;if(chance(.5))addTimer(ri(3,6),'armedLooters',{});return 'Nobody answers him. He sits against the shutter all night, talking to himself, then fires two shots into the air and leaves.'})]})},
  {id:'insulin',w:1,once:1,c:()=>isOut()&&known().some(r=>r.age>=60&&act(r)),make:()=>{const r=pick(known().filter(x=>x.age>=60&&act(x)));return card({i:'💉',t:r.short+'\'s medicine',x:r.name+' is diabetic and has just run out of their own medicine. Without a dose each day, they will slowly get weaker.',c:[
    {t:'Give them 1 meds a day from the store',s:'Keeps them going. If the store runs dry, they decline fast.',f:()=>{S.flags.insulin=r.id;return 'Every morning, one dose from the box.'}},
    {t:'We can\'t spare it',s:'They lose health every day until the end',f:()=>{S.flags.insulinNo=r.id;members(H(r.hh)).forEach(m=>{if(m!==r)m.san=clamp(m.san-12,0,100)});return r.short+' nods slowly. "Never mind. I am old already."'}}]})}},
  {id:'strike',w:1,c:()=>isOut()&&jobbers('guard').length>=3&&known().some(r=>r.hun>30),make:()=>{const g=jobbers('guard');return card({i:'✊',t:'The guards want more',x:'The '+g.length+' guards on the line send '+g[0].short+' to speak for them. "We hold the line every night while others sleep. Double rations, or we stand down."',c:[
    {t:'Double rations for the guards',s:'−'+g.length*4+' food now',dis:S.store.food<g.length*4,f:()=>{S.store.food-=g.length*4;g.forEach(r=>{r.san=clamp(r.san+10,0,100);r.hun=0});return 'The guards eat well tonight and go back to the line in better spirits.'}},
    {t:'Rotate: guards rest, others take their shift',s:'The guards rest. Your strongest resting residents take over.',f:()=>{const sub=known().filter(r=>able(r)&&r.job==='rest'&&!g.includes(r)).sort((a,b)=>guardPow(b)-guardPow(a)).slice(0,g.length);g.forEach(r=>{r.job='rest';r.san=clamp(r.san+12,0,100)});sub.forEach(r=>r.job='guard');return 'New faces on the line tonight: '+(sub.map(r=>r.short).join(', ')||'nobody. The line is empty!')+' Check the Residents tab.'}},
-   {t:'Refuse',s:'Some may walk off the line',f:()=>{const q=g.filter(()=>chance(.4));q.forEach(r=>{r.job='rest';r.san=clamp(r.san-8,0,100)});return q.length?q.map(r=>r.short).join(', ')+' walk off the line. The rest stay, grumbling.':'They grumble, but stay.'}}]})}},
+   {t:'Refuse',s:'Some may walk off the line',f:()=>{const q=g.filter(()=>chance(.4));q.forEach(r=>{r.job='rest';r.san=clamp(r.san-8,0,100)});return q.length?q.map(r=>r.short).join(', ')+' walk off the line. The rest stay, grumbling.':'They grumble, but stay.'}},
+   IG('Don\'t answer them',()=>{const q=g.filter(()=>chance(.55));q.forEach(r=>{r.job='rest'});g.forEach(r=>r.san=clamp(r.san-6,0,100));return 'Silence is an answer too. '+(q.length?q.map(r=>r.short).join(', ')+' put down their weapons and go home. Check the Residents tab.':'They stay, but nobody talks to you at the line.')})]})}},
  {id:'kampung',w:1,once:1,c:()=>known().some(r=>r.age>=65&&r.st.K>=6&&act(r)),make:()=>{const r=pick(known().filter(x=>x.age>=65&&x.st.K>=6&&act(x)));return card({i:'👵',t:r.short+' remembers the old days',x:'"During the Japanese time we had nothing also. We survived." '+r.name+' offers to teach the block something from the kampung days. Pick one:',c:[
    {t:'Salting and drying food',s:'Every household needs 10% less food from now on',f:()=>{S.flags.preserve=1;return 'Ikan bilis on every ledge, salted vegetables in every jar. Food goes further now.'}},
    {t:'Herbal remedies',s:'+4 meds now, and medics heal 25% faster',f:()=>{S.store.meds+=4;S.flags.herbs=1;return 'Ginger, bitter gourd leaves, pandan. Not a hospital, but it helps.'}},
-   {t:'Kampung night watch',s:'Every rooftop lookout counts double for supply runs',f:()=>{S.flags.kwatch=1;return 'Whistles, tin cans on strings and a proper rota. The watch gets sharper.'}}]})}},
+   {t:'Kampung night watch',s:'Every rooftop lookout counts double for supply runs',f:()=>{S.flags.kwatch=1;return 'Whistles, tin cans on strings and a proper rota. The watch gets sharper.'}},
+   IG('Thank them and move on',()=>{r.san=clamp(r.san-6,0,100);return r.short+' nods, a little hurt. The old ways stay in their head.'})]})}},
  {id:'kidsout',w:1,c:()=>isOut()&&known().filter(r=>r.age>=8&&r.age<=16&&act(r)).length>=2,make:()=>{const k=known().filter(r=>r.age>=8&&r.age<=16&&act(r)).slice(0,3);return card({i:'⚽',t:'The kids are missing',x:k.map(r=>r.short).join(', ')+' aren\'t in their flats. Someone saw them squeeze past the barricade an hour ago with a football. "Just to the playground," one told a friend.',bad:1,c:[
    {t:'Send your fastest adult after them',s:'Risky for whoever goes',f:()=>{const r=known().filter(x=>able(x)&&x.age>=18).sort((a,b)=>b.st.A-a.st.A)[0];if(!r)return 'Nobody is fit to go. You wait, and hope.';r.busy=true;if(chance(.75)){k.forEach(x=>x.san=clamp(x.san+10,0,100));return r.short+' drags them all back by the ears. Grounded forever.'}r.hp-=ri(15,30);if(r.hp<=0)kill(r,'Killed bringing the kids back from the playground');else if(chance(.4))infect(r,'a bite at the playground');return r.short+' got them all back, but something got hold of them first.'}},
    {t:'Wait and hope',f:()=>{const lost=k.filter(()=>chance(.3));lost.forEach(x=>{if(chance(.5))kill(x,'Killed at the playground');else infect(x,'a bite at the playground')});return lost.length?'At dusk, not all of them come back unhurt.':'At dusk they wander back, grinning. Their parents don\'t know whether to hug them or scream.'}}]})}},
@@ -1407,7 +1430,8 @@ const REV=[
   {t:'Ignore it',f:()=>'The chat scrolls on.'}]})}},
  {id:'relative',w:2,c:()=>!isOut()&&S.hh.some(h=>h.known&&h.unit),make:()=>{const h=pick(S.hh.filter(x=>x.known&&x.unit));return card({i:'🧳',t:'A cousin at the door',x:'The '+h.name+' want to take in a cousin from '+pick(ESTATES)+', whose block is already locked down. One more pair of hands, one more mouth.',c:[
   {t:'Welcome them',s:'+1 resident, they bring some food',f:()=>{addPhil(2);const r=mkRes(pick(['pmet','driver','teacher','ahbeng','nurse']),h);h.food+=4;return r.name+' ('+ARCH[r.arch].l+') moves in with a suitcase and a bag of rice.'}},
-  {t:'Advise against it',s:'Family trust drops',f:()=>{h.trust=clamp(h.trust-10,0,100);members(h).forEach(m=>m.san=clamp(m.san-8,0,100));return 'They don\'t say anything, but they stop replying in the chat.'}}]})}},
+  {t:'Advise against it',s:'Family trust drops',f:()=>{h.trust=clamp(h.trust-10,0,100);members(h).forEach(m=>m.san=clamp(m.san-8,0,100));return 'They don\'t say anything, but they stop replying in the chat.'}},
+  IG('Say nothing either way',()=>{if(chance(.6)){const r=mkRes(pick(['pmet','driver','teacher','ahbeng','nurse']),h);h.trust=clamp(h.trust-4,0,100);return 'Nobody tells them no, so the cousin comes anyway: '+r.name+' ('+ARCH[r.arch].l+'), with a backpack and no food.'}h.trust=clamp(h.trust-6,0,100);return 'The cousin waits for an answer that never comes. The '+h.name+' are hurt.'})]})}},
  {id:'fakenews',w:2,c:()=>!isOut(),make:()=>card({i:'📱',t:'A viral forward',x:'"URGENT from a doctor friend: gargling salt water and eating raw garlic kills the virus. Share to 10 groups!"',c:[
   {t:'Debunk it in the chat',s:'Intellect check',f:()=>{const b=best('I');if(b&&b.st.I*10+ri(0,30)>70){S.hh.forEach(h=>{if(h.known)h.trust=clamp(h.trust+5,0,100)});return b.short+' posts the MOH fact check. Trust in the block goes up.'}return 'Someone replies "better safe than sorry lor". Garlic sells out.'}},
   {t:'Ignore it',f:()=>{S.store.food=Math.max(0,S.store.food-2);return 'Someone in the block eats a lot of garlic. Two food wasted on remedies.'}}]})},
@@ -1422,17 +1446,21 @@ const REV=[
   {t:'Wait for the power to stabilise',f:()=>{if(chance(.6))return 'Twenty minutes later the lift jerks back to life.';r.san=clamp(r.san-25,0,100);return r.short+' spends three hours in the dark, listening to the banging.'}}]})}},
  {id:'litter',w:2,c:()=>isOut()&&S.front===0,make:()=>{const r=pick(known().filter(able).length?known().filter(able):known());return card({i:'🪴',t:'Killer litter',x:r.name+' wants to drop flower pots on the zombies clawing at the void deck shutter. "Kill them from up here lah!"',c:[
   {t:'Let them',s:'Some damage, lots of noise',f:()=>{S.bar.hp=Math.min(S.bar.max,S.bar.hp+6);S.noise+=6;r.san=clamp(r.san+8,0,100);return 'Three pots, two hits. The crowd at the shutter thins out, then the noise draws more.'}},
-  {t:'Stop them',f:()=>{r.san=clamp(r.san-3,0,100);return 'The pots go back on the ledge.'}}]})}},
+  {t:'Stop them',f:()=>{r.san=clamp(r.san-3,0,100);return 'The pots go back on the ledge.'}},
+  IG('Let them decide for themselves',()=>{if(chance(.6)){S.noise+=8;S.bar.hp=Math.min(S.bar.max,S.bar.hp+3);return 'Nobody says no, so it turns into a game. Pots, a chair, a rice cooker. The noise draws a crowd to the shutter.'}return 'They lose interest after one pot.'})]})}},
  {id:'chute',w:2,c:()=>isOut()&&!S.flags.chute,make:()=>card({i:'🗑️',t:'The rubbish chute',x:'The chute is jammed and the corridor stinks. Something is moving down in the bin centre.',c:[
   {t:'Clear it with a long pole',s:'−2 scrap, small risk',f:()=>{S.store.scrap=Math.max(0,S.store.scrap-2);const r=best('S');if(r&&chance(.15)){infect(r,'a scratch from something in the chute');return r.short+' clears it, but something grabbed at their arm.'}return 'Cleared. The smell fades.'}},
-  {t:'Seal the hopper with tape and wood',s:'Safe, but rubbish piles up',f:()=>{S.flags.chute=1;return 'Sealed. Rubbish now goes in bags on the staircase. Everyone hates it.'}}]})},
+  {t:'Seal the hopper with tape and wood',s:'Safe, but rubbish piles up',f:()=>{S.flags.chute=1;return 'Sealed. Rubbish now goes in bags on the staircase. Everyone hates it.'}},
+  IG('Leave it',()=>{known().forEach(m=>m.san=clamp(m.san-3,0,100));const v=pick(known().filter(act));if(v&&chance(.2)){infect(v,'something in the jammed chute');return 'The stink spreads over three floors. Then '+v.short+' goes to look at the hopper, and comes back holding their hand.'}return 'The stink spreads over three floors. Flies everywhere.'})]})},
  {id:'cat',w:1,c:()=>isOut()&&!S.flags.cat&&!S.flags.catNo,make:()=>card({i:'🐈',t:'A community cat',x:'Oyen, the ginger community cat, is mewing at the barricade. She looks thin.',c:[
   {t:'Let her in',s:'Costs 1 food a day. Everyone feels better. She hisses before zombies come.',f:()=>{S.flags.cat=1;return 'Oyen claims the shoe rack on floor '+pad(S.front+3>S.floors?S.floors:S.front+3)+'. The kids love her.'}},
-  {t:'Shoo her away',f:()=>{S.flags.catNo=1;return 'She leaves. Some people don\'t talk to you for a day.'}}]})},
+  {t:'Shoo her away',f:()=>{S.flags.catNo=1;return 'She leaves. Some people don\'t talk to you for a day.'}},
+  IG('Leave her be',()=>{if(chance(.5)){S.flags.catNo=1;return 'Oyen mews all night. In the morning she is gone.'}S.store.food=Math.max(0,S.store.food-2);return 'Oyen keeps coming back. The kids sneak her scraps from the store.'})]})},
  {id:'kidsgate',w:1,c:()=>isOut()&&S.front===0&&!S.flags.gateKids&&pday()<25,make:()=>{S.flags.gateKids=1;return EV.kids.make()}},
  {id:'workers',w:1,c:()=>isOut()&&S.front===0&&!S.flags.workers,make:()=>{S.flags.workers=1;return card({i:'🏗️',t:'Men at the shutter',x:'Three construction workers from the dormitory down the road bang on the shutter. They have hammers and pipes, and they\'re asking for shelter.',c:[
   {t:'Let them in',s:'+3 strong residents, with tools. Some neighbours object.',f:()=>{addPhil(5);const h=newHousehold('cn');h.name='The dorm group';h.eth='cn';h.sur='';for(let i=0;i<3;i++)mkRes('worker',h);itemAdd(S.items,'hammer');itemAdd(S.items,'pipe',2);S.hh.forEach(x=>{if(x.known&&members(x).some(m=>has(m,'atas')))x.trust=clamp(x.trust-10,0,100)});return 'They come in with their tools. Find them a flat, or they sleep in the stairwell.'}},
-  {t:'Turn them away',f:()=>{known().forEach(r=>r.san=clamp(r.san-5,0,100));return 'You watch them walk away down Ave 3. Nobody says anything at dinner.'}}]})}},
+  {t:'Turn them away',f:()=>{known().forEach(r=>r.san=clamp(r.san-5,0,100));return 'You watch them walk away down Ave 3. Nobody says anything at dinner.'}},
+  IG('Pretend nobody is home',()=>{S.noise+=6;S.bar.hp-=8;known().forEach(r=>r.san=clamp(r.san-4,0,100));if(S.bar.hp<=0)levelFalls();return 'They bang on the shutter for an hour, shouting up at the windows. The noise draws the dead. Then the shouting stops.'})]})}},
  {id:'aircon',w:2,c:()=>isOut()&&S.grid.power&&(S.weather.type==='hot'||S.weather.type==='sunny'),make:()=>card({i:'❄️',t:'The grid is straining',x:'The power keeps tripping. A notice from the town council asks every block to cut aircon use or risk losing power completely.',c:[
   {t:'Aircon for the elderly and babies only',s:'Grid lasts longer',f:()=>{S.failAt.power+=2;known().forEach(r=>{if(r.age>=65||r.age<8)r.san=clamp(r.san+8,0,100);else r.san=clamp(r.san-3,0,100)});return 'Most people sweat it out. The grid holds on a bit longer.'}},
   {t:'Leave it to each household',s:'Comfort now, blackout sooner',f:()=>{S.failAt.power=Math.max(pday(),S.failAt.power-2);known().forEach(r=>r.san=clamp(r.san+3,0,100));return 'Everyone stays cool. The breaker trips four times tonight.'}}]})},
@@ -1452,13 +1480,17 @@ const REV=[
   {t:'Reinforce the line now',s:'−5 scrap, +25 barricade',dis:S.store.scrap<5,f:()=>{S.store.scrap-=5;S.bar.hp=Math.min(S.bar.max+10,S.bar.hp+25);S.bar.max=Math.round(Math.max(S.bar.max,S.bar.hp));return 'Every spare plank and bicycle goes onto the barricade.'}},
   {t:'Throw a noise lure the other way',s:'Uses 1 lure',dis:!S.built.lure,f:()=>{S.built.lure--;S.flags.horde=0;return 'The alarm clock rings out two streets away. The horde turns.'}},
   {t:'Brace',s:'Put more people on guard duty',f:()=>'Everyone who can hold a pole goes down to the line.'}]})}},
- {id:'flood',w:2,c:()=>isOut()&&S.front===0&&['rain','storm'].includes(S.weather.type)&&[0,1,10,11].includes(curDate().getMonth()),make:()=>card({i:'🌊',t:'Flash flood',x:'Monsoon rain. The drains overflow and the void deck floods ankle deep. The water carries things in under the shutter.',bad:1,c:[{t:'Bail it out',s:'Barricade −15',f:()=>{S.bar.hp-=15;if(S.bar.hp<=0)levelFalls();return 'It takes all afternoon. The barricade is soaked and sagging.'}}]})},
- {id:'squall',w:3,c:()=>S.weather.type==='squall',make:()=>card({i:'🌬️',t:'Sumatra squall',x:'A wall of wind and rain hits at 5am. Laundry poles snap and flower pots fly.',c:[{t:'Check the roof',f:()=>{if(S.built.rain>0&&chance(.5)){S.built.rain--;return 'One rain catcher tore loose and is gone.'}itemAdd(S.items,'bamboo');return 'The roof is fine. You salvage a bamboo pole from the corridor.'}}]})},
+ {id:'flood',w:2,c:()=>isOut()&&S.front===0&&['rain','storm'].includes(S.weather.type)&&[0,1,10,11].includes(curDate().getMonth()),make:()=>card({i:'🌊',t:'Flash flood',x:'Monsoon rain. The drains overflow and the void deck floods ankle deep. The water carries things in under the shutter.',bad:1,c:[{t:'Bail it out',s:'Barricade −15',f:()=>{S.bar.hp-=15;if(S.bar.hp<=0)levelFalls();return 'It takes all afternoon. The barricade is soaked and sagging.'}},
+  IG('Let it drain on its own. Stores on the ground floor may spoil.',()=>{const f=Math.min(S.store.food,ri(6,12));S.store.food-=f;S.bar.hp-=6;if(S.bar.hp<=0)levelFalls();return 'The water sits there overnight. '+f+' food in the void deck store is ruined, and the shutter rusts.'})]})},
+ {id:'squall',w:3,c:()=>S.weather.type==='squall',make:()=>card({i:'🌬️',t:'Sumatra squall',x:'A wall of wind and rain hits at 5am. Laundry poles snap and flower pots fly.',c:[{t:'Check the roof',f:()=>{if(S.built.rain>0&&chance(.5)){S.built.rain--;return 'One rain catcher tore loose and is gone.'}itemAdd(S.items,'bamboo');return 'The roof is fine. You salvage a bamboo pole from the corridor.'}},
+  IG('Stay inside until it passes',()=>{if(S.built.rain>0&&chance(.75)){S.built.rain--;return 'Nobody checks. One rain catcher tears loose and is gone.'}return 'You wait it out. Broken laundry poles litter the corridor below.'})]})},
  {id:'ghost',w:3,c:()=>[7,8].includes(curDate().getMonth())&&!S.flags['ghost'+curDate().getFullYear()]&&known().some(r=>has(r,'pantang')||r.age>=65),make:()=>{S.flags['ghost'+curDate().getFullYear()]=1;return card({i:'🏮',t:'Hungry Ghost Month',x:'It is the seventh month. Some residents want to burn joss paper and offerings in the corridor, as they do every year. "Especially this year."',c:[
   {t:'Allow it',s:'Comfort for the superstitious. Smoke and fire risk.',f:()=>{known().forEach(r=>{if(has(r,'pantang')||r.age>=65)r.san=clamp(r.san+15,0,100)});S.noise+=3;if(chance(.15)){S.bar.hp-=10;return 'The burning brings some peace. A stray ember scorches the barricade.'}return 'Smoke curls up the stairwell. The old folk are calmer.'}},
-  {t:'Forbid it',f:()=>{known().forEach(r=>{if(has(r,'pantang'))r.san=clamp(r.san-15,0,100)});return 'The pantang ones are terrified. "The ghosts will be angry."'}}]})}},
+  {t:'Forbid it',f:()=>{known().forEach(r=>{if(has(r,'pantang'))r.san=clamp(r.san-15,0,100)});return 'The pantang ones are terrified. "The ghosts will be angry."'}},
+  IG('Look the other way',()=>{known().forEach(r=>{if(has(r,'pantang')||r.age>=65)r.san=clamp(r.san+6,0,100)});S.noise+=2;if(chance(.25)){S.bar.hp-=10;return 'Small offerings appear in corners, unsupervised. One of them sets a bag of paper alight near the barricade.'}return 'Small offerings appear in quiet corners. Nobody asks, nobody tells.'})]})}},
  {id:'radio',w:2,c:()=>S.items.radio&&isOut(),make:()=>card({i:'📻',t:'The police radio crackles',x:'"...all survivors... evacuation point at... Changi... ship... repeat..." Then static.',c:[{t:'Tell everyone',f:()=>{known().forEach(r=>r.san=clamp(r.san+10,0,100));return 'Hope spreads up the stairwell. Nobody knows if it\'s real.'}},{t:'Keep it quiet',f:()=>'You listen alone for hours. Nothing more.'}]})},
- {id:'phone',w:2,c:()=>isOut()&&S.grid.telco,make:()=>{const r=pick(known());return card({i:'📞',t:'A call for '+r.short,x:r.name+' gets a call from a relative across the island.',c:[{t:'Listen',f:()=>{if(chance(.5)){r.san=clamp(r.san+15,0,100);return 'They\'re safe. Holed up in their own block. '+r.short+' cries with relief.'}r.san=clamp(r.san-20,0,100);return 'The call cuts off in screaming.'}}]})}},
+ {id:'phone',w:2,c:()=>isOut()&&S.grid.telco,make:()=>{const r=pick(known());return card({i:'📞',t:'A call for '+r.short,x:r.name+' gets a call from a relative across the island.',c:[{t:'Listen',f:()=>{if(chance(.5)){r.san=clamp(r.san+15,0,100);return 'They\'re safe. Holed up in their own block. '+r.short+' cries with relief.'}r.san=clamp(r.san-20,0,100);return 'The call cuts off in screaming.'}},
+  IG('Let it ring',()=>{r.san=clamp(r.san-8,0,100);return r.short+' lets it ring out, then checks the phone all night. They never find out who it was.'},'Don\'t pick up')]})}},
  {id:'fever',w:1,c:()=>known().length>3,make:()=>{const r=pick(known());return card({i:'🤒',t:r.short+' has a fever',x:r.name+' has a fever and chills. Could be flu. Could be dengue. Could be the other thing.'+(r.inf&&r.inf.hidden?' They are sweating a lot.':''),c:[
   {t:'Check them over carefully',s:'Medic or Kaypoh helps',f:()=>{if(r.inf){r.inf.hidden=false;S.queue.unshift({id:'infected',a:{id:r.id}});return 'There it is, under the sleeve. A bite.'}return 'No wounds. Just a fever. Probably.'}},
   {t:'Give medicine',s:'−1 meds',dis:S.store.meds<1,f:()=>{S.store.meds--;r.hp=Math.min(100,r.hp+15);return 'The fever breaks overnight.'}},
@@ -1533,7 +1565,8 @@ EV.ousted={make:()=>{
   const L=leader();if(!L)return null;const nl=best('K',known().filter(x=>x.alive&&x.age>=16&&x.hh!==L.hh&&!x.away));
   return card({i:'📢',t:'The residents have had enough',x:'A crowd fills the stairwell outside '+(unitOf(L)?unitOf(L).id:'your landing')+'. Block trust is down to '+blockTrust()+'%. People are hungry and scared, and they blame '+L.short+'.\n\n'+(nl?'They want '+nl.name+' to lead instead.':'They want you gone.'),bad:1,c:[
     {t:'Step down as leader',s:nl?L.short+' stays as an ordinary resident. '+nl.short+' takes over and you play on as them. Trust recovers a bit.':'Nobody else can lead',dis:!nl,f:()=>{L.leader=false;nl.leader=true;S.hh.forEach(h=>{if(h.known)h.trust=clamp(h.trust+15,0,100)});log(L.short+' stepped down. '+nl.name+' now leads the block.','big');return L.short+' steps aside. '+nl.name+' takes over, and the block breathes again.'}},
-    {t:'Refuse to step down',s:'They will throw your whole household out.',f:()=>{const lh=H(L.hh);if(nl){L.leader=false;nl.leader=true}const gone=members(lh);gone.forEach(r=>exile(r,'Driven out of the block by the residents'));lh.unit=null;S.hh.forEach(h=>{if(h.known)h.trust=clamp(h.trust+10,0,100)});log('The residents drove the '+lh.name+' out of the block.','big');return 'They drag the '+lh.name+' down the stairs and out past the barricade.'+(nl?'\n\n'+nl.name+' leads the block now. You play on as them.':'')}}]});
+    {t:'Refuse to step down',s:'They will throw your whole household out.',f:()=>{const lh=H(L.hh);if(nl){L.leader=false;nl.leader=true}const gone=members(lh);gone.forEach(r=>exile(r,'Driven out of the block by the residents'));lh.unit=null;S.hh.forEach(h=>{if(h.known)h.trust=clamp(h.trust+10,0,100)});log('The residents drove the '+lh.name+' out of the block.','big');return 'They drag the '+lh.name+' down the stairs and out past the barricade.'+(nl?'\n\n'+nl.name+' leads the block now. You play on as them.':'')}},
+    IG('Stay behind your gate',()=>{S.hh.forEach(h=>{if(h.known)h.trust=clamp(h.trust-8,0,100)});addTimer(2,'ousted',{});return 'You don\'t open the gate. They shout for an hour and kick the grille, then drift away. They will be back.'})]});
 }};
 const DEST_WHY={market:'Food and water',park:'Sanity for the stressed',school:'Tools, medicine, survivors',hawker:'Rice and dry goods',police:'Weapons, armour, radio'};
 EV.foxwhere={make:()=>{
@@ -1620,13 +1653,15 @@ EV.gangRaid={make:()=>{
     {t:'Fight them at the barricade',s:'Win: they swear revenge again, stronger. Lose: injuries, a wrecked barricade and stolen food.',f:()=>{const win=chance(Gp/(Gp+P));const hurt=[];g.forEach(r=>{if(chance(win?.2:.5)){r.hp-=ri(15,35);if(r.hp<=0){kill(r,'Killed fighting '+who);hurt.push(r.short+' was killed')}else hurt.push(r.short+' was hurt')}});
       if(win){gangWin(who);itemAdd(S.items,pick(['parang','golf','baton','helmet']));return 'Your guards hold, then charge. '+who.charAt(0).toUpperCase()+who.slice(1)+' scatter, dropping a weapon.'+(hurt.length?'\n\n'+hurt.join('. ')+'.':'')+'\n\n"This isn\'t over!"'}
       S.bar.hp-=30;const f=Math.min(S.store.food,ri(15,30));S.store.food-=f;addTimer(ri(8,12),'gangRaid',{});if(S.bar.hp<=0)levelFalls();return 'They break through the barricade, grab '+f+' food and ride off laughing.'+(hurt.length?'\n\n'+hurt.join('. ')+'.':'')}},
-    {t:'Pay them off',s:'−25 food. They\'ll be back.',dis:S.store.food<25,f:()=>{S.store.food-=25;addTimer(ri(8,12),'gangRaid',{});return 'They take the food and go, for now.'}}]});
+    {t:'Pay them off',s:'−25 food. They\'ll be back.',dis:S.store.food<25,f:()=>{S.store.food-=25;addTimer(ri(8,12),'gangRaid',{});return 'They take the food and go, for now.'}},
+    IG('Keep your heads down',()=>{S.bar.hp-=20;const f=Math.min(S.store.food,ri(10,20));S.store.food-=f;addTimer(ri(8,12),'gangRaid',{});if(S.bar.hp<=0)levelFalls();return 'Nobody goes to the line. They smash at the barricade for an hour, grab '+f+' food through the gap and ride off.'})]});
 }};
 EV.gangJoin={make:()=>{
   const G=S.end.gang;const n=ri(3,4);const who=GANGS[(G.wins+G.joined)%GANGS.length];
   return card({i:'🤝',t:'They want in',x:'After losing to you three times, the toughest of '+who+' come to the barricade unarmed. "We\'ve never seen anyone fight like your block. Out there it\'s only getting worse. Let us join you. We\'ll guard your line."\n\n'+n+' hardened fighters, with their own weapons. They eat a lot and the neighbours won\'t like it.',c:[
     {t:'Take them in as guards',s:'+'+n+' strong guards with weapons. Other households lose some trust. Word will spread.',f:()=>{const h=newHousehold('cn');for(let i=0;i<n;i++){const r=mkRes(pick(['ahbeng','ahbeng','worker']),h);r.gang=1;r.traits=['garang'];r.job='guard';r.wpn=pick(['parang','golf','baton'])}nameHH(h);h.name=who.replace('the ','').replace(/^./,c=>c.toUpperCase());G.joined++;G.allied=1;S.hh.forEach(x=>{if(x.known&&x!==h)x.trust=clamp(x.trust-6,0,100)});if(G.joined<4)addTimer(ri(8,14),'gangJoin',{});log(n+' fighters from '+who+' joined the block as guards.','big');return 'They swear loyalty on the void deck. Find them a flat. More gangs may come asking, now that word is out.'}},
-    {t:'Send them away',s:'They might come back as enemies',f:()=>{G.allied=0;addTimer(ri(8,12),'gangRaid',{});return 'They spit on the ground and walk off.'}}]});
+    {t:'Send them away',s:'They might come back as enemies',f:()=>{G.allied=0;addTimer(ri(8,12),'gangRaid',{});return 'They spit on the ground and walk off.'}},
+    IG('Leave them waiting',()=>{G.allied=0;const f=Math.min(S.store.food,8);S.store.food-=f;addTimer(ri(8,12),'gangRaid',{});return 'They wait two days at the barricade. On the third night they help themselves to '+f+' food and leave, cursing your block.'})]});
 }};
 EV.estateWar={make:()=>{
   const fighters=known().filter(r=>able(r)&&(r.gang||r.job==='guard'));const T=fighters.reduce((a,r)=>a+guardPow(r),0);const P=expPressure()*3.5;const odds=Math.round(clamp(T/(T+P),.05,.95)*100);
@@ -1642,9 +1677,9 @@ EV.tdd={make:()=>card({i:'📢',t:'Total Defence Day',x:'15 February, 12.05pm. S
 function newHousehold(eth){const h=mkHH(eth);h.known=true;h.kind='family';h.trust=60;S.hh.push(h);return h}
 function reveal(u,msg){const h=H(u.hh);if(!h)return;h.known=true;u.st='known';log('Contact: the '+h.name+' at '+u.id+'. '+(msg||''),'good')}
 
-function maybeEvent(){
+function maybeEvent(scale){
   if(S.over)return;
-  if(!chance(isOut()?.32:.38))return;
+  if(!chance((isOut()?.32:.38)*(scale||1)))return;
   const opts=REV.filter(e=>(S.evcd[e.id]||-99)<S.t-5&&!(e.once&&S.flags['ev_'+e.id])&&e.c());if(!opts.length)return;
   const tot=opts.reduce((a,e)=>a+e.w,0);let x=R()*tot;let ev=opts[0];for(const e of opts){x-=e.w;if(x<=0){ev=e;break}}
   S.evcd[ev.id]=S.t;if(ev.once)S.flags['ev_'+ev.id]=1;queue('r:'+ev.id,{});
@@ -1791,7 +1826,7 @@ function renderTitle(){
       <p><b>The inventor.</b> Nobody owns weapons. Ask households to donate brooms, knives and bamboo poles, and let the inventor combine them in the Workshop.</p>
       <p><b>Holding the line.</b> Put residents on guard duty. If the barricade breaks, the void deck falls, then floor 2, and so on. Survivors move upstairs into empty flats.</p>
       <p><b>Sanity.</b> Everyone's sanity drains with hunger, heat, darkness, grief and fear. Break too low and people do desperate things.</p>
-      <p><b>Time.</b> Each day has four phases. Press <b>Next</b> (or the space bar) to move on.</p>
+      <p><b>Time.</b> Each day has three phases: morning, afternoon and night. Press <b>Next</b> (or the space bar) to move on. The night is long: the dead come twice, at dusk and in the small hours.</p>
     </div>
   </div>`;
 }
@@ -1807,7 +1842,7 @@ function renderHUD(){
       <span title="Residents you know">👥 ${ks.length}</span><span title="Block trust: average trust of all households. Below 25% the residents may drive you out." style="color:${sanCol(blockTrust())}">🤝 ${blockTrust()}%</span><span title="Average sanity" style="color:${sanCol(avg)}">🧠 ${avg}%</span>
       <span title="Power, water, phones" class="mute">${S.grid.power?'⚡':'<s>⚡</s>'} ${S.grid.water?'🚰':'<s>🚰</s>'} ${S.grid.telco?'📶':'<s>📶</s>'}</span>
     </div>
-    <div class="hud-next">${UI.flash?`<span class="small warnline">${esc(UI.flash)}</span>`:''}<button class="btn-main" data-act="next" ${S.queue.length||S.over?'disabled':''}>Next: ${PH[(S.ph+1)%4]} ▶</button></div>
+    <div class="hud-next">${UI.flash?`<span class="small warnline">${esc(UI.flash)}</span>`:''}<button class="btn-main" data-act="next" ${S.queue.length||S.over?'disabled':''}>Next: ${nextPH()} ▶</button></div>
     <div class="ticker"><b>${isOut()?'RADIO':'NEWS'}</b> · ${esc(S.news)}</div>`;
 }
 const SKIN=['#f5d0a9','#e8b98a','#d39a6a','#a86b42','#7a4a2a'];
@@ -1900,7 +1935,7 @@ function admit(id){
 }
 // who is drawn at a workplace this render (by day only): everyone else with a job is drawn at home, so nobody vanishes
 function workPosts(){
-  const P={sickbay:[],workshop:[],ids:new Set()};if(S.ph>=3)return P;
+  const P={sickbay:[],workshop:[],ids:new Set()};if(S.ph>=2)return P;
   if(sickbayUnit())P.sickbay=jobbers('medic').slice(0,3);
   if(rooms('workshop'))P.workshop=jobbers('invent').slice(0,4);
   const staff=Object.values(staffAssign('garden','garden')).concat(Object.values(staffAssign('depot','salvage'))).filter(Boolean);
@@ -1909,14 +1944,14 @@ function workPosts(){
 function atHome(r){return !r.away&&!r.ward&&!(r.quar&&r.qRoom)&&r.job!=='guard'&&r.job!=='lookout'&&!(UI.posts&&UI.posts.ids.has(r.id))}
 function roomSprites(u){
   let ppl=[];
-  if(S.ph<3){
+  if(S.ph<2){
     if(u.room==='garden'||u.room==='depot'){const w=staffAssign(u.room,u.room==='garden'?'garden':'salvage')[u.id];if(w)ppl=[w]}
     if(u.room==='workshop')ppl=UI.posts?UI.posts.workshop:[];
     if(u.room==='sickbay')ppl=(UI.posts?UI.posts.sickbay:[]).concat(known().filter(r=>r.ward&&!r.away));
     if(u.room==='kopi'&&u.open)ppl=known().filter(r=>act(r)&&r.job==='rest'&&r.age>=13&&!r.quar&&unitOf(r)&&Math.abs(unitOf(r).lvl-u.lvl)<=2).sort((a,b)=>((a.id*7+S.t*3+S.ph)%11)-((b.id*7+S.t*3+S.ph)%11)).slice(0,3);
   }
   if(u.room==='quarantine')ppl=known().filter(r=>r.quar&&r.qRoom===u.id);
-  if(u.room==='sickbay'&&S.ph===3)ppl=known().filter(r=>r.ward&&!r.away);
+  if(u.room==='sickbay'&&S.ph>=2)ppl=known().filter(r=>r.ward&&!r.away);
   return ppl.length?`<span class="spr">${ppl.slice(0,5).map(sprite).join('')}</span>`:'';
 }
 function unitTile(u){
@@ -1953,7 +1988,7 @@ function skylineSVG(){
   UI.skyFor=S.blk;UI.sky=`<svg class="skyline" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMax slice" aria-hidden="true" style="bottom:var(--skyb,120px)">${o}</svg>`;return UI.sky}
 function renderTower(){
   UI.posts=workPosts();
-  const wrap=$('#tower-wrap');wrap.className='sky-'+S.ph+(S.weather.type==='haze'?' haze':'');
+  const wrap=$('#tower-wrap');wrap.className='sky-'+(S.ph>=2?3:S.ph)+(S.weather.type==='haze'?' haze':'');
   const look=lookouts();let h=skylineSVG();
   h+=`<div class="roof"><div class="blkno">${esc(S.blk)}<small>${esc(S.estate)}</small></div><div class="roof-stuff">${sprRow(look,'roofspr')}${S.built.rain?rainSVG(S.built.rain):''}${Object.keys(S.built.fox||{}).length?FOX_SVG:''}${TANK_SVG}${TANK_SVG}</div></div><div class="roof-slab"></div>`;
   const nl=Math.ceil(S.upf/2);
@@ -2055,8 +2090,8 @@ function panelUnit(){
       const pats=known().filter(r=>r.ward);const meds=jobbers('medic');
       const cands=known().filter(r=>!r.ward&&!r.away&&!r.quar&&r.hp<95).sort((a,b)=>a.hp-b.hp);
       h+=`<div class="kv"><span class="mute">Beds</span><span class="mono">${pats.length}/${beds()}</span><span class="mute">Medics</span><span>${meds.length?meds.map(m=>esc(m.short)).join(', '):'<span class="warnline">None on duty. Patients still heal, slowly.</span>'}</span></div>`;
-      h+=`<p class="small mute">Patients can't work, guard or go out until they're healed. They heal ${wardBase({hun:0,thi:0})} health a phase on their own (less if hungry or thirsty), plus a share of every medic's work. Elderly patients heal 30% slower (45% over 75), and anyone below 30 health a further 25% slower. Meds work less well on them too. They leave by themselves at 95 health.</p>`;
-      h+=pats.length?pats.map(r=>{const rate=wardRate(r);const ph=Math.max(1,Math.ceil((95-r.hp)/rate));return `<div class="prow2 job-medic"><span class="big2">${faceOf(r)}</span><div style="min-width:0"><div class="nm"><b>${esc(r.short)}</b> <span class="small mute">+${rate.toFixed(1)} a phase · about ${ph} phase${ph>1?'s':''} to go${healWhy(r)?' · heals slowly ('+healWhy(r)+')':''}</span></div><div class="row" style="gap:6px;flex-wrap:nowrap"><span class="small mute">Health</span>${bar(r.hp,r.hp>50?'var(--ok)':'var(--blood)')}<span class="mono small">${Math.round(r.hp)}</span></div><div class="row" style="margin-top:4px"><button data-act="wardmeds" data-v="${r.id}" ${S.store.meds?'':'disabled'}>Give 1 meds (+${medsGain(r)} health)</button><button data-act="discharge" data-v="${r.id}">Discharge now</button></div></div></div>`}).join(''):'<p class="mute">No patients.</p>';
+      h+=`<p class="small mute">Patients can't work, guard or go out until they're healed. They heal ${wardBase({hun:0,thi:0})*4} health a day on their own (less if hungry or thirsty), plus a share of every medic's work. Elderly patients heal 30% slower (45% over 75), and anyone below 30 health a further 25% slower. Meds work less well on them too. They leave by themselves at 95 health.</p>`;
+      h+=pats.length?pats.map(r=>{const rate=wardRate(r);const dd=Math.max(1,Math.ceil((95-r.hp)/(rate*4)));return `<div class="prow2 job-medic"><span class="big2">${faceOf(r)}</span><div style="min-width:0"><div class="nm"><b>${esc(r.short)}</b> <span class="small mute">+${Math.round(rate*4)} a day · about ${dd} day${dd>1?'s':''} to go${healWhy(r)?' · heals slowly ('+healWhy(r)+')':''}</span></div><div class="row" style="gap:6px;flex-wrap:nowrap"><span class="small mute">Health</span>${bar(r.hp,r.hp>50?'var(--ok)':'var(--blood)')}<span class="mono small">${Math.round(r.hp)}</span></div><div class="row" style="margin-top:4px"><button data-act="wardmeds" data-v="${r.id}" ${S.store.meds?'':'disabled'}>Give 1 meds (+${medsGain(r)} health)</button><button data-act="discharge" data-v="${r.id}">Discharge now</button></div></div></div>`}).join(''):'<p class="mute">No patients.</p>';
       if(pats.length<beds())h+=cands.length?`<div class="card stack"><b>🩹 Admit a patient</b><div class="row"><select id="patsel" aria-label="Patient">${cands.map(r=>`<option value="${r.id}">${esc(r.short)} (health ${Math.round(r.hp)}${r.job!=='rest'?', now: '+JOBS[r.job]:''})</option>`).join('')}</select><button data-act="admitsel">Admit</button></div><span class="small mute">Most injured first.</span></div>`:'<p class="small mute">Nobody needs a bed right now.</p>';
     }
     if(u.room==='depot'){const w=staffAssign('depot','salvage')[u.id];
@@ -2133,7 +2168,7 @@ function suitLine(r){
   return `<div class="row" style="gap:4px;margin-top:3px"><span class="small mute">Suits:</span>${s.map(([k,n])=>`<button class="suit job-${k}" data-act="tip" data-h="${n}" data-tip="${esc(SUIT_TIP[k])}">${n}</button>`).join('')}${w?' '+w:''}</div>`;
 }
 function admitBtn(r){
-  if(r.ward){const rate=wardRate(r);const ph=Math.max(1,Math.ceil((95-r.hp)/rate));return `<div class="row" style="gap:6px;margin:2px 0"><span class="small" style="color:#4fd1c5">🩹 In the sick bay: about ${ph} phase${ph>1?'s':''} until healed</span><button data-act="discharge" data-v="${r.id}" style="padding:2px 8px;font-size:12px">Discharge</button></div>`}
+  if(r.ward){const rate=wardRate(r);const dd=Math.max(1,Math.ceil((95-r.hp)/(rate*4)));return `<div class="row" style="gap:6px;margin:2px 0"><span class="small" style="color:#4fd1c5">🩹 In the sick bay: about ${dd} day${dd>1?'s':''} until healed</span><button data-act="discharge" data-v="${r.id}" style="padding:2px 8px;font-size:12px">Discharge</button></div>`}
   if(r.away||r.quar||r.hp>=80||!sickbayUnit())return '';
   const full=known().filter(x=>x.ward).length>=beds();
   return `<div class="row" style="gap:6px;margin:2px 0"><button data-act="admit" data-v="${r.id}" ${full?'disabled':''} style="padding:2px 8px;font-size:12px">🩹 Admit to sick bay</button>${full?'<span class="small mute">All beds taken</span>':'<span class="small mute">Out of action until healed</span>'}</div>`;
@@ -2212,10 +2247,10 @@ function panelOutside(){
     <p class="small mute" style="margin:4px 0 0">Tap a place on the street to plan a run there.</p>`;
   if(rt){const rk=teamRisk(d,rt,team,false,isOut()?(UI.prov||0):0);const lb=riskLabel(rk);
     h+=`<div class="card stack" style="margin-top:10px;gap:6px"><div class="row"><button class="btn-main" data-act="dispatch" data-v="${d}" ${team.length?'':'disabled'}>Send ${team.length||''} ${team.length===1?'person':'people'}${rt.k==='fox'?' by '+rt.n.toLowerCase():''}</button><span class="${lb[1]}">Risk each: ${lb[0]}${isOut()?' (~'+Math.round(rk*100)+'%)':' (no zombies yet)'}</span></div>
-      <span class="small mute">${team.length?team.map(r=>esc(r.short)).join(', ')+'. ':''}Back ${x.dur===1?'next phase':'in two phases'}. Lookouts on the roof: ${lookouts().length}${lookN()!==lookouts().length?' (worth '+(+lookN().toFixed(1))+')':''}${S.flags.kwatch?', night watch counts double':''}.</span>
+      <span class="small mute">${team.length?team.map(r=>esc(r.short)).join(', ')+'. ':''}Back ${visIn(tick()+x.dur)}. Lookouts on the roof: ${lookouts().length}${lookN()!==lookouts().length?' (worth '+(+lookN().toFixed(1))+')':''}${S.flags.kwatch?', night watch counts double':''}.</span>
       ${S.built.lure?`<label class="teamrow"><input type="checkbox" id="uselure"> Throw a noise lure first (${S.built.lure} left)</label>`:''}</div>`}
   h+=`<h3>Route</h3><div class="routes">`+routes(d).map(r=>`<button class="${rt&&rt.k===r.k?'btn-main':''}" data-act="route" data-v="${r.k}" ${r.ok?'':'disabled'}><b>${r.unk?'???':esc(r.n)}</b><small>${r.ok?(r.m!==1?'Risk ×'+r.m+' · ':'Normal risk · ')+'max '+r.max:esc(r.why)}</small></button>`).join('')+`</div>`;
-  if(!rt){h+=`<p class="warnline">No way out right now. ${S.front>0?'Sneak down the stairs in the evening or at night, or build a bedsheet rope or flying fox.':''}</p>`}
+  if(!rt){h+=`<p class="warnline">No way out right now. ${S.front>0?'Sneak down the stairs at night, or build a bedsheet rope or flying fox.':''}</p>`}
   else{
     const max=Math.min(rt.max,4);const n=team.length;
     if(isOut()){
@@ -2230,7 +2265,7 @@ function panelOutside(){
     h+=`<div class="card">${all.length?all.map(r=>{const used=r.lastRun===S.t;return `<label class="teamrow" style="${used?'opacity:.45':''}"><input type="checkbox" data-chg="team" data-id="${r.id}" ${UI.team.includes(r.id)&&!used?'checked':''} ${used?'disabled':''}> ${faceOf(r)} ${esc(r.short)} <span class="mute small">${used?'Already went out today':`Agility ${r.st.A} · Health ${Math.round(r.hp)} · Sanity ${Math.round(r.san)}${r.wpn?' · '+ITEMS[r.wpn]:''}${r.arm?' · '+ITEMS[r.arm]:''}${r.job!=='rest'?' · '+JOBS[r.job]:''}`}${!used&&roleWarn(r)?`<span class="warnline small" style="display:block;margin-left:22px">⚠ ${esc(roleWarn(r))}: hard to replace if they don't come back</span>`:''}</span></label>`}).join(''):'<span class="mute">Nobody is fit to go.</span>'}</div>`;
   }
   const out=S.exps.filter(e=>DEST[e.dest]);
-  if(out.length)h+=`<h3>Out now</h3>`+out.map(e=>`<div class="small">${DEST[e.dest].e} ${e.team.map(id=>esc(RS(id).short)).join(', ')}, back ${e.back-tick()<=1?'next phase':'in '+(e.back-tick())+' phases'}</div>`).join('');
+  if(out.length)h+=`<h3>Out now</h3>`+out.map(e=>`<div class="small">${DEST[e.dest].e} ${e.team.map(id=>esc(RS(id).short)).join(', ')}, back ${visIn(e.back)}</div>`).join('');
   return h;
 }
 function panelWorkshop(){
@@ -2452,7 +2487,7 @@ function renderModal(){
   while(S.queue.length&&!CUR){const q=S.queue[0];const c=buildCard(q);if(c){CUR=c;break}S.queue.shift()}
   if(!CUR){m.hidden=true;m.innerHTML='';return}
   m.hidden=false;
-  m.innerHTML=`<div class="ev ${CUR.bad?'bad':''} ${CUR.zed?'zed':''}"><div class="ico">${CUR.i}</div><h2>${esc(CUR.t)}</h2><p>${esc(CUR.x)}</p><div class="choices">${CUR.c.map((c,i)=>`<button data-act="choice" data-v="${i}" ${c.dis?'disabled':''}>${esc(c.t)}${c.s?`<small>${esc(c.s)}</small>`:''}</button>`).join('')}</div></div>`;
+  m.innerHTML=`<div class="ev ${CUR.bad?'bad':''} ${CUR.zed?'zed':''}"><div class="ico">${CUR.i}</div><h2>${esc(CUR.t)}</h2><p>${esc(CUR.x)}</p><div class="choices">${CUR.c.map((c,i)=>`<button data-act="choice" data-v="${i}" class="${c.ign||IGN_RE.test(c.t)?'ign':''}" ${c.dis?'disabled':''}>${esc(c.t)}${c.s?`<small>${esc(c.s)}</small>`:''}</button>`).join('')}</div></div>`;
 }
 function choose(i){
   const c=CUR&&CUR.c[i];if(!c||c.dis)return;
