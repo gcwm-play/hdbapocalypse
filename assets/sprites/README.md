@@ -2,7 +2,7 @@
 
 Pixel-art sprites for the 20 resident archetypes and 5 zombie variants.
 
-- `atlas.png` is what the game uses. It is embedded in `index.html` as a base64 data URI (the `--atlas` CSS variable), so the game stays a single file.
+- `atlas.png` is what the game uses. It is embedded in `play.html` as a base64 data URI (the `--atlas` CSS variable), so the game stays a single file.
   - Each cell is 18×26 px. Each row has 4 frames: idle, left step, idle, right step.
   - Rows 0–19 are residents, rows 20–39 are the same residents infected (green skin), and rows 40–44 are zombies.
   - `atlas.json` lists the row order.
@@ -17,7 +17,7 @@ pip install pillow
 python3 make_sprites.py out
 ```
 
-Then re-embed `out/atlas.png` as the `--atlas` data URI in `index.html`.
+Then re-embed `out/atlas.png` as the `--atlas` data URI in `play.html`.
 
 ## In the game
 
