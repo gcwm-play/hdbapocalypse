@@ -327,6 +327,10 @@ button.trait{padding:0 5px;border-radius:4px}
 .spr{position:relative;display:block;height:42px;margin-top:auto;pointer-events:none}
 .spr{container-type:inline-size}
 @container (max-width:90px){.sp{scale:1.05}}
+.sp{pointer-events:auto;cursor:pointer}
+.sp:hover{filter:drop-shadow(0 0 3px #fff)}
+.prow2.focus{outline:2px solid var(--tc,var(--lamp));outline-offset:2px;animation:focuspulse 1.2s ease-out 2}
+@keyframes focuspulse{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--tc,#f4b740) 60%,transparent)}100%{box-shadow:0 0 0 12px transparent}}
 .sp,.zz{background-image:var(--atlas);background-repeat:no-repeat;background-size:72px auto;image-rendering:pixelated}
 .sp{position:absolute;bottom:2px;left:var(--a);width:18px;height:26px;background-position:0 calc(var(--r) * -26px);animation:wander var(--d) ease-in-out var(--dl) infinite,walk var(--w) steps(4) var(--dlw) infinite;scale:1.45;transform-origin:bottom center}
 .sp::before{content:"";position:absolute;left:7px;top:-4px;width:4px;height:4px;border-radius:50%;background:var(--c);box-shadow:0 0 0 1px #0006}
@@ -1910,7 +1914,7 @@ function sprite(r,i,arr){
   outfitInit();const oc=outfitClass(SPR_ROW[r.arch]??15,lookOf(r),inf);if(oc)cls.push(oc);
   const jc=JOBSHIRT[r.job]||'transparent';const w=(old?1.1:.6)+(id%3)*.05;
   const s0=(i/n*100).toFixed(2),s1=((i+1)/n*100).toFixed(2);
-  return `<i class="${cls.join(' ')}" title="${esc(r.short)}" data-o="${(id*1.7).toFixed(1)}" data-ow="${id}" style="--a:calc(${s0}% + 4px);--b:max(calc(${s0}% + 4px), calc(${s1}% - 24px));--d:${d.toFixed(2)}s;--dl:-${((id*1.7)%d).toFixed(2)}s;--w:${w.toFixed(2)}s;--dlw:-${(id%w).toFixed(2)}s;--r:${row};--jc:${jc};--c:${sanCol(r.san)}"></i>`;
+  return `<i class="${cls.join(' ')}" title="${esc(r.short)}" data-act="person" data-v="${r.id}" data-o="${(id*1.7).toFixed(1)}" data-ow="${id}" style="--a:calc(${s0}% + 4px);--b:max(calc(${s0}% + 4px), calc(${s1}% - 24px));--d:${d.toFixed(2)}s;--dl:-${((id*1.7)%d).toFixed(2)}s;--w:${w.toFixed(2)}s;--dlw:-${(id%w).toFixed(2)}s;--r:${row};--jc:${jc};--c:${sanCol(r.san)}"></i>`;
 }
 // zombie sprite: more kinds show up as the outbreak drags on
 const ZED_UNLOCK=[[1,40],[8,41],[15,42],[25,43],[40,44]];
@@ -2186,7 +2190,7 @@ function personRow(r){
   const u=unitOf(r);const adult=r.age>=13;const free=adult&&!r.away&&!r.quar&&!r.ward;
   const tr=r.traits.map(t=>`<button class="trait ${t==='inventor'?'inv':''}" data-act="tip" data-h="${TRAITS[t][0]}" data-tip="${esc(TRAITS[t][1])}">${TRAITS[t][0]}</button>`).join('');
   const tags=[u?u.id:'stairwell'];if(r.leader&&r.arch!=='you')tags.push('⭐ leader');if(r.inf&&!r.inf.hidden)tags.push('🦷');if(r.quar)tags.push('🔒 quarantined');if(r.ward)tags.push('🩹 in sick bay');if(r.away)tags.push('away');if(!adult)tags.push('child');
-  return `<div class="prow2 ${free?'job-'+r.job:'job-off'}"><span class="big2">${faceOf(r)}</span><div style="min-width:0">
+  return `<div class="prow2 ${free?'job-'+r.job:'job-off'}${UI.focus===r.id?' focus':''}" data-rid="${r.id}"><span class="big2">${faceOf(r)}</span><div style="min-width:0">
     <div class="nm"><a href="#" data-act="selres" data-v="${r.id}" style="color:inherit">${esc(r.short)}</a> <span class="mute small">${ARCH[r.arch].i} ${esc(ARCH[r.arch].l)} · ${tags.join(' · ')}</span></div>
     <div>${tr}<span class="stats" style="display:inline-flex;margin-left:4px"><span>Strength <b>${r.st.S}</b></span><span>Agility <b>${r.st.A}</b></span><span>Intellect <b>${r.st.I}</b></span><span>Kampung spirit <b>${r.st.K}</b></span>${adult?`<span title="Overall fighting strength: strength, weapon, health, sanity and traits">Fighting <b>${guardPow(r).toFixed(1)}</b></span>`:''}</span></div>${suitLine(r)}
     <div class="row" style="gap:4px;flex-wrap:nowrap;margin:3px 0"><span class="small mute">Sanity</span>${bar(r.san,sanCol(r.san))}<span class="small mute">Health</span>${bar(r.hp,r.hp>50?'var(--ok)':'var(--blood)')}</div>
@@ -2511,6 +2515,10 @@ const ACT={
   continue:()=>{S=loadSave();migrate();CUR=null;render()},
   next:()=>advance(),
   sel:d=>{UI.sel=d.v;UI.tab='unit';render()},
+  // tap a sprite: jump to that person on the Residents tab
+  person:d=>{const id=+d.v;if(!RS(id))return;UI.tab='people';UI.focus=id;render();
+    let el=document.querySelector('#panel [data-rid="'+id+'"]');if(!el){UI.pf='job';render();el=document.querySelector('#panel [data-rid="'+id+'"]')}
+    if(el)el.scrollIntoView({block:'center',behavior:'smooth'});clearTimeout(UI.focusT);UI.focusT=setTimeout(()=>{UI.focus=null;document.querySelectorAll('.prow2.focus').forEach(x=>x.classList.remove('focus'))},2600)},
   selres:d=>{const r=RS(+d.v);const u=unitOf(r);if(u){UI.sel=u.id;UI.tab='unit';render()}},
   tab:d=>{UI.tab=d.v;render();if(d.v==='outside'){const w=$('#tower-wrap');w.scrollTo({top:w.scrollHeight,behavior:'smooth'})}},
   site:d=>{UI.dest=d.v;UI.tab='outside';render()},
