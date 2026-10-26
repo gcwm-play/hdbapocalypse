@@ -141,6 +141,13 @@ select{background:var(--panel2);border:1px solid var(--line);border-radius:6px;p
 .ground{display:grid;grid-template-columns:repeat(auto-fit,minmax(56px,1fr));gap:6px;padding:10px 4px 14px;background:#11151f;box-shadow:0 0 0 100vmax #11151f;clip-path:inset(0 -100vmax -100vmax)}
 .site{background:#1c212d;border:1px solid #ffffff1a;border-radius:6px;padding:6px;color:#fff;display:flex;flex-direction:column;align-items:center;gap:1px;font-size:11px;text-align:center}
 .site b{font-size:20px;line-height:1}
+.site{position:relative;cursor:pointer;transition:border-color .2s,background-color .2s}
+.site:hover{border-color:#ffffff55}
+.site.on{border-color:var(--lamp);background:color-mix(in srgb,var(--lamp) 18%,#1c212d);box-shadow:0 0 0 1px var(--lamp)}
+.site .fox{position:absolute;top:2px;right:4px;font-size:11px}
+.desthead{display:grid;grid-template-columns:32px minmax(0,1fr) auto;gap:8px;align-items:start}
+.desthead .e{font-size:26px;line-height:1}
+.desthead select{max-width:140px}
 .site .mono{font-size:10px;opacity:.8}
 .road{height:16px;background:repeating-linear-gradient(90deg,#1c212d 0 18px,#e9e2d055 18px 30px,#1c212d 30px 48px);background-size:48px 2px;background-repeat:repeat-x;background-position:0 7px;background-color:#1c212d;box-shadow:0 0 0 100vmax #1c212d;clip-path:inset(0 -100vmax)}
 .horde{text-align:center;font-size:13px;padding:2px;background:#151a24;box-shadow:0 0 0 100vmax #151a24;clip-path:inset(0 -100vmax);color:var(--zed);min-height:20px}
@@ -211,11 +218,6 @@ button.trait{padding:0 5px;border-radius:4px}
 .logl{font-size:13px;padding:4px 0;border-bottom:1px solid #ffffff10}
 .logl .mono{color:var(--mute);font-size:11px;margin-right:6px}
 .log-bad{color:#ff9c8b}.log-good{color:#9be3b4}.log-news{color:#9fb7d0}.log-big{color:var(--lamp);font-weight:700}
-.destgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:6px}
-.dest2{display:grid;grid-template-columns:28px minmax(0,1fr);gap:6px;align-items:center;text-align:left;padding:8px}
-.dest2 .e{font-size:22px;line-height:1}
-.dest2 b,.dest2 span.small{display:block}
-.dest2.on{border-color:var(--lamp);background:color-mix(in srgb,var(--lamp) 12%,var(--panel2))}
 .routes{display:flex;flex-wrap:wrap;gap:6px}
 .routes button{display:flex;flex-direction:column;align-items:flex-start;text-align:left;min-width:120px}
 .routes button small{font-size:11px;opacity:.85}
@@ -1882,7 +1884,7 @@ function renderTower(){
     `<span class="vd-label">VOID DECK</span><div class="shutter">${isOut()?`<span class="small" style="color:#ffffffa6">Shutter ${Math.max(0,Math.round(S.bar.hp))}/${S.bar.max}</span><div class="barbar"><i style="width:${clamp(S.bar.hp/S.bar.max*100,0,100)}%"></i></div>`:'<span class="small" style="color:#ffffffa6">Letterboxes · bicycle bay · chess tables</span>'}<span>${g.map(faceOf).join('')}</span></div>`}</div></div>`;
   const zc=isOut()?Math.min(14,Math.floor(Math.sqrt(pday())*2)):0;
   h+=`<div class="horde">${zc?Array.from({length:zc},(_, i)=>zz(i,'-'+(i*.37).toFixed(2)+'s')).join(''):(alertLvl()>=2?'<span style="color:#ddd">Queues at the supermarket</span>':'')}</div><div class="road"></div>`;
-  h+=`<div class="ground">${Object.entries(DEST).filter(([k])=>destOk(k)).map(([k,d])=>{const out=S.exps.filter(e=>e.dest===k);return `<button class="site" data-act="site" data-v="${k}"><b>${d.e}</b>${d.n.replace('Neighbourhood ','')}${k==='market'?`<span class="mono">${S.market<1?'empty':'stock '+Math.round(S.market)+'%'}</span>`:''}${k==='far'?`<span class="mono">${(S.far==null?100:S.far)<1?'empty':'stock '+Math.round(S.far==null?100:S.far)+'%'}</span>`:''}${out.length?`<span class="mono">team out (${out[0].team.length})</span>`:''}</button>`}).join('')}</div>`;
+  h+=`<div class="ground">${Object.entries(DEST).filter(([k])=>destOk(k)).map(([k,d])=>{const out=S.exps.filter(e=>e.dest===k);const fx=(S.built.fox||{})[k];return `<button class="site ${UI.tab==='outside'&&UI.dest===k?'on':''}" data-act="site" data-v="${k}"><b>${d.e}</b>${fx?'<span class="fox" title="'+(fx===2?'Zipline':'Flying fox')+'">🪢</span>':''}${({park:'Park',police:'Police centre'})[k]||d.n}${k==='market'?`<span class="mono">${S.market<1?'empty':'stock '+Math.round(S.market)+'%'}</span>`:''}${k==='far'?`<span class="mono">${(S.far==null?100:S.far)<1?'empty':'stock '+Math.round(S.far==null?100:S.far)+'%'}</span>`:''}${out.length?`<span class="mono">team out (${out[0].team.length})</span>`:''}</button>`}).join('')}</div>`;
   const tw=$('#tower');
   if(h!==UI.towerHTML){
     UI.towerHTML=h;tw.innerHTML=h;
@@ -2109,12 +2111,21 @@ function panelPeople(){
   }
   return h;
 }
+function destStatus(k){
+  if(k==='market')return S.market<1?`<span class="small badline">Empty${S.mktScrap==null||S.mktScrap>0?' · salvage: scrap':''}</span>`:`<span class="small ${S.market<20?'warnline':'mute'}">Stock ${Math.round(S.market)}%</span>`;
+  if(k==='far'){const v=S.far==null?100:S.far;return v<1?'<span class="small badline">Empty</span>':`<span class="small ${v<20?'warnline':'mute'}">Stock ${Math.round(v)}% · high risk</span>`}
+  return S.exps.some(e=>e.dest===k)?'<span class="small warnline">Team out</span>':''}
 function panelOutside(){
   const d=UI.dest;const rt=curRoute(d);ensureTeam(d,rt);
   const team=UI.team.map(RS).filter(r=>r&&able(r)&&r.lastRun!==S.t);
-  let h=`<h2>Outside</h2><div class="destgrid">`+Object.entries(DEST).filter(([k])=>destOk(k)).map(([k,x])=>{const fx=(S.built.fox||{})[k];const out=S.exps.some(e=>e.dest===k);
-    return `<button class="dest2 ${k===d?'on':''}" data-act="dest" data-v="${k}"><span class="e">${x.e}</span><span style="min-width:0"><b>${({park:'Park',police:'Police centre'})[k]||x.n}</b>${k==='market'?(S.market<1?`<span class="small badline">Empty${S.mktScrap==null||S.mktScrap>0?' · salvage: scrap':''}</span>`:`<span class="small ${S.market<20?'warnline':'mute'}">Stock ${Math.round(S.market)}%</span>`):''}${k==='far'?(()=>{const v=S.far==null?100:S.far;return v<1?'<span class="small badline">Empty</span>':`<span class="small ${v<20?'warnline':'mute'}">Stock ${Math.round(v)}% · high risk</span>`})():''}${fx?`<span class="small goodline">🪢 ${fx===2?'Zipline':'Flying fox'}</span>`:''}${out?'<span class="small warnline">Team out</span>':''}</span></button>`}).join('')+`</div>`;
-  h+=`<p class="small mute" style="margin:8px 0 0">${DEST[d].e} ${DEST[d].d}</p>`;
+  const x=DEST[d],fx0=(S.built.fox||{})[d];
+  let h=`<h2>Outside</h2><div class="desthead"><span class="e">${x.e}</span><div style="min-width:0"><b>${({park:'Park',police:'Police centre'})[d]||x.n}</b> ${destStatus(d)}${fx0?`<span class="small goodline"> · 🪢 ${fx0===2?'Zipline':'Flying fox'}</span>`:''}<p class="small mute" style="margin:2px 0 0">${x.d}</p></div>
+    <select data-chg="dest" aria-label="Destination">${Object.entries(DEST).filter(([k])=>destOk(k)).map(([k,y])=>`<option value="${k}" ${k===d?'selected':''}>${y.e} ${({park:'Park',police:'Police centre'})[k]||y.n}</option>`).join('')}</select></div>
+    <p class="small mute" style="margin:4px 0 0">Tap a place on the street to plan a run there.</p>`;
+  if(rt){const rk=teamRisk(d,rt,team,false,isOut()?(UI.prov||0):0);const lb=riskLabel(rk);
+    h+=`<div class="card stack" style="margin-top:10px;gap:6px"><div class="row"><button class="btn-main" data-act="dispatch" data-v="${d}" ${team.length?'':'disabled'}>Send ${team.length||''} ${team.length===1?'person':'people'}${rt.k==='fox'?' by '+rt.n.toLowerCase():''}</button><span class="${lb[1]}">Risk each: ${lb[0]}${isOut()?' (~'+Math.round(rk*100)+'%)':' (no zombies yet)'}</span></div>
+      <span class="small mute">${team.length?team.map(r=>esc(r.short)).join(', ')+'. ':''}Back ${x.dur===1?'next phase':'in two phases'}. Lookouts on the roof: ${lookouts().length}${S.flags.kwatch?' (count double)':''}.</span>
+      ${S.built.lure?`<label class="teamrow"><input type="checkbox" id="uselure"> Throw a noise lure first (${S.built.lure} left)</label>`:''}</div>`}
   h+=`<h3>Route</h3><div class="routes">`+routes(d).map(r=>`<button class="${rt&&rt.k===r.k?'btn-main':''}" data-act="route" data-v="${r.k}" ${r.ok?'':'disabled'}><b>${r.unk?'???':esc(r.n)}</b><small>${r.ok?(r.m!==1?'Risk ×'+r.m+' · ':'Normal risk · ')+'max '+r.max:esc(r.why)}</small></button>`).join('')+`</div>`;
   if(!rt){h+=`<p class="warnline">No way out right now. ${S.front>0?'Sneak down the stairs in the evening or at night, or build a bedsheet rope or flying fox.':''}</p>`}
   else{
@@ -2126,10 +2137,6 @@ function panelOutside(){
       const spare=Object.keys(S.items).filter(k=>GEAR[k]).reduce((a,k)=>a+S.items[k],0);const bare=team.filter(r=>!r.wpn||!r.arm).length;
       h+=`<div class="row" style="margin-top:8px"><button data-act="equipteam" ${spare&&bare?'':'disabled'}>⚔️ Equip the team from the store</button><span class="small mute">${spare} weapon/armour piece${spare===1?'':'s'} in the store. Weapons protect the whole team, armour its wearer. Gear is lost with anyone who dies outside.</span></div>`;
     }
-    const rk=teamRisk(d,rt,team,false,isOut()?(UI.prov||0):0);const lb=riskLabel(rk);
-    h+=`<div class="card stack" style="margin-top:10px;gap:6px"><div class="row"><button class="btn-main" data-act="dispatch" data-v="${d}" ${team.length?'':'disabled'}>Send ${team.length||''} ${team.length===1?'person':'people'}${rt.k==='fox'?' by '+rt.n.toLowerCase():''}</button><span class="${lb[1]}">Risk each: ${lb[0]}${isOut()?' (~'+Math.round(rk*100)+'%)':' (no zombies yet)'}</span></div>
-      <span class="small mute">Back ${DEST[d].dur===1?'next phase':'in two phases'}. Lookouts on the roof: ${lookouts().length}${S.flags.kwatch?' (count double)':''}.</span>
-      ${S.built.lure?`<label class="teamrow"><input type="checkbox" id="uselure"> Throw a noise lure first (${S.built.lure} left)</label>`:''}</div>`;
     h+=`<p class="small mute" style="margin:8px 0 4px">💡 Up to ${max} people can go on this route. ${d==='park'?'The most stressed residents are picked first: they need the fresh air most.':'Your best runners are picked first: agility, gear and health count, and people on duty come last.'} Tap to change. Nobody can go out twice in one day.</p>`;
     const all=known().filter(able).sort((a,b)=>((a.lastRun===S.t)-(b.lastRun===S.t))||runScore(b,d)-runScore(a,d));
     h+=`<div class="card">${all.length?all.map(r=>{const used=r.lastRun===S.t;return `<label class="teamrow" style="${used?'opacity:.45':''}"><input type="checkbox" data-chg="team" data-id="${r.id}" ${UI.team.includes(r.id)&&!used?'checked':''} ${used?'disabled':''}> ${faceOf(r)} ${esc(r.short)} <span class="mute small">${used?'Already went out today':`Agility ${r.st.A} · Health ${Math.round(r.hp)} · Sanity ${Math.round(r.san)}${r.wpn?' · '+ITEMS[r.wpn]:''}${r.arm?' · '+ITEMS[r.arm]:''}${r.job!=='rest'?' · '+JOBS[r.job]:''}`}${!used&&roleWarn(r)?`<span class="warnline small" style="display:block;margin-left:22px">⚠ ${esc(roleWarn(r))}: hard to replace if they don't come back</span>`:''}</span></label>`}).join(''):'<span class="mute">Nobody is fit to go.</span>'}</div>`;
@@ -2373,7 +2380,7 @@ const ACT={
   next:()=>advance(),
   sel:d=>{UI.sel=d.v;UI.tab='unit';render()},
   selres:d=>{const r=RS(+d.v);const u=unitOf(r);if(u){UI.sel=u.id;UI.tab='unit';render()}},
-  tab:d=>{UI.tab=d.v;render()},
+  tab:d=>{UI.tab=d.v;render();if(d.v==='outside'){const w=$('#tower-wrap');w.scrollTo({top:w.scrollHeight,behavior:'smooth'})}},
   site:d=>{UI.dest=d.v;UI.tab='outside';render()},
   dest:d=>{UI.dest=d.v;render()},
   chat:d=>chat(d.v),knock:d=>knock(d.v),search:d=>search(d.v),convert:d=>convert(d.v),movein:d=>moveIn(d.v),seal:d=>seal(d.v),clear:d=>clearUnit(d.v),
@@ -2421,6 +2428,7 @@ document.addEventListener('change',e=>{const el=e.target;const k=el.dataset&&el.
   if(k==='job')setJob(id,el.value);
   if(k==='wpn')equip(id,'wpn',el.value);
   if(k==='arm')equip(id,'arm',el.value);
+  if(k==='dest'){UI.dest=el.value;render();return}
   if(k==='team'){const i=UI.team.indexOf(id);if(el.checked&&i<0)UI.team.push(id);if(!el.checked&&i>=0)UI.team.splice(i,1);render()}
 });
 document.addEventListener('keydown',e=>{if(e.code==='Space'&&S&&!e.target.closest('select,input,button')){e.preventDefault();if(!$('#modal').hidden){const bs=document.querySelectorAll('#modal .choices button:not(:disabled)');const all=document.querySelectorAll('#modal .choices button');if(bs[0]&&(UI.result||(CUR&&all.length===1)))bs[0].click();return}advance()}});
