@@ -329,7 +329,7 @@ button.trait{padding:0 5px;border-radius:4px}
 @container (max-width:90px){.sp{scale:1.05}}
 .sp{pointer-events:auto;cursor:pointer}
 .sp:hover{filter:drop-shadow(0 0 3px #fff)}
-.prow2.focus{outline:2px solid var(--tc,var(--lamp));outline-offset:2px;animation:focuspulse 1.2s ease-out 2}
+.card.pers.focus,.prow2.focus{outline:2px solid var(--tc,var(--lamp));outline-offset:2px;animation:focuspulse 1.2s ease-out 2}
 @keyframes focuspulse{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--tc,#f4b740) 60%,transparent)}100%{box-shadow:0 0 0 12px transparent}}
 .sp,.zz{background-image:var(--atlas);background-repeat:no-repeat;background-size:72px auto;image-rendering:pixelated}
 .sp{position:absolute;bottom:2px;left:var(--a);width:18px;height:26px;background-position:0 calc(var(--r) * -26px);animation:wander var(--d) ease-in-out var(--dl) infinite,walk var(--w) steps(4) var(--dlw) infinite;scale:1.45;transform-origin:bottom center}
@@ -2031,8 +2031,11 @@ function renderTower(){
 }
 const TABS=[['unit','Flat'],['people','Residents'],['outside','Outside'],['workshop','Workshop'],['block','Block'],['log','Log']];
 function renderTabs(){$('#side').dataset.tab=UI.tab;$('#tabs').innerHTML=TABS.map(([k,n])=>`<button class="${UI.tab===k?'on':''}" data-act="tab" data-v="${k}">${n}${k==='people'&&S.hh.some(h=>h.known&&!h.unit&&members(h).length)?' ⚠':''}</button>`).join('')}
+function focusRow(id){const el=document.querySelector('#panel [data-rid="'+id+'"]');if(el)el.scrollIntoView({block:'center',behavior:'smooth'});
+  clearTimeout(UI.focusT);UI.focusT=setTimeout(()=>{UI.focus=null;document.querySelectorAll('#panel .focus').forEach(x=>x.classList.remove('focus'))},2600)}
 function renderPanel(){
-  const p=$('#panel');const sc=p.scrollTop;
+  // keep the scroll position while you work in one section; start at the top when you switch section or flat
+  const p=$('#panel');const key=UI.tab+'|'+(UI.tab==='unit'?UI.sel:'');const sc=UI.panelKey===key?p.scrollTop:0;UI.panelKey=key;
   p.innerHTML=({unit:panelUnit,people:panelPeople,outside:panelOutside,workshop:panelWorkshop,block:panelBlock,log:panelLog})[UI.tab]();
   p.scrollTop=sc;
 }
@@ -2051,7 +2054,7 @@ function personCard(r){
   if(r.quar)status.push('<span class="badline">Locked in quarantine</span>');
   if(r.inf&&!r.inf.hidden)status.push('<span class="badline">Infected. Will turn soon.</span>');
   if(r.busy&&!r.away)status.push('<span class="mute small">Busy this phase</span>');
-  return `<div class="card pers"><div class="big">${faceOf(r)}</div><div class="stack" style="gap:5px;min-width:0">
+  return `<div class="card pers${UI.focus===r.id?' focus':''}" data-rid="${r.id}"><div class="big">${faceOf(r)}</div><div class="stack" style="gap:5px;min-width:0">
     <div><b>${esc(r.name)}</b> <span class="mute small">${r.age} · ${A.i} ${A.l}</span></div>
     <div>${r.traits.map(t=>`<button class="trait ${t==='inventor'?'inv':''}" data-act="tip" data-h="${TRAITS[t][0]}" data-tip="${esc(TRAITS[t][1])}">${TRAITS[t][0]}</button>`).join('')}</div>
     <div class="stats">${STK.filter(k=>k!=='U').map(k=>`<span>${STN[k]} <b>${r.st[k]}</b></span>`).join('')}${r.age>=13?`<span title="Overall fighting strength: strength, weapon, health, sanity and traits">Fighting <b>${guardPow(r).toFixed(1)}</b></span>`:''}</div>
@@ -2517,9 +2520,9 @@ const ACT={
   sel:d=>{UI.sel=d.v;UI.tab='unit';render()},
   // tap a sprite: jump to that person on the Residents tab
   person:d=>{const id=+d.v;if(!RS(id))return;UI.tab='people';UI.focus=id;render();
-    let el=document.querySelector('#panel [data-rid="'+id+'"]');if(!el){UI.pf='job';render();el=document.querySelector('#panel [data-rid="'+id+'"]')}
-    if(el)el.scrollIntoView({block:'center',behavior:'smooth'});clearTimeout(UI.focusT);UI.focusT=setTimeout(()=>{UI.focus=null;document.querySelectorAll('.prow2.focus').forEach(x=>x.classList.remove('focus'))},2600)},
-  selres:d=>{const r=RS(+d.v);const u=unitOf(r);if(u){UI.sel=u.id;UI.tab='unit';render()}},
+    if(!document.querySelector('#panel [data-rid="'+id+'"]')){UI.pf='job';render()}focusRow(id)},
+  // a name link: open their flat and land on their card
+  selres:d=>{const id=+d.v;const r=RS(id);const u=r&&unitOf(r);if(!u)return ACT.person(d);UI.sel=u.id;UI.tab='unit';UI.focus=id;render();focusRow(id)},
   tab:d=>{UI.tab=d.v;render();if(d.v==='outside'){const w=$('#tower-wrap');w.scrollTo({top:w.scrollHeight,behavior:'smooth'})}},
   site:d=>{UI.dest=d.v;UI.tab='outside';render()},
   dest:d=>{UI.dest=d.v;render()},
