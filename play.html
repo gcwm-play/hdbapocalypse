@@ -1796,11 +1796,53 @@ const POSTS=['invent','medic','garden','salvage'];
 const SPR_ROW={officer:5,doctor:8,you:0,ahma:1,ahgong:2,tinker:3,polystu:4,nsman:5,nsf:6,helper:7,nurse:8,driver:9,hawker:10,cleaner:11,rcauntie:12,student:13,kid:14,pmet:15,karang:16,ahbeng:17,teacher:18,worker:19};
 // i/arr come from Array.map: each sprite in a flat gets its own slice of floor so they never cross.
 // renderTower skips rebuilding when nothing changed, and re-phases animations from the clock when it does.
+// ---------- outfits: every resident of the same type gets their own shirt and trouser colours ----------
+// original sprite colours per atlas row, [top, bottom, kid] (from assets/sprites/make_sprites.py)
+const SPR_SPEC=[['#2f6f73','#3b3f4a'],['#b5677d','#4a4e69'],['#f4f4ee','#5d6b7a'],['#6b7d5c','#4b4b52'],['#5c6f8f','#2e3440'],['#55613f','#55613f'],['#55613f','#55613f'],['#8e7cc3','#2e3440'],['#9fd3df','#9fd3df'],['#2e9a8a','#3b3f4a'],
+  ['#f4f4ee','#3b3f4a'],['#5c9ea0','#3b3f4a'],['#c0392b','#33415c'],['#f4f4ee','#3a4a6b'],['#f2d14b','#3a6ea5',1],['#a9c6e8','#2e3440'],['#8a6a4a','#4b4b52'],['#1d1d1d','#3b4c7a'],['#7aa37a','#4a4e69'],['#6c8ebf','#3a4a6b']];
+const OUT_TOPS=['#2f6f73','#b5677d','#f4f4ee','#6b7d5c','#5c6f8f','#8e7cc3','#2e9a8a','#c0392b','#f2d14b','#a9c6e8','#8a6a4a','#1d1d1d','#7aa37a','#6c8ebf','#e07b39','#d96aa0','#3f8fd2','#9b59b6','#e9c46a','#4caf7a','#f28f8f','#7f8c8d','#b08968','#2c3e75'];
+const OUT_BOTS=['#3b3f4a','#4a4e69','#5d6b7a','#4b4b52','#2e3440','#33415c','#3a4a6b','#3a6ea5','#3b4c7a','#6b4f3a','#7a6a4f','#5b3a3a','#2f4f3f','#8c8c8c','#c2b280','#1d1d1d'];
+const OUT_UNI={5:['#55613f','#4d5b3c','#66704a','#3f4a32','#6b6b45','#5a5f3a'],6:['#55613f','#4d5b3c','#66704a','#3f4a32','#6b6b45','#5a5f3a'],8:['#9fd3df','#b8e0d2','#c9d9f0','#f2f2f2','#a8c8e8','#d7c9ee']};
+function outPal(row){const u=OUT_UNI[row];const sp=SPR_SPEC[row];const put=(l,c)=>[c].concat(l.filter(x=>x!==c));return u?[put(u,sp[0]),put(u,sp[1])]:[put(OUT_TOPS,sp[0]),put(OUT_BOTS,sp[1])]}
+function lookOf(r){
+  const row=SPR_ROW[r.arch]??15;if(r.look&&r.look[2]===row)return r.look;
+  const [T,B]=outPal(row);const used=new Set(S.res.filter(m=>m!==r&&m.alive!==false&&m.look&&m.look[2]===row).map(m=>m.look[0]+'.'+m.look[1]));
+  // first of each type keeps the original outfit; everyone after gets the next unused combination, shuffled by id
+  const combos=[];for(let t=0;t<T.length;t++)for(let b=0;b<B.length;b++)if(T[t]!==B[b]||OUT_UNI[row])combos.push([t,b]);
+  const start=used.size?((r.id*7919)%combos.length):0;const usedT=new Set([...used].map(x=>x.split('.')[0]));
+  // prefer a shirt nobody of this type wears yet, then any unused shirt and trouser pair
+  for(const fresh of [true,false])for(let k=0;k<combos.length;k++){const c=combos[(start+k)%combos.length];if(!used.has(c[0]+'.'+c[1])&&(!fresh||!usedT.has(String(c[0])))){r.look=[c[0],c[1],row];return r.look}}
+  r.look=[r.id%T.length,(r.id*3)%B.length,row];return r.look}
+const OUTFIT={img:null,ready:false,done:new Set(),css:null};
+function hex2(c){c=c.replace('#','');return [0,2,4].map(i=>parseInt(c.slice(i,i+2),16))}
+function shadeC(c,f){return hex2(c).map(v=>Math.max(0,Math.min(255,Math.floor(v*f))))}
+function outfitInit(){
+  if(OUTFIT.img)return;const m=getComputedStyle(document.documentElement).getPropertyValue('--atlas').match(/url\(["']?(data:[^"')]+)/);if(!m)return;
+  const img=new Image();img.onload=()=>{OUTFIT.ready=true;OUTFIT.cv=document.createElement('canvas');OUTFIT.cv.width=img.width;OUTFIT.cv.height=img.height;const g=OUTFIT.cv.getContext('2d');g.drawImage(img,0,0);OUTFIT.data=g.getImageData(0,0,img.width,img.height);if(S){UI.towerHTML=null;render()}};
+  img.src=m[1];OUTFIT.img=img;OUTFIT.css=document.createElement('style');document.head.appendChild(OUTFIT.css)}
+// recolour one atlas row into a 72x26 strip and register it as a CSS class
+function outfitClass(row,look,inf){
+  if(!OUTFIT.ready)return '';const key='o'+row+'_'+look[0]+'_'+look[1]+(inf?'i':'');if(OUTFIT.done.has(key))return key;
+  const [T,B]=outPal(row);const sp=SPR_SPEC[row];const nt=T[look[0]],nb=B[look[1]];
+  const W=OUTFIT.data.width,CH=26,y0=(row+(inf?20:0))*CH;const out=new ImageData(W,CH);const src=OUTFIT.data.data,dst=out.data;
+  const eq=(a,i)=>src[i]===a[0]&&src[i+1]===a[1]&&src[i+2]===a[2];
+  const top=hex2(sp[0]),topS=shadeC(sp[0],.8),bot=hex2(sp[1]),botS=shadeC(sp[1],.78);
+  const NT=hex2(nt),NTS=shadeC(nt,.8),NB=hex2(nb),NBS=shadeC(nb,.78);
+  const legY=sp[2]?19:17,uni=sp[0]===sp[1];
+  for(let y=0;y<CH;y++)for(let x=0;x<W;x++){const i=((y0+y)*W+x)*4,o=(y*W+x)*4;dst[o]=src[i];dst[o+1]=src[i+1];dst[o+2]=src[i+2];dst[o+3]=src[i+3];if(!src[i+3])continue;
+    let c=null;const legs=y>=legY;
+    if(uni){if(eq(top,i))c=legs?NB:NT;else if(eq(topS,i))c=NTS;else if(eq(botS,i))c=NBS}
+    else{if(eq(top,i))c=NT;else if(eq(topS,i))c=NTS;else if(eq(bot,i))c=NB;else if(eq(botS,i))c=NBS}
+    if(c){dst[o]=c[0];dst[o+1]=c[1];dst[o+2]=c[2]}}
+  const cv=document.createElement('canvas');cv.width=W;cv.height=CH;cv.getContext('2d').putImageData(out,0,0);
+  OUTFIT.css.sheet.insertRule('.sp.'+key+'{background-image:url('+cv.toDataURL()+');background-position-y:0!important}',OUTFIT.css.sheet.cssRules.length);
+  OUTFIT.done.add(key);return key}
 function sprite(r,i,arr){
   const id=r.id,old=r.age>=65;const n=Array.isArray(arr)&&arr.length?arr.length:1;i=typeof i==='number'?i:0;
   const cls=['sp'];if(r.san<25)cls.push('mad');if(r.hp<40)cls.push('hurt');
   const d=(7+(id%6))*(old?1.7:1)*(r.san<25?.4:1);
-  const row=(SPR_ROW[r.arch]??15)+((r.inf&&!r.inf.hidden)?20:0);
+  const inf=r.inf&&!r.inf.hidden;const row=(SPR_ROW[r.arch]??15)+(inf?20:0);
+  outfitInit();const oc=outfitClass(SPR_ROW[r.arch]??15,lookOf(r),inf);if(oc)cls.push(oc);
   const jc=JOBSHIRT[r.job]||'transparent';const w=(old?1.1:.6)+(id%3)*.05;
   const s0=(i/n*100).toFixed(2),s1=((i+1)/n*100).toFixed(2);
   return `<i class="${cls.join(' ')}" title="${esc(r.short)}" data-o="${(id*1.7).toFixed(1)}" data-ow="${id}" style="--a:calc(${s0}% + 4px);--b:max(calc(${s0}% + 4px), calc(${s1}% - 24px));--d:${d.toFixed(2)}s;--dl:-${((id*1.7)%d).toFixed(2)}s;--w:${w.toFixed(2)}s;--dlw:-${(id%w).toFixed(2)}s;--r:${row};--jc:${jc};--c:${sanCol(r.san)}"></i>`;
