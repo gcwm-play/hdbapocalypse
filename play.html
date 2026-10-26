@@ -867,10 +867,9 @@ function doJobs(){
   if(!rooms('workshop')&&jobbers('invent').length){jobbers('invent').forEach(r=>r.job='rest');log('There is no workshop any more. The inventors have gone home.','bad')}
   if(S.proj&&rooms('workshop')){
     const inv=jobbers('invent').filter(r=>has(r,'inventor'));const helpers=jobbers('invent').filter(r=>!has(r,'inventor'));
-    if(inv.length){
-      let p=(inv.reduce((a,r)=>a+2+r.st.I*.3,0)+helpers.length*.8)*1.5;
-      if(inv.some(r=>has(r,'sian'))&&chance(.25))p*=.3;
-      S.proj.prog+=p;
+    const p=workRate();
+    if(p>0){
+      S.proj.prog+=(jobbers('invent').some(r=>has(r,'sian'))&&chance(.25))?p*.3:p;
       if(S.proj.prog>=S.proj.work)finishProj();
     }
   }
@@ -1245,6 +1244,12 @@ function startProj(id){
   for(const k in rc.need)itemAdd(S.items,k,-rc.need[k]);
   S.proj={id,prog:0,work:rc.work};log('The workshop starts on: '+rc.n+'.','');save();render();
 }
+// work per tick on the current project. Without an inventor, helpers can still follow a known blueprint,
+// but slowly: at most about a quarter of one average inventor's pace
+function workRate(){
+  const inv=jobbers('invent').filter(r=>has(r,'inventor'));const helpers=jobbers('invent').filter(r=>!has(r,'inventor'));
+  if(inv.length)return (inv.reduce((a,r)=>a+2+r.st.I*.3,0)+helpers.length*.8)*1.5;
+  return Math.min(.8,helpers.reduce((a,r)=>a+.25+r.st.I*.03,0))*1.5}
 function finishProj(){
   const rc=RECIPES.find(r=>r.id===S.proj.id);S.proj=null;let x='';
   if(GEAR[rc.id]){itemAdd(S.items,rc.id);x='Added to the communal store. Equip it from a resident\'s card.'}
@@ -2288,9 +2293,12 @@ function panelOutside(){
 }
 function panelWorkshop(){
   const inv=known().filter(r=>has(r,'inventor'));
-  let h=`<h2>Workshop</h2><p class="small mute">Inventors: ${inv.length?inv.map(r=>esc(r.short)+(r.job==='invent'?' (working)':' (not assigned)')).join(', '):'none yet. Look for neighbours with the Inventor trait.'}</p>`;
+  let h=`<h2>Workshop</h2><p class="small mute">Inventors: ${inv.length?inv.map(r=>esc(r.short)+(r.job==='invent'?' (working)':' (not assigned)')).join(', '):'none. Look for neighbours with the Inventor trait.'}${!inv.some(r=>r.alive&&!r.away)&&rooms('workshop')?' Without an inventor nobody can work out new ideas, but helpers on the Workshop job can still build known blueprints, 4 to 5 times slower.':''}</p>`;
   if(!rooms('workshop'))h+=`<div class="card" style="border-color:var(--warn)"><b>🔧 No workshop yet</b><p class="small" style="margin:4px 0 0">Inventors need a room to work in. Pick an empty flat above the line and repurpose it as a Workshop (6 scrap). Until then nobody can try combinations or build.</p></div>`;
-  if(S.proj){const rc=RECIPES.find(r=>r.id===S.proj.id);h+=`<div class="card"><b>Building: ${rc.n}</b>${bar(S.proj.prog/S.proj.work*100,'var(--lamp)')}<span class="small mute">${Math.floor(S.proj.prog)}/${S.proj.work} work.</span>${jobbers('invent').some(r=>has(r,'inventor'))?`<span class="small goodline"> ${jobbers('invent').filter(r=>has(r,'inventor')).map(r=>esc(r.short)).join(', ')} working on it.</span>`:`<div class="badline" style="margin-top:4px">Nobody is working on it. An inventor's job must be set to Workshop.</div>`}<div class="row" style="margin-top:8px">${inv.some(r=>able(r)&&r.job!=='invent')?`<button class="btn-main" data-act="invwork">Put free inventors to work</button>`:''}<button data-act="cancelproj">Cancel (items returned)</button></div></div>`}
+  if(S.proj){const rc=RECIPES.find(r=>r.id===S.proj.id);h+=`<div class="card"><b>Building: ${rc.n}</b>${bar(S.proj.prog/S.proj.work*100,'var(--lamp)')}<span class="small mute">${Math.floor(S.proj.prog)}/${S.proj.work} work.</span>${(()=>{const w=workRate(),left=Math.max(0,S.proj.work-S.proj.prog),dd=w>0?Math.max(1,Math.ceil(left/(w*4))):0,inv=jobbers('invent').filter(r=>has(r,'inventor')),hp=jobbers('invent').filter(r=>!has(r,'inventor'));
+    return inv.length?`<span class="small goodline"> ${inv.map(r=>esc(r.short)).join(', ')} working on it${hp.length?', helped by '+hp.map(r=>esc(r.short)).join(', '):''}. About ${dd} day${dd>1?'s':''} to go.</span>`
+    :hp.length?`<div class="warnline small" style="margin-top:4px">No inventor. ${hp.map(r=>esc(r.short)).join(', ')} ${hp.length>1?'are':'is'} following the blueprint slowly: about ${dd} day${dd>1?'s':''} to go. An inventor would be 4 to 5 times faster.</div>`
+    :`<div class="badline" style="margin-top:4px">Nobody is working on it. Set an inventor's job to Workshop, or put helpers on it (much slower).</div>`})()}<div class="row" style="margin-top:8px">${inv.some(r=>able(r)&&r.job!=='invent')?`<button class="btn-main" data-act="invwork">Put free inventors to work</button>`:''}<button data-act="cancelproj">Cancel (items returned)</button></div></div>`}
   h+=`<h3>Communal items</h3>`;
   const it=Object.keys(S.items);
   {const chip=k=>`<button class="ic ${UI.expSel.includes(k)?'on':''}" data-act="expsel" data-v="${k}">${ITEMS[k]} ×${S.items[k]}</button>`;const az=(a,b)=>ITEMS[a].localeCompare(ITEMS[b]);
