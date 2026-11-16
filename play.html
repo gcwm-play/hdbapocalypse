@@ -309,6 +309,28 @@ button.trait{padding:0 5px;border-radius:4px}
 .sc-lure{animation:sclure 40s linear infinite}@keyframes sclure{from{transform:translateX(0)}to{transform:translateX(1200px)}}
 .sc-mob{animation:scmob 2.2s ease-in-out infinite}@keyframes scmob{50%{transform:translateX(6px)}}
 @media (prefers-reduced-motion:reduce){.endscene *,.endscene{animation:none!important}#modal.endm .ev{animation:none}}
+/* ---------- opening comic ---------- */
+#comic{position:fixed;inset:0;z-index:90;background:#06090ff5;display:flex;flex-direction:column;align-items:center;gap:12px;padding:max(16px,env(safe-area-inset-top,0px)) 16px 16px;overflow:auto;cursor:pointer;transition:opacity .35s}
+#comic.out{opacity:0}
+.cpage{display:grid;grid-template-columns:1fr 1fr;gap:12px;width:min(1100px,100%);margin:auto 0}
+.cpanel{position:relative;aspect-ratio:8/5;border:4px solid #f3efe6;border-radius:4px;overflow:hidden;background:#000;opacity:.06;transform:translateY(10px) scale(.98);transition:opacity .5s cubic-bezier(.22,1,.36,1),transform .5s cubic-bezier(.22,1,.36,1);container-type:inline-size}
+.cpanel.on{opacity:1;transform:none}
+.cpanel svg{position:absolute;inset:0;width:100%;height:100%;display:block}
+.ccap{position:absolute;background:#f4d35e;color:#1b1305;font-family:var(--f-display);font-size:clamp(10px,3.4cqw,17px);line-height:1.2;padding:4px 8px;border:2px solid #1b1305;box-shadow:3px 3px 0 #1b1305;max-width:70%}
+.cbub{position:absolute;background:#fff;color:#111;font-weight:700;font-size:clamp(11px,3.3cqw,17px);line-height:1.25;padding:6px 10px;border-radius:16px;border:2px solid #111;max-width:48%;opacity:0;transform:scale(.85);transform-origin:var(--tx) 100%;transition:opacity .35s .4s,transform .35s .4s cubic-bezier(.22,1,.36,1)}
+.cpanel.on .cbub{opacity:1;transform:none}
+.cbub::before,.cbub::after{content:"";position:absolute;left:var(--tx,20%);border:solid transparent}
+.cbub::before{bottom:-14px;border-width:14px 8px 0;border-top-color:#111}
+.cbub::after{bottom:-10px;margin-left:2px;border-width:11px 6px 0;border-top-color:#fff}
+.cskip{position:absolute;top:max(12px,env(safe-area-inset-top,0px));right:16px;z-index:2;background:#ffffff14;border-color:#ffffff33}
+.cnav{display:flex;align-items:center;gap:12px;justify-content:flex-end;width:min(1100px,100%)}
+@media (max-width:720px){.cpage{grid-template-columns:1fr}.cpanel:not(.cur){display:none}.cpanel{aspect-ratio:4/3}.cbub{max-width:56%}}
+@media (prefers-reduced-motion:reduce){.cpanel,.cbub{transition:none}}
+/* ---------- speech bubbles over residents ---------- */
+.say{position:fixed;left:0;top:0;max-width:170px;width:max-content;background:#fff;color:#111;font:700 12px/1.25 var(--f-body);padding:4px 8px;border-radius:10px;border:1.5px solid #111;pointer-events:none;z-index:40;box-shadow:0 2px 6px #0006;animation:sayin .3s cubic-bezier(.22,1,.36,1),sayout .4s 3.2s forwards}
+.say::after{content:"";position:absolute;left:var(--tail,50%);top:100%;margin-left:-5px;border:5px solid transparent;border-top:6px solid #111}
+@keyframes sayin{from{opacity:0;translate:0 4px}}
+@keyframes sayout{to{opacity:0}}
 #title{position:fixed;inset:0;z-index:60;background:radial-gradient(ellipse at 50% 120%,#3b2b18,var(--night) 60%);overflow:auto;padding-block:max(32px,env(safe-area-inset-top,0px));padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
 .t-inner{max-width:640px;margin:0 auto;display:flex;flex-direction:column;gap:18px}
 .t-logo{font-family:var(--f-display);font-size:clamp(34px,9vw,64px);line-height:.95;color:var(--facade);text-wrap:balance}
@@ -2500,6 +2522,129 @@ function endShell(m,key){
   if(m.dataset.end!==key){m.dataset.end=key;m.classList.add('endm');m.innerHTML=endScene(key)+'<div class="endcard"></div><button class="endshow" data-act="endview">Show the story</button>'}
   m.classList.toggle('endhide',!!UI.endHide);return !!UI.endHide;
 }
+// ---------- opening comic: four panels before day 1 ----------
+function cfig(x,y,s,o){ // a flat figure standing on y; o: skin, hair, top, bot, back, mask, bun, phone, arm
+  const k=s||1,sk=o.skin||'#d39a6a',hr=o.hair||'#151515',tp=o.top||'#5c6f8f',bt=o.bot||'#2e3440';
+  let g=`<g transform="translate(${x},${y}) scale(${k})">`;
+  g+=`<rect x="-14" y="-62" width="11" height="62" rx="4" fill="${bt}"/><rect x="3" y="-62" width="11" height="62" rx="4" fill="${bt}"/>`;
+  g+=`<rect x="-20" y="-122" width="40" height="66" rx="12" fill="${tp}"/>`;
+  g+=o.arm==='up'?`<rect x="14" y="-150" width="10" height="44" rx="5" fill="${tp}" transform="rotate(-8 19 -128)"/>`:o.arm==='reach'?`<rect x="14" y="-118" width="44" height="10" rx="5" fill="${tp}" transform="rotate(-18 14 -113)"/>`:`<rect x="16" y="-118" width="10" height="50" rx="5" fill="${tp}"/>`;
+  g+=`<rect x="-26" y="-118" width="10" height="50" rx="5" fill="${tp}"/>`;
+  g+=`<circle cx="0" cy="-142" r="20" fill="${sk}"/>`;
+  g+=o.back?`<path d="M-20,-146 a20,20 0 0 1 40,0 v10 a20,20 0 0 1 -40,0z" fill="${hr}"/>`:`<path d="M-21,-146 a21,21 0 0 1 42,0 q-10,-6 -21,-6 q-11,0 -21,6z" fill="${hr}"/>`;
+  if(o.bun)g+=`<circle cx="0" cy="-166" r="9" fill="${hr}"/>`;
+  if(o.mask&&!o.back)g+=`<rect x="-14" y="-140" width="28" height="12" rx="4" fill="#f2f2f2"/>`;
+  if(!o.back&&!o.mask)g+=`<circle cx="-7" cy="-144" r="2.2" fill="#111"/><circle cx="7" cy="-144" r="2.2" fill="#111"/>`;
+  else if(!o.back)g+=`<circle cx="-7" cy="-147" r="2.2" fill="#111"/><circle cx="7" cy="-147" r="2.2" fill="#111"/>`;
+  if(o.phone)g+=`<rect x="20" y="-104" width="12" height="20" rx="2" fill="#222"/><rect x="22" y="-102" width="8" height="15" fill="#9fe3ff"/>`;
+  return g+'</g>'}
+function cblocks(y,c,lit,n,seed){let sd=seed||9;const rr=()=>(sd=(sd*9301+49297)%233280)/233280;let s='',x=-10;
+  for(let i=0;i<(n||9);i++){const w=60+rr()*60,h=80+rr()*120;s+=`<rect x="${x|0}" y="${(y-h)|0}" width="${w|0}" height="${(h+40)|0}" fill="${c}"/>`;
+    for(let r=0;r<Math.floor(h/18);r++)for(let q=0;q<Math.floor(w/14);q++)if(rr()<lit)s+=`<rect x="${(x+5+q*14)|0}" y="${(y-h+8+r*18)|0}" width="7" height="6" fill="#ffcf73" opacity=".85"/>`;
+    x+=w+8+rr()*20}return s}
+function comicPanels(){
+  const L=leader()||{short:'You'};const blk='Blk '+S.blk+', '+S.estate;
+  const P=[];
+  // 1. the news, three weeks ago
+  P.push({cap:'Three weeks ago',svg:`<rect width="800" height="500" fill="#4b3d55"/><rect y="400" width="800" height="100" fill="#33293a"/>
+    <rect x="610" y="50" width="170" height="170" fill="#18234a"/><svg x="610" y="50" width="170" height="170" viewBox="0 0 340 340">${cblocks(340,'#262b3d',.35,4,3)}</svg><rect x="610" y="50" width="170" height="170" fill="none" stroke="#2a2030" stroke-width="10"/><path d="M695,50v170M610,135h170" stroke="#2a2030" stroke-width="6"/>
+    <g transform="translate(130,0)"><rect x="110" y="300" width="330" height="60" rx="4" fill="#6b4f3a"/><rect x="140" y="120" width="270" height="170" rx="6" fill="#111"/><rect x="152" y="132" width="246" height="146" fill="#244a6e"/>
+    <path d="M160,250 h230 v28 h-230z" fill="#173450"/><path d="M190,250 v-70 h6 v-10 h40 v6 h-34 v74z M290,250 v-60 h6 v-8 h36 v6 h-30 v62z" fill="#0f2236"/><rect x="230" y="238" width="80" height="12" fill="#0f2236"/>
+    <rect x="152" y="256" width="246" height="22" fill="#c0392b"/><text x="158" y="272" font-family="DM Mono,monospace" font-size="12" fill="#fff" textLength="234" lengthAdjust="spacingAndGlyphs">BREAKING: MYSTERY ILLNESS IN PORT CITY</text>
+    <rect x="265" y="290" width="20" height="10" fill="#111"/></g><rect x="40" y="380" width="560" height="120" rx="20" fill="#7a3b3b"/><rect x="40" y="360" width="560" height="50" rx="20" fill="#8f4848"/>
+    ${cfig(150,470,1,{back:1,hair:'#d6d6d6',bun:1,top:'#b5677d'})}${cfig(300,470,1.05,{back:1,top:'#2f6f73'})}${cfig(430,470,.75,{back:1,hair:'#2b1d14',top:'#f2d14b'})}`,
+    bub:[{t:'Aiyah, so far away. Nothing to do with us one.',x:3,y:36,tail:30,w:34}]});
+  // 2. the train, last week
+  P.push({cap:'Last week',svg:`<rect width="800" height="500" fill="#d9e0dc"/><rect y="70" width="800" height="150" fill="#20262f"/>${[0,1,2,3,4].map(i=>`<rect x="${i*170+10}" y="80" width="150" height="130" rx="16" fill="#2b333e"/><path d="M${i*170+30},150h60M${i*170+60},120h70M${i*170+40},180h50" stroke="#3d4757" stroke-width="3"/>`).join('')}
+    <rect y="20" width="800" height="40" fill="#2e3440"/><text x="300" y="47" font-family="DM Mono,monospace" font-size="18" fill="#ffcf73">NEXT STATION: OUTRAM PARK  ▸  ▸  ▸</text>
+    <rect y="400" width="800" height="100" fill="#8c9692"/><rect x="0" y="330" width="800" height="70" rx="8" fill="#2e9a8a"/><rect x="0" y="300" width="800" height="36" rx="8" fill="#37b3a0"/>
+    ${[120,400,660].map(x=>`<rect x="${x}" y="0" width="8" height="500" fill="#b8c2c8"/>`).join('')}
+    ${cfig(200,470,1.1,{mask:1,top:'#5c6f8f',phone:1})}${cfig(330,470,1.05,{mask:1,hair:'#3b2a20',top:'#c0392b',arm:'up'})}${cfig(540,470,1.1,{top:'#6b7d5c',hair:'#9a9a9a',arm:'up'})}${cfig(690,470,1,{mask:1,top:'#8e7cc3',bun:1})}
+    <path d="M572,316 q14,-6 22,4 M576,330 q14,-2 20,10" stroke="#555" stroke-width="3" fill="none"/>`,
+    bub:[{t:'Another forward: "drink hot water to kill the virus." Confirm fake news.',x:16,y:20,tail:16},{t:'*cough* *cough*',x:66,y:36,tail:20}]});
+  // 3. the supermarket, yesterday
+  P.push({cap:'Yesterday',svg:`<rect width="800" height="500" fill="#eef1ec"/><rect y="420" width="800" height="80" fill="#c9c3b5"/>${[0,1,2].map(i=>`<rect x="${120+i*240}" y="10" width="120" height="10" fill="#fff"/>`).join('')}
+    ${[0,1].map(r=>`<rect x="${r?470:30}" y="70" width="300" height="350" fill="#b9c2bd"/>${[0,1,2,3].map(sh=>`<rect x="${r?470:30}" y="${120+sh*80}" width="300" height="8" fill="#8c9692"/>`).join('')}`).join('')}
+    <rect x="50" y="88" width="22" height="32" fill="#e07b39"/><rect x="520" y="248" width="18" height="24" fill="#3f8fd2"/><rect x="250" y="328" width="26" height="24" fill="#f2d14b"/>
+    <rect x="335" y="150" width="130" height="26" fill="#c0392b"/><text x="342" y="168" font-family="DM Mono,monospace" font-size="12" fill="#fff" textLength="116" lengthAdjust="spacingAndGlyphs">LIMIT 2 / CUSTOMER</text>
+    <g><rect x="360" y="300" width="70" height="56" rx="8" fill="#f4f4ee" stroke="#ccc"/><rect x="372" y="314" width="46" height="18" fill="#c0392b"/><text x="377" y="327" font-family="DM Mono,monospace" font-size="11" fill="#fff">RICE</text></g>
+    ${cfig(300,480,1.2,{top:'#2e9a8a',arm:'reach',hair:'#151515'})}
+    <g transform="translate(500,480) scale(-1.2,1.2)">${cfig(0,0,1,{top:'#d96aa0',arm:'reach',hair:'#3b2a20',bun:1}).replace(/^<g transform="translate\(0,0\) scale\(1\)">/,'<g>')}</g>
+    <g transform="translate(600,380)"><rect x="0" y="0" width="150" height="80" fill="none" stroke="#666" stroke-width="5"/><rect x="10" y="-30" width="40" height="34" fill="#f4f4ee"/><rect x="55" y="-26" width="30" height="30" fill="#e9c46a"/><rect x="90" y="-36" width="44" height="40" fill="#f4f4ee"/><circle cx="20" cy="95" r="10" fill="#333"/><circle cx="130" cy="95" r="10" fill="#333"/></g>`,
+    bub:[{t:'Eh! I saw it first!',x:6,y:22,tail:60},{t:'My family got five people leh!',x:58,y:30,tail:40}]});
+  // 4. the corridor, today
+  P.push({cap:'Today. '+blk,cap2:'Somebody has to hold this block together.',svg:`<defs><linearGradient id="cs4" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#24183f"/><stop offset=".6" stop-color="#c25a3c"/><stop offset="1" stop-color="#f6b062"/></linearGradient></defs>
+    <rect width="800" height="500" fill="url(#cs4)"/><circle cx="620" cy="300" r="50" fill="#ffd98a"/>${cblocks(330,'#3b2840',.25,10,7)}
+    <rect y="330" width="800" height="170" fill="#c9b49a"/><rect y="320" width="800" height="14" fill="#a8927a"/>${[0,1,2,3,4,5,6,7,8].map(i=>`<rect x="${i*100}" y="250" width="6" height="74" fill="#5a4c3e"/>`).join('')}<rect y="250" width="800" height="6" fill="#5a4c3e"/><rect y="285" width="800" height="4" fill="#5a4c3e"/>
+    <g><rect x="40" y="290" width="40" height="34" fill="#a0612f"/><path d="M45,292 q15,-40 30,0 M50,292 q10,-30 25,-8" fill="#4fae5c"/></g><g><rect x="700" y="295" width="36" height="30" fill="#a0612f"/><path d="M704,296 q14,-36 28,0" fill="#4fae5c"/></g>
+    ${cfig(380,470,1.25,{back:1,top:'#2f6f73',phone:1})}`,
+    bub:[{t:'Okay. If nobody else will, I start with the neighbours.',x:44,y:20,tail:18}]});
+  return P}
+function showComic(done){
+  const el=document.createElement('div');el.id='comic';el.setAttribute('role','dialog');el.setAttribute('aria-label','Opening story');
+  const P=comicPanels();
+  el.innerHTML=`<button class="cskip" data-c="skip">Skip ▸▸</button><div class="cpage">${P.map((p,i)=>`<div class="cpanel" data-i="${i}"><svg viewBox="0 0 800 500" preserveAspectRatio="xMidYMid slice" aria-hidden="true">${p.svg}</svg>
+    <span class="ccap" style="left:2%;top:3%">${esc(p.cap)}</span>${p.cap2?`<span class="ccap" style="right:2%;bottom:4%">${esc(p.cap2)}</span>`:''}
+    ${p.bub.map(b=>`<span class="cbub" style="left:${b.x}%;top:${b.y}%;--tx:${b.tail}%;${b.w?'max-width:'+b.w+'%':''}">${esc(b.t)}</span>`).join('')}</div>`).join('')}</div>
+    <div class="cnav"><span class="small mute">Tap or press Space</span><button class="btn-main" data-c="next">Next ▸</button></div>`;
+  document.body.appendChild(el);
+  let i=-1;const panels=[...el.querySelectorAll('.cpanel')];const nb=el.querySelector('[data-c=next]');
+  const close=()=>{document.removeEventListener('keydown',key,true);el.classList.add('out');setTimeout(()=>el.remove(),350);done&&done()};
+  const next=()=>{if(i>=panels.length-1){close();return}i++;panels.forEach((p,k)=>{p.classList.toggle('cur',k===i)});panels[i].classList.add('on');
+    if(innerWidth>720)panels[i].scrollIntoView({block:'nearest',behavior:'smooth'});if(i===panels.length-1)nb.textContent='Begin ▸'};
+  const key=e=>{if(['Space','Enter','ArrowRight'].includes(e.code)){e.preventDefault();e.stopPropagation();next()}else if(e.code==='Escape'){e.stopPropagation();close()}};
+  document.addEventListener('keydown',key,true);
+  el.addEventListener('click',e=>{if(e.target.closest('[data-c=skip]')){close();return}next()});
+  next();
+}
+
+// ---------- residents think out loud ----------
+const SAY={
+  inf:['It\'s just a scratch...','Why so cold today ah?','I\'m fine. Don\'t look at me.'],
+  mad:['Cannot tahan already...','Everybody also will die one.','Don\'t talk to me.','I want to go home. Oh, wait.'],
+  low:['Haiz.','Sian ah.','When will this end?','I miss kopi peng.'],
+  hun:['Lapar ah...','Got rice left or not?','I dream of chicken rice.'],
+  thi:['So thirsty...','Got water or not?'],
+  hurt:['Aiyo, my leg...','Pain ah.'],
+  guard:['Shutter still holding.','Come lah, come.','My turn to sleep yet?','Steady, steady.'],
+  guardN:['Too quiet tonight.','I hear them scratching.','Nobody sleep ah.'],
+  lookout:['Nothing on Ave 3.','Smoke near the MRT.','Movement at the carpark!','Helicopter! Oh, just a bird.'],
+  garden:['Kangkong growing well.','Need more water for the plants.'],
+  invent:['If I tape this to that...','Pass me the duct tape.','Eureka! Oh, no.'],
+  medic:['Stay still, I check.','Wash your hands!'],
+  salvage:['This rack can go.','Got screws inside here.'],
+  kid:['Can go downstairs play?','I\'m bored.','Is school cancelled forever?','Can I pat the cat?'],
+  old:['Last time Japanese time also like that.','Aiyah, young people.','Eat already or not?','Wear more clothes.'],
+  hot:['So hot ah!','Fan also no use.'],rain:['Collect the rainwater!','Wah, heavy rain.'],haze:['Cough cough. Haze again.'],
+  prep:['Did you see the news?','Should we buy more rice?','My company says WFH from Monday.','Confirm fake news lah.','Aiyah, overseas one.','Group chat very noisy today.'],
+  out:['Any news from outside?','Lock the gate properly.','I heard screaming last night.','When will the army come?','Is the lift still working?'],
+  leader:['Okay, what\'s next?','One day at a time.']};
+function sayLine(r){
+  const urgent=[];if(r.inf&&r.inf.hidden&&chance(.4))urgent.push('inf');if(r.san<25)urgent.push('mad');if(r.hun>=50)urgent.push('hun');if(r.thi>=50)urgent.push('thi');if(r.hp<50)urgent.push('hurt');
+  if(urgent.length&&chance(.75))return pick(SAY[pick(urgent)]);
+  const p=[];const j=r.job;if(SAY[j])p.push(j);if(j==='guard'&&S.ph>=2&&isOut())p.push('guardN');if(r.age<13)p.push('kid');if(r.age>=65)p.push('old');if(r.san<50)p.push('low');
+  const w=S.weather.type;if(w==='hot'||w==='sunny')p.push('hot');if(w==='rain'||w==='storm')p.push('rain');if(w==='haze')p.push('haze');
+  p.push(isOut()?'out':'prep');if(r.leader)p.push('leader');
+  return pick(SAY[pick(p)])}
+function speakOnce(){
+  if(!S||S.over||document.hidden||document.getElementById('comic')||!$('#modal').hidden)return;
+  const wrap=$('#tower-wrap');if(!wrap)return;const box=wrap.getBoundingClientRect();const night=S.ph>=2;
+  const live=[...document.querySelectorAll('.say')];if(live.length>=2)return;
+  const busy=new Set(live.map(x=>x.dataset.v));const taken=live.map(x=>x.getBoundingClientRect());
+  const vis=[...wrap.querySelectorAll('.sp')].filter(el=>{if(busy.has(el.dataset.v))return false;const e=el.getBoundingClientRect();if(taken.some(t=>Math.abs(t.bottom-e.top)<70&&e.left<t.right+40&&e.right>t.left-40))return false;if(night&&el.closest('.unit'))return false;const b=el.getBoundingClientRect();return b.top>box.top+40&&b.bottom<box.bottom&&b.left>box.left&&b.right<box.right});
+  if(!vis.length)return;const el=pick(vis);const r=RS(+el.dataset.v);if(!r)return;
+  const b=document.createElement('div');b.className='say';b.dataset.v=el.dataset.v;b.textContent=sayLine(r);document.body.appendChild(b);
+  const born=performance.now();
+  // follow the person as they wander; keep the bubble inside the block view
+  const tick=()=>{const live=document.querySelector('#tower-wrap .sp[data-v="'+b.dataset.v+'"]');const t=performance.now()-born;
+    if(!live||t>3600||document.getElementById('comic')||!$('#modal').hidden){b.remove();return}
+    const sr=live.getBoundingClientRect(),bx=wrap.getBoundingClientRect(),bw=b.offsetWidth,bh=b.offsetHeight;const cx=sr.left+sr.width/2;
+    if(sr.top<bx.top+bh||sr.bottom>bx.bottom){b.style.visibility='hidden'}else b.style.visibility='';
+    const left=Math.max(bx.left+4,Math.min(bx.right-4-bw,cx-bw/2));
+    b.style.left=left+'px';b.style.top=(sr.top-bh-6)+'px';b.style.setProperty('--tail',(cx-left)+'px');requestAnimationFrame(tick)};
+  tick()}
+setInterval(speakOnce,3200);
+
 function renderModal(){
   const m=$('#modal');
   const endKey=S&&S.over?(S.ending||'fell'):'';
@@ -2526,7 +2671,7 @@ function choose(i){
 
 /* ================= input ================= */
 const ACT={
-  start:d=>{newGame(d.v);save();render()},
+  start:d=>{newGame(d.v);save();render();showComic()},
   continue:()=>{S=loadSave();migrate();CUR=null;render()},
   next:()=>advance(),
   sel:d=>{UI.sel=d.v;UI.tab='unit';render()},
